@@ -157,15 +157,16 @@ function HallOfFame() {
         const topTeamName = Object.keys(teamTitleCounts).reduce((a, b) => teamTitleCounts[a] > teamTitleCounts[b] ? a : b, '-');
 
         setStats({
-            mostWins: [...driversArray].sort((a, b) => b.wins - a.wins),
-            mostPoles: [...driversArray].sort((a, b) => b.poles - a.poles),
-            mostPodiums: [...driversArray].sort((a, b) => b.podiums - a.podiums),
-            mostFastLaps: [...driversArray].sort((a, b) => b.fastLaps - a.fastLaps),
-            mostRaces: [...driversArray].sort((a, b) => b.races - a.races),
+            mostWins: [...driversArray].filter(d => d.wins > 0).sort((a, b) => b.wins - a.wins),
+            mostPoles: [...driversArray].filter(d => d.poles > 0).sort((a, b) => b.poles - a.poles),
+            mostPodiums: [...driversArray].filter(d => d.podiums > 0).sort((a, b) => b.podiums - a.podiums),
+            mostFastLaps: [...driversArray].filter(d => d.fastLaps > 0).sort((a, b) => b.fastLaps - a.fastLaps),
+            mostRaces: [...driversArray].filter(d => d.races > 0).sort((a, b) => b.races - a.races),
             mostTitles: Object.entries(titleCounts)
                 .map(([name, titles]) => ({ name, titles }))
+                .filter(d => d.titles > 0)
                 .sort((a, b) => b.titles - a.titles || a.name.localeCompare(b.name)),
-            mostPoints: Object.values(totalPointsByDriver).sort((a, b) => b.totalPoints - a.totalPoints),
+            mostPoints: Object.values(totalPointsByDriver).filter(d => d.totalPoints > 0).sort((a, b) => b.totalPoints - a.totalPoints),
             topWinner: topWinnerName,
             topWinnerCount: titleCounts[topWinnerName] || 0,
             topTeam: topTeamName,
