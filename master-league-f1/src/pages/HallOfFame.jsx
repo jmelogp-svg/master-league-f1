@@ -258,34 +258,55 @@ function HallOfFame() {
                 )}
 
                 {activeTab === 'records' && (
-                    <div className="fade-in" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px'}}>
+                    <div className="fade-in" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px'}}>
                         {Object.entries(trackRecords).map(([gpName, record]) => {
-                            const gpInfo = tracks[normalizeStr(gpName)] || { flag: null, circuit: null };
+                            const gpInfo = tracks[normalizeStr(gpName)] || { flag: null, circuit: null, circuitName: null };
                             return (
                                 <div key={gpName} style={{background: '#1E293B', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', display:'flex', flexDirection:'column'}}>
+                                    {/* HEADER: Nome da pista + circuito */}
                                     <div style={{padding: '15px', background: 'rgba(0,0,0,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
-                                        <span style={{fontWeight: '800', fontSize: '0.9rem', textTransform:'uppercase'}}>{gpName}</span>
-                                        {gpInfo.flag && <img src={gpInfo.flag} style={{width: '25px', borderRadius: '2px'}} alt="" />}
-                                    </div>
-
-                                    {/* MAPA DA PISTA */}
-                                    <div style={{flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', minHeight: '120px', background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)'}}>
-                                        {gpInfo.circuit ? (
-                                            <img src={gpInfo.circuit} style={{width: '80%', maxHeight: '100px', objectFit: 'contain', filter: 'invert(1) opacity(0.7)'}} alt="Pista" />
-                                        ) : (
-                                            <span style={{color: '#334155', fontSize: '3rem'}}>🏁</span>
+                                        <div>
+                                            <span style={{fontWeight: '800', fontSize: '0.95rem', textTransform:'uppercase', color: 'white'}}>{gpName}</span>
+                                            {gpInfo.circuitName && (
+                                                <div style={{fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px'}}>{gpInfo.circuitName}</div>
+                                            )}
+                                        </div>
+                                        {/* Bandeira no lugar da foto do piloto */}
+                                        {gpInfo.flag && (
+                                            <div style={{width: '45px', height: '45px', borderRadius: '10px', overflow: 'hidden', background: '#0F172A', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0}}>
+                                                <img src={gpInfo.flag} style={{width: '32px', borderRadius: '3px'}} alt="" />
+                                            </div>
                                         )}
                                     </div>
 
-                                    <div style={{padding: '15px', display: 'flex', alignItems: 'center', gap: '15px', background: '#0F172A', borderTop: '1px solid rgba(255,255,255,0.05)'}}>
-                                        <div style={{width: '50px', height: '50px', borderRadius: '12px', overflow: 'hidden', background: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', flexShrink:0}}>
-                                            {/* Recordes usam a temporada em que o recorde foi feito */}
-                                            <DriverImage name={record.driver} gridType={gridType} season={record.season} className="dch-photo" />
+                                    {/* ÁREA CENTRAL: Foto do piloto + Mapa da pista lado a lado */}
+                                    <div style={{flex: 1, display: 'flex', alignItems: 'center', padding: '20px', minHeight: '140px', background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)', gap: '15px'}}>
+                                        {/* Foto do piloto à esquerda */}
+                                        <div style={{width: '90px', height: '90px', borderRadius: '12px', overflow: 'hidden', background: '#0F172A', border: '2px solid #3B82F6', flexShrink: 0, boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'}}>
+                                            <DriverImage name={record.driver} gridType={gridType} season={record.season} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
                                         </div>
-                                        <div style={{flex: 1}}>
-                                            <div style={{fontSize: '0.9rem', fontWeight: '700', color: 'white', lineHeight:'1.2'}}>{record.driver}</div>
-                                            <div style={{fontSize: '1.1rem', fontWeight: '900', color: '#3B82F6', marginTop:'2px'}}>{record.time}</div>
-                                            <div style={{fontSize: '0.65rem', color: '#94A3B8', marginTop:'2px'}}>S{record.season} • {record.team}</div>
+                                        
+                                        {/* Mapa da pista à direita */}
+                                        <div style={{flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                                            {gpInfo.circuit ? (
+                                                <img src={gpInfo.circuit} style={{width: '100%', maxHeight: '90px', objectFit: 'contain', filter: 'invert(1) opacity(0.7)'}} alt="Pista" />
+                                            ) : (
+                                                <span style={{color: '#334155', fontSize: '3rem'}}>🏁</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* FOOTER: Informações do recorde */}
+                                    <div style={{padding: '15px', background: '#0F172A', borderTop: '1px solid rgba(255,255,255,0.05)'}}>
+                                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                            <div>
+                                                <div style={{fontSize: '0.95rem', fontWeight: '700', color: 'white', lineHeight:'1.2'}}>{record.driver}</div>
+                                                <div style={{fontSize: '0.7rem', color: '#94A3B8', marginTop:'3px'}}>S{record.season} • {record.team}</div>
+                                            </div>
+                                            <div style={{textAlign: 'right'}}>
+                                                <div style={{fontSize: '0.65rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: '600'}}>Volta Rápida</div>
+                                                <div style={{fontSize: '1.3rem', fontWeight: '900', color: '#3B82F6'}}>{record.time}</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
