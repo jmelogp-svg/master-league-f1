@@ -157,16 +157,15 @@ function HallOfFame() {
         const topTeamName = Object.keys(teamTitleCounts).reduce((a, b) => teamTitleCounts[a] > teamTitleCounts[b] ? a : b, '-');
 
         setStats({
-            mostWins: [...driversArray].sort((a, b) => b.wins - a.wins).slice(0, 5),
-            mostPoles: [...driversArray].sort((a, b) => b.poles - a.poles).slice(0, 5),
-            mostPodiums: [...driversArray].sort((a, b) => b.podiums - a.podiums).slice(0, 5),
-            mostFastLaps: [...driversArray].sort((a, b) => b.fastLaps - a.fastLaps).slice(0, 5),
-            mostRaces: [...driversArray].sort((a, b) => b.races - a.races).slice(0, 5),
+            mostWins: [...driversArray].sort((a, b) => b.wins - a.wins),
+            mostPoles: [...driversArray].sort((a, b) => b.poles - a.poles),
+            mostPodiums: [...driversArray].sort((a, b) => b.podiums - a.podiums),
+            mostFastLaps: [...driversArray].sort((a, b) => b.fastLaps - a.fastLaps),
+            mostRaces: [...driversArray].sort((a, b) => b.races - a.races),
             mostTitles: Object.entries(titleCounts)
                 .map(([name, titles]) => ({ name, titles }))
-                .sort((a, b) => b.titles - a.titles || a.name.localeCompare(b.name))
-                .slice(0, 5),
-            mostPoints: Object.values(totalPointsByDriver).sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 5),
+                .sort((a, b) => b.titles - a.titles || a.name.localeCompare(b.name)),
+            mostPoints: Object.values(totalPointsByDriver).sort((a, b) => b.totalPoints - a.totalPoints),
             topWinner: topWinnerName,
             topWinnerCount: titleCounts[topWinnerName] || 0,
             topTeam: topTeamName,
@@ -320,21 +319,53 @@ const HighlightCard = ({ title, driver, value, label, color, grid }) => (
     </div>
 );
 
-const TopList = ({ title, data, valueKey }) => (
-    <div>
-        <h3 style={{borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '10px', marginBottom: '15px', fontSize: '1rem', color: '#94A3B8', letterSpacing: '1px'}}>{title}</h3>
-        <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
-            {data.map((d, i) => (
-                <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: i === 0 ? 'rgba(255, 215, 0, 0.1)' : 'rgba(255,255,255,0.03)', padding: '10px 15px', borderRadius: '8px', border: i === 0 ? '1px solid rgba(255, 215, 0, 0.3)' : 'none'}}>
-                    <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
-                        <span style={{fontWeight: '800', color: i === 0 ? '#FFD700' : (i===1 ? '#C0C0C0' : (i===2 ? '#CD7F32' : '#64748B')), width: '20px'}}>{i+1}º</span>
-                        <span style={{fontWeight: '600', fontSize: '0.9rem'}}>{d.name}</span>
+const TopList = ({ title, data, valueKey }) => {
+    const [expanded, setExpanded] = useState(false);
+    const displayData = expanded ? data : data.slice(0, 5);
+    const hasMore = data.length > 5;
+    
+    return (
+        <div>
+            <h3 style={{borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '10px', marginBottom: '15px', fontSize: '1rem', color: '#94A3B8', letterSpacing: '1px'}}>{title}</h3>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                {displayData.map((d, i) => (
+                    <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: i === 0 ? 'rgba(255, 215, 0, 0.1)' : 'rgba(255,255,255,0.03)', padding: '10px 15px', borderRadius: '8px', border: i === 0 ? '1px solid rgba(255, 215, 0, 0.3)' : 'none'}}>
+                        <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                            <span style={{fontWeight: '800', color: i === 0 ? '#FFD700' : (i===1 ? '#C0C0C0' : (i===2 ? '#CD7F32' : '#64748B')), width: '20px'}}>{i+1}º</span>
+                            <span style={{fontWeight: '600', fontSize: '0.9rem'}}>{d.name}</span>
+                        </div>
+                        <span style={{fontWeight: '800', fontSize: '1rem', color: 'white'}}>{valueKey === 'totalPoints' ? Math.round(d[valueKey]) : d[valueKey]}</span>
                     </div>
-                    <span style={{fontWeight: '800', fontSize: '1rem', color: 'white'}}>{d[valueKey]}</span>
-                </div>
-            ))}
+                ))}
+            </div>
+            {hasMore && (
+                <button 
+                    onClick={() => setExpanded(!expanded)}
+                    style={{
+                        width: '100%',
+                        marginTop: '15px',
+                        padding: '10px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        color: '#94A3B8',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                        transition: 'all 0.3s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                    }}
+                    onMouseOver={(e) => { e.target.style.background = 'rgba(255,255,255,0.1)'; e.target.style.color = 'white'; }}
+                    onMouseOut={(e) => { e.target.style.background = 'rgba(255,255,255,0.05)'; e.target.style.color = '#94A3B8'; }}
+                >
+                    {expanded ? '▲ Ver menos' : `▼ Ver todos (${data.length})`}
+                </button>
+            )}
         </div>
-    </div>
-);
+    );
+};
 
 export default HallOfFame;
