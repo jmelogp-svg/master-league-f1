@@ -5,7 +5,19 @@ import '../index.css'; // Garante estilos
 // --- HELPERS VISUAIS ---
 const DriverImage = ({ name, season, className }) => {
     const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
-    return <img src={`/pilotos/carreira/s${season}/${cleanName}.png`} className={className} style={{mixBlendMode: 'lighten'}} onError={(e) => e.target.src = '/pilotos/pilotoshadow.png'} alt={name} />;
+    const primarySrc = `/pilotos/carreira/s${season}/${cleanName}.png`;
+    const smlSrc = `/pilotos/SML/${cleanName}.png`;
+    const shadowSrc = '/pilotos/pilotoshadow.png';
+    
+    const handleError = (e) => {
+        if (e.target.src.includes(`/s${season}/`)) {
+            e.target.src = smlSrc;
+        } else if (e.target.src.includes('/SML/')) {
+            e.target.src = shadowSrc;
+        }
+    };
+    
+    return <img src={primarySrc} className={className} style={{mixBlendMode: 'lighten'}} onError={handleError} alt={name} />;
 };
 const getTeamLogo = (teamName) => {
     if(!teamName) return null;
@@ -40,6 +52,12 @@ const getTeamColor = (teamName) => {
 };
 
 function PowerRanking() {
+    useEffect(() => {
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, []);
+
     const { rawPR, loading } = useLeagueData();
     const [rankingData, setRankingData] = useState([]);
     const [availableSeasons, setAvailableSeasons] = useState([]);

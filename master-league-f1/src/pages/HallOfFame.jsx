@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLeagueData } from '../hooks/useLeagueData';
 import '../index.css'; 
 
@@ -13,7 +13,19 @@ const DriverImage = ({ name, gridType, season, className, style }) => {
     const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
     // Se não passar season, usa '19' (Atual) como fallback para fotos recentes
     const safeSeason = season || '19';
-    return <img src={`/pilotos/${gridType}/s${safeSeason}/${cleanName}.png`} className={className} style={style} onError={(e) => e.target.src = '/pilotos/pilotoshadow.png'} alt={name} />;
+    const primarySrc = `/pilotos/${gridType}/s${safeSeason}/${cleanName}.png`;
+    const smlSrc = `/pilotos/SML/${cleanName}.png`;
+    const shadowSrc = '/pilotos/pilotoshadow.png';
+    
+    const handleError = (e) => {
+        if (e.target.src.includes(`/s${safeSeason}/`)) {
+            e.target.src = smlSrc;
+        } else if (e.target.src.includes('/SML/')) {
+            e.target.src = shadowSrc;
+        }
+    };
+    
+    return <img src={primarySrc} className={className} style={style} onError={handleError} alt={name} />;
 };
 
 const getTeamColor = (teamName) => {
@@ -49,6 +61,12 @@ const timeToMs = (timeStr) => {
 };
 
 function HallOfFame() {
+    useEffect(() => {
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, []);
+
     const { rawCarreira, rawLight, tracks, loading } = useLeagueData();
     const [gridType, setGridType] = useState('carreira'); 
     const [activeTab, setActiveTab] = useState('stats'); 
@@ -115,10 +133,26 @@ function HallOfFame() {
         // Dominância (Quem ganhou mais títulos)
         const titleCounts = {};
         const teamTitleCounts = {};
+        const totalPointsByDriver = {};
+        
         champs.forEach(c => {
             titleCounts[c.name] = (titleCounts[c.name] || 0) + 1;
             teamTitleCounts[c.team] = (teamTitleCounts[c.team] || 0) + 1;
         });
+        
+        // Calcula pontos totais por piloto
+        data.forEach(row => {
+            const name = row[9];
+            let points = parseFloat((row[15] || '0').replace(',', '.'));
+            
+            if (!name || name === '-' || name === 'Joao Lucas') return;
+            
+            if (!totalPointsByDriver[name]) {
+                totalPointsByDriver[name] = { name, totalPoints: 0 };
+            }
+            totalPointsByDriver[name].totalPoints += points;
+        });
+        
         const topWinnerName = Object.keys(titleCounts).reduce((a, b) => titleCounts[a] > titleCounts[b] ? a : b, '-');
         const topTeamName = Object.keys(teamTitleCounts).reduce((a, b) => teamTitleCounts[a] > teamTitleCounts[b] ? a : b, '-');
 
@@ -128,6 +162,11 @@ function HallOfFame() {
             mostPodiums: [...driversArray].sort((a, b) => b.podiums - a.podiums).slice(0, 5),
             mostFastLaps: [...driversArray].sort((a, b) => b.fastLaps - a.fastLaps).slice(0, 5),
             mostRaces: [...driversArray].sort((a, b) => b.races - a.races).slice(0, 5),
+            mostTitles: Object.entries(titleCounts)
+                .map(([name, titles]) => ({ name, titles }))
+                .sort((a, b) => b.titles - a.titles || a.name.localeCompare(b.name))
+                .slice(0, 5),
+            mostPoints: Object.values(totalPointsByDriver).sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 5),
             topWinner: topWinnerName,
             topWinnerCount: titleCounts[topWinnerName] || 0,
             topTeam: topTeamName,
@@ -183,13 +222,17 @@ function HallOfFame() {
                             <HighlightCard title="REI DAS POLES" driver={stats.mostPoles[0]} value={stats.mostPoles[0]?.poles} label="Poles" color="#A855F7" grid={gridType} />
                             <HighlightCard title="MÁQUINA DE PÓDIOS" driver={stats.mostPodiums[0]} value={stats.mostPodiums[0]?.podiums} label="Pódios" color="#22C55E" grid={gridType} />
                             <HighlightCard title="SENHOR VELOCIDADE" driver={stats.mostFastLaps[0]} value={stats.mostFastLaps[0]?.fastLaps} label="Voltas Rápidas" color="#3B82F6" grid={gridType} />
+                                <HighlightCard title="REI DOS TÍTULOS" driver={stats.mostTitles?.[0]} value={stats.mostTitles?.[0]?.titles} label="Títulos" color="#FF6B35" grid={gridType} />
+                                <HighlightCard title="MESTRE DOS PONTOS" driver={stats.mostPoints?.[0]} value={Math.round(stats.mostPoints?.[0]?.totalPoints || 0)} label="Pontos" color="#06B6D4" grid={gridType} />
                         </div>
                         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px'}}>
                             <TopList title="VITÓRIAS" data={stats.mostWins} valueKey="wins" />
                             <TopList title="POLES" data={stats.mostPoles} valueKey="poles" />
                             <TopList title="PÓDIOS" data={stats.mostPodiums} valueKey="podiums" />
                             <TopList title="CORRIDAS DISPUTADAS" data={stats.mostRaces} valueKey="races" />
-                        </div>
+                                     <TopList title="TÍTULOS" data={stats.mostTitles} valueKey="titles" />
+                                     <TopList title="PONTOS TOTAIS" data={stats.mostPoints} valueKey="totalPoints" />
+                                </div>
                     </div>
                 )}
 

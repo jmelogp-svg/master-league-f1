@@ -8,7 +8,19 @@ const TrendFlat = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="no
 
 const DriverImage = ({ name, gridType, season, className }) => {
     const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
-    return <img src={`/pilotos/${gridType}/s${season}/${cleanName}.png`} className={className} onError={(e) => e.target.src = '/pilotos/pilotoshadow.png'} alt="" />;
+    const primarySrc = `/pilotos/${gridType}/s${season}/${cleanName}.png`;
+    const smlSrc = `/pilotos/SML/${cleanName}.png`;
+    const shadowSrc = '/pilotos/pilotoshadow.png';
+    
+    const handleError = (e) => {
+        if (e.target.src.includes(`/s${season}/`)) {
+            e.target.src = smlSrc;
+        } else if (e.target.src.includes('/SML/')) {
+            e.target.src = shadowSrc;
+        }
+    };
+    
+    return <img src={primarySrc} className={className} onError={handleError} alt="" />;
 };
 
 function PowerRanking() {

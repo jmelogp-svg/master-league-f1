@@ -19,9 +19,20 @@ const flagColors = {
 const DriverImage = ({ name, gridType, season, className, style }) => {
     const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
     const seasonSrc = `/pilotos/${gridType}/s${season}/${cleanName}.png`;
+    const smlSrc = `/pilotos/SML/${cleanName}.png`;
+    const shadowSrc = '/pilotos/pilotoshadow.png';
+    
     const [imgSrc, setImgSrc] = useState(seasonSrc);
     useEffect(() => { setImgSrc(seasonSrc); }, [name, gridType, season]);
-    const handleError = () => { if (imgSrc !== '/pilotos/pilotoshadow.png') setImgSrc('/pilotos/pilotoshadow.png'); };
+    
+    const handleError = () => {
+        if (imgSrc.includes(`/s${season}/`)) {
+            setImgSrc(smlSrc);
+        } else if (imgSrc.includes('/SML/')) {
+            setImgSrc(shadowSrc);
+        }
+    };
+    
     return <img src={imgSrc} className={className} style={style} alt="" onError={handleError} />;
 };
 
@@ -76,6 +87,12 @@ const DriverModal = ({ driver, gridType, season, onClose, teamColor, teamLogo })
 
 // --- COMPONENTE STANDINGS (ANTIGA HOME) ---
 function Standings() {
+    useEffect(() => {
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, []);
+
     const { rawCarreira, rawLight, tracks, seasons, loading } = useLeagueData();
     const [gridType, setGridType] = useState('carreira');
     const [viewType, setViewType] = useState('drivers');
@@ -84,7 +101,6 @@ function Standings() {
     const [selectedRound, setSelectedRound] = useState(0);
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 
@@ -283,18 +299,7 @@ function Standings() {
     };
 
     return (
-        <div>
-            {/* NAVBAR ATUALIZADA - Links apontam para lugares certos */}
-            <nav className="navbar">
-                <Link to="/" className="nav-logo" style={{textDecoration:'none'}}>MASTER <span>LEAGUE</span></Link>
-                <button className="mobile-menu-icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>☰</button>
-                <div className={`nav-links ${isMenuOpen ? 'open' : ''}`}>
-                    <Link to="/" className="nav-link-btn" style={{textDecoration:'none'}}>HUB</Link>
-                    <button className="nav-link-btn" style={{color:'var(--highlight-cyan)'}}>CLASSIFICAÇÃO</button>
-                    <Link to="/mercado" className="nav-link-btn" style={{textDecoration:'none', color:'#E2E8F0'}}>MERCADO</Link>
-                    <Link to="/login" className="btn-login">Área do Piloto</Link>
-                </div>
-            </nav>
+        <div className="page-wrapper">
 
             <header className="hero-section">
                 <div className="hero-container"><div className="hero-text"><span className="hero-tag">TEMPORADA {selectedSeason}</span><h1>SUPERANDO<br/><span>SEUS LIMITES</span></h1></div></div>
