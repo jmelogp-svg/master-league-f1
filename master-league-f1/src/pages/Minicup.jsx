@@ -255,7 +255,7 @@ function Minicup() {
             </div>
 
             {/* TABELA DE CLASSIFICAÇÃO */}
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+            <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '40px 20px', overflowX: 'auto' }}>
                 <h2 style={{ 
                     fontSize: '1.2rem', 
                     fontWeight: '800', 
@@ -271,20 +271,24 @@ function Minicup() {
                 {/* Header da tabela */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '50px 1fr 80px',
-                    gap: '15px',
+                    gridTemplateColumns: `50px 200px repeat(${races.length}, 70px) 80px`,
+                    gap: '10px',
                     padding: '12px 20px',
                     background: 'rgba(255,255,255,0.05)',
                     borderRadius: '12px 12px 0 0',
-                    fontSize: '0.75rem',
+                    fontSize: '0.7rem',
                     fontWeight: '700',
                     color: '#94A3B8',
                     textTransform: 'uppercase',
-                    letterSpacing: '1px'
+                    letterSpacing: '1px',
+                    minWidth: 'fit-content'
                 }}>
                     <div>POS</div>
-                    <div>PILOTO / EQUIPE</div>
-                    <div style={{ textAlign: 'right' }}>PONTOS</div>
+                    <div>PILOTO</div>
+                    {races.map((race, i) => (
+                        <div key={i} style={{ textAlign: 'center' }}>{race.substring(0, 3)}</div>
+                    ))}
+                    <div style={{ textAlign: 'right' }}>TOTAL</div>
                 </div>
 
                 {/* Linhas da tabela */}
@@ -298,16 +302,17 @@ function Minicup() {
                             key={driver.name}
                             style={{
                                 display: 'grid',
-                                gridTemplateColumns: '50px 1fr 80px',
-                                gap: '15px',
-                                padding: '15px 20px',
+                                gridTemplateColumns: `50px 200px repeat(${races.length}, 70px) 80px`,
+                                gap: '10px',
+                                padding: '12px 20px',
                                 background: isTop3 
                                     ? `linear-gradient(90deg, ${position === 1 ? 'rgba(255, 215, 0, 0.15)' : position === 2 ? 'rgba(192, 192, 192, 0.1)' : 'rgba(205, 127, 50, 0.1)'} 0%, rgba(30, 41, 59, 0.8) 100%)`
                                     : 'rgba(30, 41, 59, 0.5)',
                                 borderBottom: '1px solid rgba(255,255,255,0.05)',
                                 alignItems: 'center',
                                 transition: 'all 0.2s',
-                                borderLeft: `4px solid ${teamColor}`
+                                borderLeft: `4px solid ${teamColor}`,
+                                minWidth: 'fit-content'
                             }}
                         >
                             {/* Posição */}
@@ -320,10 +325,10 @@ function Minicup() {
                             </div>
 
                             {/* Piloto e Equipe */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{
-                                    width: '45px',
-                                    height: '45px',
+                                    width: '55px',
+                                    height: '55px',
                                     borderRadius: '50%',
                                     overflow: 'hidden',
                                     background: '#1E293B',
@@ -332,24 +337,53 @@ function Minicup() {
                                 }}>
                                     <DriverImage name={driver.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 </div>
-                                <div>
-                                    <div style={{ fontWeight: '700', fontSize: '1rem', color: 'white' }}>{driver.name}</div>
-                                    <div style={{ fontSize: '0.8rem', color: teamColor, fontWeight: '600' }}>{driver.team}</div>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontWeight: '700', fontSize: '0.9rem', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{driver.name}</div>
+                                    <div style={{ fontSize: '0.75rem', color: teamColor, fontWeight: '600' }}>{driver.team}</div>
                                 </div>
                             </div>
 
-                            {/* Pontos */}
+                            {/* Pontos por etapa */}
+                            {driver.raceResults.map((result, i) => (
+                                <div 
+                                    key={i} 
+                                    style={{ 
+                                        textAlign: 'center',
+                                        padding: '6px 4px',
+                                        borderRadius: '6px',
+                                        background: result.points > 0 
+                                            ? result.position === 1 
+                                                ? 'rgba(255, 215, 0, 0.25)' 
+                                                : result.position <= 3 
+                                                    ? 'rgba(59, 130, 246, 0.2)' 
+                                                    : 'rgba(255,255,255,0.05)'
+                                            : 'transparent',
+                                        color: result.points > 0 
+                                            ? result.position === 1 
+                                                ? '#FFD700' 
+                                                : result.position <= 3 
+                                                    ? '#60A5FA' 
+                                                    : '#94A3B8'
+                                            : '#374151',
+                                        fontWeight: result.points > 0 ? '700' : '400',
+                                        fontSize: '0.85rem'
+                                    }}
+                                >
+                                    {result.points > 0 ? result.points : '-'}
+                                </div>
+                            ))}
+
+                            {/* Total de Pontos */}
                             <div style={{ textAlign: 'right' }}>
                                 <div style={{ 
-                                    fontSize: '1.3rem', 
+                                    fontSize: '1.2rem', 
                                     fontWeight: '900', 
                                     color: isTop3 ? 'white' : '#CBD5E1'
                                 }}>
                                     {driver.totalPoints}
                                 </div>
-                                <div style={{ fontSize: '0.7rem', color: '#64748B' }}>
-                                    {driver.wins > 0 && `${driver.wins}🏆 `}
-                                    {driver.racesParticipated} corrida{driver.racesParticipated !== 1 ? 's' : ''}
+                                <div style={{ fontSize: '0.65rem', color: '#64748B' }}>
+                                    {driver.wins > 0 && `${driver.wins}🏆`}
                                 </div>
                             </div>
                         </div>
