@@ -59,6 +59,7 @@ function Navbar() {
                 <Link to="/telemetria" className={`nav-link-btn ${getActiveRoute('/telemetria')}`} onClick={() => setIsMenuOpen(false)}>TELEMETRIA</Link>
                 <Link to="/regulamento" className={`nav-link-btn ${getActiveRoute('/regulamento')}`} onClick={() => setIsMenuOpen(false)}>REGULAMENTO</Link>
                 <Link to="/halloffame" className={`nav-link-btn ${getActiveRoute('/halloffame')}`} onClick={() => setIsMenuOpen(false)}>HALL DA FAMA</Link>
+                <Link to="/minicup" className={`nav-link-btn ${getActiveRoute('/minicup')}`} style={{color:'#FFA500'}} onClick={() => setIsMenuOpen(false)}>🏆 MINICUP</Link>
                 <Link to="/powerranking" className={`nav-link-btn ${getActiveRoute('/powerranking')}`} style={{color:'#FFD700'}} onClick={() => setIsMenuOpen(false)}>POWER RANKING</Link>
                 
                 <Link to="/login" className="btn-login" onClick={() => setIsMenuOpen(false)}>Área do Piloto</Link>
