@@ -29,22 +29,22 @@ const getTeamColor = (teamName) => {
     return '#64748B';
 };
 
-// Componente de foto do piloto
+// Componente de foto do piloto - Prioriza pasta SML
 const DriverImage = ({ name, style }) => {
     const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
-    const primarySrc = `/pilotos/carreira/s19/${cleanName}.png`;
     const smlSrc = `/pilotos/SML/${cleanName}.png`;
+    const carreraSrc = `/pilotos/carreira/s19/${cleanName}.png`;
     const shadowSrc = '/pilotos/pilotoshadow.png';
     
     const handleError = (e) => {
-        if (e.target.src.includes('/s19/')) {
-            e.target.src = smlSrc;
-        } else if (e.target.src.includes('/SML/')) {
+        if (e.target.src.includes('/SML/')) {
+            e.target.src = carreraSrc;
+        } else if (e.target.src.includes('/s19/')) {
             e.target.src = shadowSrc;
         }
     };
     
-    return <img src={primarySrc} style={style} onError={handleError} alt={name} />;
+    return <img src={smlSrc} style={style} onError={handleError} alt={name} />;
 };
 
 function Minicup() {
@@ -235,9 +235,9 @@ function Minicup() {
                             padding: '15px 30px'
                         }}>
                             <div style={{
-                                width: '70px',
-                                height: '70px',
-                                borderRadius: '50%',
+                                width: '60px',
+                                height: '80px',
+                                borderRadius: '8px',
                                 overflow: 'hidden',
                                 border: '3px solid #FFD700',
                                 boxShadow: '0 0 20px rgba(255, 215, 0, 0.4)'
@@ -327,9 +327,9 @@ function Minicup() {
                             {/* Piloto e Equipe */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{
-                                    width: '55px',
-                                    height: '55px',
-                                    borderRadius: '50%',
+                                    width: '45px',
+                                    height: '60px',
+                                    borderRadius: '6px',
                                     overflow: 'hidden',
                                     background: '#1E293B',
                                     border: `2px solid ${teamColor}`,
