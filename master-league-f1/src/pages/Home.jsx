@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { supabase } from '../supabaseClient';
+import Papa from 'papaparse';
+
+// URL do CSV do Minicup
+const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv';
 
 // --- ÍCONES ---
 const ArrowRightIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>);
@@ -131,9 +135,14 @@ function Home() {
     const [topDrivers, setTopDrivers] = useState([]);
     const [topDriversLight, setTopDriversLight] = useState([]);
     const [seasonDrivers, setSeasonDrivers] = useState([]);
+    
+    // Estado para pilotos do Minicup
+    const [minicupDrivers, setMinicupDrivers] = useState([]);
 
     const scrollRef = useRef(null);
+    const scrollRefMinicup = useRef(null);
     const [isPaused, setIsPaused] = useState(false);
+    const [isPausedMinicup, setIsPausedMinicup] = useState(false);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 
@@ -158,6 +167,58 @@ function Home() {
         }, 30);
         return () => clearInterval(interval);
     }, [isPaused, loading, seasonDrivers]);
+
+    // Auto-scroll Minicup
+    useEffect(() => {
+        const el = scrollRefMinicup.current;
+        if (!el || minicupDrivers.length === 0) return;
+        const interval = setInterval(() => {
+            if (!isPausedMinicup) {
+                if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 1) el.scrollLeft = 0;
+                else el.scrollLeft += 1;
+            }
+        }, 30);
+        return () => clearInterval(interval);
+    }, [isPausedMinicup, minicupDrivers]);
+
+    // Carregar dados do Minicup
+    useEffect(() => {
+        const fetchMinicup = async () => {
+            try {
+                const response = await fetch(MINICUP_CSV_URL);
+                const csvText = await response.text();
+                Papa.parse(csvText, {
+                    complete: (results) => {
+                        const rows = results.data;
+                        if (rows.length < 2) return;
+                        const driversData = [];
+                        for (let i = 1; i < rows.length; i++) {
+                            const row = rows[i];
+                            const piloto = row[1]?.trim();
+                            if (!piloto) continue;
+                            const equipe = row[2]?.trim() || 'Reserva';
+                            let totalPoints = 0;
+                            for (let j = 4; j <= 9; j++) {
+                                const position = row[j]?.trim();
+                                if (position && !isNaN(parseInt(position))) {
+                                    const pos = parseInt(position);
+                                    totalPoints += (21 - pos);
+                                }
+                            }
+                            if (totalPoints > 0) {
+                                driversData.push({ name: piloto, team: equipe, points: totalPoints });
+                            }
+                        }
+                        driversData.sort((a, b) => b.points - a.points);
+                        setMinicupDrivers(driversData);
+                    }
+                });
+            } catch (err) {
+                console.error('Erro ao carregar Minicup:', err);
+            }
+        };
+        fetchMinicup();
+    }, []);
 
     useEffect(() => { if (!loading && seasons.length > 0 && selectedSeason === 0) setSelectedSeason(seasons[0]); }, [seasons, loading]);
 
@@ -425,8 +486,34 @@ function Home() {
                     </header>
 
                     <div className="hub-container">
+                        {/* SEÇÃO GRID MINICUP */}
+                        {minicupDrivers.length > 0 && (
+                            <section className="hub-section">
+                                <div className="section-header-hub" style={{display:'flex', alignItems:'center', gap:'15px'}}>
+                                    <img src="/logos/minicup-logo.png" alt="Minicup" style={{height:'40px'}} onError={(e) => { e.target.style.display = 'none'; }} />
+                                    <h2 style={{color:'#10B981'}}>GRID MINICUP</h2>
+                                    <div className="header-line" style={{background:'linear-gradient(90deg, #10B981, transparent)'}}></div>
+                                    <Link to="/minicup" className="btn-text" style={{marginLeft:'auto', color:'#10B981'}}>Ver Classificação <ArrowRightIcon/></Link>
+                                </div>
+                                <div className="drivers-grid-hub" ref={scrollRefMinicup} onMouseEnter={() => setIsPausedMinicup(true)} onMouseLeave={() => setIsPausedMinicup(false)}>
+                                    {minicupDrivers.map(d => (
+                                        <div key={d.name} className="driver-card-hub" style={{"--team-color": getTeamColor(d.team)}}>
+                                            <div className="dch-bg"></div>
+                                            <span className="minicup-points-badge">{d.points} pts</span>
+                                            <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="carreira" season={selectedSeason} className="dch-photo" /></div>
+                                            <div className="dch-info">
+                                                <div className="dch-name">{d.name}</div>
+                                                <div className="dch-team">{d.team}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+
+                        {/* SEÇÃO GRID CARREIRA */}
                         <section className="hub-section">
-                            <div className="section-header-hub"><h2>GRID DA TEMPORADA</h2><div className="header-line"></div></div>
+                            <div className="section-header-hub"><h2>GRID CARREIRA T{selectedSeason}</h2><div className="header-line"></div></div>
                             <div className="drivers-grid-hub" ref={scrollRef} onMouseEnter={() => setIsPaused(true)} onMouseLeave={() => setIsPaused(false)}>
                                 {seasonDrivers.map(d => (
                                     <div key={d.name} className="driver-card-hub" style={{"--team-color": getTeamColor(d.team)}} onClick={() => handleDriverClick(d)}>

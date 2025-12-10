@@ -176,10 +176,10 @@ function Minicup() {
     const leader = standings[0];
 
     return (
-        <div className="page-wrapper">
-            {/* HERO */}
+        <div className="page-wrapper" style={{ background: 'linear-gradient(180deg, #0D3320 0%, #0F172A 30%)', minHeight: '100vh' }}>
+            {/* HERO VERDE */}
             <div style={{
-                background: 'linear-gradient(135deg, #1E3A5F 0%, #0F172A 50%, #1E1E2E 100%)',
+                background: 'linear-gradient(135deg, #0D3320 0%, #064E3B 50%, #0D3320 100%)',
                 padding: '100px 20px 60px',
                 textAlign: 'center',
                 position: 'relative',
@@ -197,57 +197,61 @@ function Minicup() {
                 }} />
                 
                 <div style={{ position: 'relative', zIndex: 1 }}>
-                    <div style={{ 
+                    {/* Logo Minicup */}
+                    <div style={{
+                        background: '#0D3320',
+                        borderRadius: '20px',
+                        padding: '30px 50px',
                         display: 'inline-block',
-                        background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-                        padding: '8px 25px',
-                        borderRadius: '30px',
-                        marginBottom: '20px'
+                        marginBottom: '20px',
+                        border: '2px solid rgba(16, 185, 129, 0.3)'
                     }}>
-                        <span style={{ fontWeight: '900', fontSize: '0.85rem', color: '#0F172A', letterSpacing: '2px' }}>🏆 MINICAMPEONATO</span>
+                        <img src="/logos/minicup-logo.png" alt="Minicup" style={{ height: '80px' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                        <div style={{ fontSize: '1.8rem', fontWeight: '900', color: 'white', marginTop: '10px' }}>MINICUP</div>
                     </div>
                     
-                    <h1 style={{ 
-                        fontSize: 'clamp(2rem, 5vw, 3.5rem)', 
-                        fontWeight: '900', 
-                        margin: '0 0 10px',
-                        background: 'linear-gradient(135deg, #FFFFFF 0%, #94A3B8 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text'
+                    <div style={{ 
+                        display: 'inline-block',
+                        background: 'linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.3), transparent)',
+                        padding: '12px 40px',
+                        marginBottom: '30px'
                     }}>
-                        MINICUP <span style={{ background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text' }}>MASTER LEAGUE</span>
-                    </h1>
-                    
-                    <p style={{ color: '#94A3B8', fontSize: '1rem', margin: '15px 0 30px' }}>
-                        Classificação do Minicampeonato • {races.length} etapas disputadas
-                    </p>
+                        <span style={{ fontWeight: '800', fontSize: '1.1rem', color: '#10B981', letterSpacing: '3px' }}>⚡ MINICAMPEONATO ESPECIAL ⚡</span>
+                    </div>
 
                     {/* Líder em destaque */}
                     {leader && (
                         <div style={{
-                            display: 'inline-flex',
+                            display: 'flex',
                             alignItems: 'center',
-                            gap: '20px',
-                            background: 'rgba(255, 215, 0, 0.1)',
-                            border: '2px solid rgba(255, 215, 0, 0.3)',
-                            borderRadius: '20px',
-                            padding: '15px 30px'
+                            justifyContent: 'space-between',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            border: '2px solid rgba(16, 185, 129, 0.4)',
+                            borderRadius: '16px',
+                            padding: '20px 30px',
+                            maxWidth: '800px',
+                            margin: '0 auto'
                         }}>
-                            <div style={{
-                                width: '60px',
-                                height: '80px',
-                                borderRadius: '8px',
-                                overflow: 'hidden',
-                                border: '3px solid #FFD700',
-                                boxShadow: '0 0 20px rgba(255, 215, 0, 0.4)'
-                            }}>
-                                <DriverImage name={leader.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                <div style={{
+                                    width: '70px',
+                                    height: '90px',
+                                    borderRadius: '10px',
+                                    overflow: 'hidden',
+                                    border: '3px solid #10B981',
+                                    background: '#0D3320'
+                                }}>
+                                    <DriverImage name={leader.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </div>
+                                <div style={{ textAlign: 'left' }}>
+                                    <div style={{ fontSize: '0.75rem', color: '#10B981', fontWeight: '700', letterSpacing: '1px', marginBottom: '5px' }}>👑 LÍDER DO CAMPEONATO</div>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: '900', color: 'white' }}>{leader.name}</div>
+                                    <div style={{ fontSize: '0.9rem', color: '#94A3B8' }}>{leader.team}</div>
+                                </div>
                             </div>
-                            <div style={{ textAlign: 'left' }}>
-                                <div style={{ fontSize: '0.7rem', color: '#FFD700', fontWeight: '700', letterSpacing: '1px' }}>👑 LÍDER DO CAMPEONATO</div>
-                                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'white' }}>{leader.name}</div>
-                                <div style={{ fontSize: '0.85rem', color: '#94A3B8' }}>{leader.team} • <span style={{ color: '#FFD700', fontWeight: '700' }}>{leader.totalPoints} PTS</span></div>
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#10B981' }}>{leader.totalPoints}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>PONTOS | {leader.wins} VITÓRIA{leader.wins !== 1 ? 'S' : ''}</div>
                             </div>
                         </div>
                     )}
@@ -265,7 +269,7 @@ function Minicup() {
                     alignItems: 'center',
                     gap: '10px'
                 }}>
-                    <span style={{ color: '#FFD700' }}>🏁</span> CLASSIFICAÇÃO GERAL
+                    <span>🏁</span> CLASSIFICAÇÃO GERAL
                 </h2>
 
                 {/* Header da tabela */}
@@ -274,14 +278,15 @@ function Minicup() {
                     gridTemplateColumns: `50px 200px repeat(${races.length}, 70px) 80px`,
                     gap: '10px',
                     padding: '12px 20px',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: 'rgba(16, 185, 129, 0.1)',
                     borderRadius: '12px 12px 0 0',
                     fontSize: '0.7rem',
                     fontWeight: '700',
-                    color: '#94A3B8',
+                    color: '#10B981',
                     textTransform: 'uppercase',
                     letterSpacing: '1px',
-                    minWidth: 'fit-content'
+                    minWidth: 'fit-content',
+                    border: '1px solid rgba(16, 185, 129, 0.2)'
                 }}>
                     <div>POS</div>
                     <div>PILOTO</div>
@@ -306,12 +311,12 @@ function Minicup() {
                                 gap: '10px',
                                 padding: '12px 20px',
                                 background: isTop3 
-                                    ? `linear-gradient(90deg, ${position === 1 ? 'rgba(255, 215, 0, 0.15)' : position === 2 ? 'rgba(192, 192, 192, 0.1)' : 'rgba(205, 127, 50, 0.1)'} 0%, rgba(30, 41, 59, 0.8) 100%)`
-                                    : 'rgba(30, 41, 59, 0.5)',
-                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                    ? `linear-gradient(90deg, ${position === 1 ? 'rgba(16, 185, 129, 0.2)' : position === 2 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)'} 0%, rgba(13, 51, 32, 0.8) 100%)`
+                                    : 'rgba(13, 51, 32, 0.5)',
+                                borderBottom: '1px solid rgba(16, 185, 129, 0.1)',
                                 alignItems: 'center',
                                 transition: 'all 0.2s',
-                                borderLeft: `4px solid ${teamColor}`,
+                                borderLeft: `4px solid ${isTop3 ? '#10B981' : teamColor}`,
                                 minWidth: 'fit-content'
                             }}
                         >
@@ -353,17 +358,17 @@ function Minicup() {
                                         borderRadius: '6px',
                                         background: result.points > 0 
                                             ? result.position === 1 
-                                                ? 'rgba(255, 215, 0, 0.25)' 
+                                                ? 'rgba(16, 185, 129, 0.3)' 
                                                 : result.position <= 3 
-                                                    ? 'rgba(59, 130, 246, 0.2)' 
-                                                    : 'rgba(255,255,255,0.05)'
+                                                    ? 'rgba(16, 185, 129, 0.15)' 
+                                                    : 'rgba(16, 185, 129, 0.05)'
                                             : 'transparent',
                                         color: result.points > 0 
                                             ? result.position === 1 
-                                                ? '#FFD700' 
+                                                ? '#10B981' 
                                                 : result.position <= 3 
-                                                    ? '#60A5FA' 
-                                                    : '#94A3B8'
+                                                    ? '#34D399' 
+                                                    : '#6EE7B7'
                                             : '#374151',
                                         fontWeight: result.points > 0 ? '700' : '400',
                                         fontSize: '0.85rem'
@@ -378,7 +383,7 @@ function Minicup() {
                                 <div style={{ 
                                     fontSize: '1.2rem', 
                                     fontWeight: '900', 
-                                    color: isTop3 ? 'white' : '#CBD5E1'
+                                    color: isTop3 ? '#10B981' : '#6EE7B7'
                                 }}>
                                     {driver.totalPoints}
                                 </div>
@@ -394,11 +399,11 @@ function Minicup() {
                 <div style={{
                     marginTop: '40px',
                     padding: '20px',
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'rgba(16, 185, 129, 0.05)',
                     borderRadius: '12px',
-                    border: '1px solid rgba(255,255,255,0.05)'
+                    border: '1px solid rgba(16, 185, 129, 0.2)'
                 }}>
-                    <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#94A3B8', marginBottom: '15px' }}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: '#10B981', marginBottom: '15px' }}>
                         📊 SISTEMA DE PONTUAÇÃO
                     </h3>
                     <div style={{ 
@@ -412,9 +417,9 @@ function Minicup() {
                                 key={i}
                                 style={{
                                     padding: '5px 10px',
-                                    background: i < 3 ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255,255,255,0.05)',
+                                    background: i < 3 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.08)',
                                     borderRadius: '6px',
-                                    color: i < 3 ? '#FFD700' : '#94A3B8'
+                                    color: i < 3 ? '#10B981' : '#6EE7B7'
                                 }}
                             >
                                 {i + 1}º = {20 - i}pts
