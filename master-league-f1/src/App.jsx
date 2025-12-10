@@ -20,7 +20,6 @@ import ConsultarAnalises from './pages/ConsultarAnalises';
 import FormularioAcusacao from './pages/FormularioAcusacao';
 import FormularioDefesa from './pages/FormularioDefesa';
 import PainelVeredito from './pages/PainelVeredito';
-import Minicup from './pages/Minicup';
 
 function App() {
     return (
@@ -44,7 +43,6 @@ function App() {
                 <Route path="/acusacao" element={<FormularioAcusacao />} />
                 <Route path="/defesa" element={<FormularioDefesa />} />
                 <Route path="/veredito" element={<PainelVeredito />} />
-                <Route path="/minicup" element={<Minicup />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>
