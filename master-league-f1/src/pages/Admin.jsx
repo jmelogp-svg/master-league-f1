@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import VideoEmbed from '../components/VideoEmbed';
 import '../index.css';
 
 function Admin() {
-    useEffect(() => {
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    }, []);
+    // Removido scroll automático - deixar usuário controlar a posição da tela
+    // O scroll só será resetado se o usuário recarregar a página manualmente
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [usersList, setUsersList] = useState([]);
@@ -40,8 +38,21 @@ function Admin() {
 
     // Toggle para expandir/colapsar gaveta + marcar como lida automaticamente
     // Ao abrir uma gaveta, fecha todas as outras
-    const toggleLance = async (notifId, isLido) => {
+    const toggleLance = async (notifId, isLido, event) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:41',message:'toggleLance ENTRY',data:{notifId,isLido,currentExpanded:Object.keys(expandedLances),expandedCount:Object.keys(expandedLances).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+        // Prevenir comportamento padrão
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        
+        // O DisableAutoScroll cuida de preservar o scroll
         const isOpening = !expandedLances[notifId];
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:49',message:'Before setExpandedLances',data:{notifId,isOpening,willExpand:isOpening ? { [notifId]: true } : {}},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         
         // Se está abrindo, fecha todas as outras e abre apenas esta
         // Se está fechando, apenas fecha esta
@@ -49,12 +60,56 @@ function Admin() {
         
         // Se está abrindo e não está lida, marca como lida
         if (isOpening && !isLido) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:56',message:'Calling marcarComoLida',data:{notifId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
             await marcarComoLida(notifId);
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:58',message:'toggleLance EXIT',data:{notifId,isOpening},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
     };
     
+    // Salvar posição do scroll (o DisableAutoScroll cuida do bloqueio)
+    const scrollPositionRef = useRef(null);
+    
+    useEffect(() => {
+        // Apenas salvar posição do scroll - o DisableAutoScroll bloqueia scroll automático
+        let scrollTimeout = null;
+        const handleScroll = () => {
+            const scrollY = window.scrollY || document.documentElement.scrollTop;
+            scrollPositionRef.current = scrollY;
+            
+            // Throttle: salvar apenas a cada 200ms
+            if (scrollTimeout) clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                if (scrollY > 0) {
+                    sessionStorage.setItem('admin_scroll_position', scrollY.toString());
+                }
+            }, 200);
+        };
+        
+        // Salvar posição antes de sair
+        const handleBeforeUnload = () => {
+            const scrollY = window.scrollY || document.documentElement.scrollTop;
+            if (scrollY > 0) {
+                sessionStorage.setItem('admin_scroll_position', scrollY.toString());
+            }
+        };
+        
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        
+        return () => {
+            if (scrollTimeout) clearTimeout(scrollTimeout);
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, []); // Executar apenas uma vez ao montar o componente
+
     // Resetar gavetas ao mudar de aba
     useEffect(() => {
+        // O DisableAutoScroll cuida de preservar o scroll
         setExpandedLances({});
     }, [activeTab]);
 
@@ -93,16 +148,36 @@ function Admin() {
 
     // Carregar notificações quando mudar para aba stewards + auto-refresh a cada 10 segundos
     useEffect(() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:149',message:'useEffect stewards ENTRY',data:{isAuthenticated,activeTab,notificacoesCount:notificacoes.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+        // #endregion
         if (isAuthenticated && activeTab === 'stewards') {
-            fetchNotificacoes();
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:154',message:'Calling fetchNotificacoes (first load)',data:{isBackgroundUpdate:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            // Primeira carga: Mostra loading normal
+            fetchNotificacoes(false);
             
             // Auto-refresh a cada 10 segundos para capturar mudanças de status
-            const interval = setInterval(() => {
-                fetchNotificacoes();
+            // #region agent log
+            const intervalId = setInterval(() => {
+                fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:160',message:'Auto-refresh interval triggered',data:{isBackgroundUpdate:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // Atualizações seguintes: NÃO mostra loading (silencioso)
+                fetchNotificacoes(true);
             }, 10000);
+            fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:159',message:'Interval created',data:{intervalId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
             
-            return () => clearInterval(interval);
+            return () => {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:166',message:'Cleaning up interval',data:{intervalId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
+                clearInterval(intervalId);
+            };
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:170',message:'useEffect stewards EXIT',data:{conditionMet:isAuthenticated && activeTab === 'stewards'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+        // #endregion
     }, [activeTab, isAuthenticated]);
 
     // Carregar jurados quando mudar para aba jurados
@@ -268,25 +343,59 @@ function Admin() {
     };
 
     // ===== FUNÇÕES DE NOTIFICAÇÕES/STEWARDS =====
-    const fetchNotificacoes = async () => {
-        setLoadingNotificacoes(true);
+    const fetchNotificacoes = async (isBackgroundUpdate = false) => {
+        // #region agent log
+        const callId = Date.now();
+        fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:345',message:'fetchNotificacoes ENTRY',data:{callId,currentNotificacoesCount:notificacoes.length,loadingNotificacoes,isBackgroundUpdate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
+        // #endregion
+        
+        // SÓ mostre o loading se NÃO for uma atualização automática de fundo
+        if (!isBackgroundUpdate) {
+            setLoadingNotificacoes(true);
+        }
+        
         try {
             // Buscar apenas acusações (defesas são incorporadas dentro delas)
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:353',message:'Before Supabase query',data:{callId,isBackgroundUpdate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             const { data, error } = await supabase
                 .from('notificacoes_admin')
                 .select('*')
                 .eq('tipo', 'nova_acusacao')
                 .order('created_at', { ascending: false });
 
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:362',message:'After Supabase query',data:{callId,hasError:!!error,dataCount:data?.length || 0,errorMessage:error?.message,isBackgroundUpdate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
+            // #endregion
+
             if (error) {
                 console.error('Erro ao buscar notificações:', error);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:366',message:'Error branch',data:{callId,error:error.message,isBackgroundUpdate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
             } else {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:371',message:'Before setNotificacoes',data:{callId,newDataCount:data?.length || 0,oldDataCount:notificacoes.length,isBackgroundUpdate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
                 setNotificacoes(data || []);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:375',message:'After setNotificacoes',data:{callId,setCount:data?.length || 0,isBackgroundUpdate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
             }
         } catch (err) {
             console.error('Erro:', err);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:380',message:'Catch block',data:{callId,error:err.message,isBackgroundUpdate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
+            // #endregion
         } finally {
-            setLoadingNotificacoes(false);
+            // Sempre desative o loading no final, caso tenha sido ativado
+            if (!isBackgroundUpdate) {
+                setLoadingNotificacoes(false);
+            }
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Admin.jsx:387',message:'fetchNotificacoes EXIT',data:{callId,isBackgroundUpdate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
+            // #endregion
         }
     };
 
@@ -584,7 +693,8 @@ function Admin() {
                                 </select>
                                 
                                 <button
-                                    onClick={fetchNotificacoes}
+                                    type="button"
+                                    onClick={() => fetchNotificacoes(false)}
                                     style={{
                                         padding: '8px 16px',
                                         borderRadius: '6px',
@@ -599,6 +709,7 @@ function Admin() {
                                 
                                 {countNaoLidas > 0 && (
                                     <button
+                                        type="button"
                                         onClick={marcarTodasComoLidas}
                                         style={{
                                             padding: '8px 16px',
@@ -672,16 +783,6 @@ function Admin() {
                                     const status = dados.status || 'aguardando_defesa';
                                     const isExpanded = expandedLances[notif.id];
                                     
-                                    // Função para extrair embed do YouTube
-                                    const getYouTubeEmbed = (url) => {
-                                        if (!url) return null;
-                                        const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-                                        return match ? `https://www.youtube.com/embed/${match[1]}` : null;
-                                    };
-                                    
-                                    const videoEmbed = dados.videoEmbed || getYouTubeEmbed(dados.videoLink);
-                                    const videoEmbedDefesa = defesa?.videoEmbedDefesa || getYouTubeEmbed(defesa?.videoLinkDefesa);
-                                    
                                     // Determinar cor e texto baseado no status
                                     const getStatusInfo = () => {
                                         if (status === 'aguardando_analise') return { color: '#8B5CF6', text: 'AGUARDANDO ANÁLISE', icon: '⏳' };
@@ -704,7 +805,7 @@ function Admin() {
                                         >
                                             {/* ===== PRÉVIA (GAVETA FECHADA) - Layout Compacto ===== */}
                                             <div 
-                                                onClick={() => toggleLance(notif.id, notif.lido)}
+                                                onClick={(e) => toggleLance(notif.id, notif.lido, e)}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -781,6 +882,7 @@ function Admin() {
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
                                                     {!notif.lido && (
                                                         <button
+                                                            type="button"
                                                             onClick={(e) => { e.stopPropagation(); marcarComoLida(notif.id); }}
                                                             style={{
                                                                 padding: '4px 8px',
@@ -796,6 +898,7 @@ function Admin() {
                                                         </button>
                                                     )}
                                                     <button
+                                                        type="button"
                                                         onClick={(e) => { e.stopPropagation(); excluirNotificacao(notif.id, codigoLance); }}
                                                         style={{
                                                             padding: '4px 8px',
@@ -841,11 +944,24 @@ function Admin() {
 
                                             {/* ===== CONTEÚDO EXPANDIDO (GAVETA ABERTA) ===== */}
                                             {isExpanded && (
-                                                <div style={{
-                                                    padding: '0 20px 20px 20px',
-                                                    borderTop: '1px solid #334155',
-                                                    animation: 'slideDown 0.3s ease'
-                                                }}>
+                                                <div 
+                                                    id={`lance-expanded-${notif.id}`}
+                                                    style={{
+                                                        padding: '0 20px 20px 20px',
+                                                        borderTop: '1px solid #334155',
+                                                        animation: 'slideDown 0.3s ease',
+                                                        scrollMarginTop: '0 !important',
+                                                        scrollMargin: '0 !important'
+                                                    }}
+                                                    onFocus={(e) => {
+                                                        // Prevenir scroll automático ao focar em elementos dentro
+                                                        e.stopPropagation();
+                                                    }}
+                                                    onClick={(e) => {
+                                                        // Prevenir qualquer scroll ao clicar dentro
+                                                        e.stopPropagation();
+                                                    }}
+                                                >
                                                     {/* Cards de Acusador, Acusado e Detalhes */}
                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '15px' }}>
                                                         {/* Acusador */}
@@ -967,53 +1083,10 @@ function Admin() {
                                                                         }}>
                                                                             ⚖️ VISÃO DO ACUSADOR
                                                                         </div>
-                                                                        {videoEmbed ? (
-                                                                            <div style={{ 
-                                                                                position: 'relative', 
-                                                                                paddingBottom: '56.25%', 
-                                                                                height: 0, 
-                                                                                overflow: 'hidden',
-                                                                                borderRadius: '8px',
-                                                                                background: '#000',
-                                                                                border: '2px solid #FF6B35'
-                                                                            }}>
-                                                                                <iframe
-                                                                                    src={videoEmbed}
-                                                                                    style={{
-                                                                                        position: 'absolute',
-                                                                                        top: 0,
-                                                                                        left: 0,
-                                                                                        width: '100%',
-                                                                                        height: '100%',
-                                                                                        border: 'none',
-                                                                                    }}
-                                                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                                                    allowFullScreen
-                                                                                    title="Vídeo da acusação"
-                                                                                />
-                                                                            </div>
-                                                                        ) : (
-                                                                            <a 
-                                                                                href={dados.videoLink} 
-                                                                                target="_blank" 
-                                                                                rel="noopener noreferrer"
-                                                                                style={{
-                                                                                    display: 'flex',
-                                                                                    alignItems: 'center',
-                                                                                    justifyContent: 'center',
-                                                                                    gap: '8px',
-                                                                                    padding: '40px 15px',
-                                                                                    background: '#1E293B',
-                                                                                    color: '#FF6B35',
-                                                                                    borderRadius: '8px',
-                                                                                    textDecoration: 'none',
-                                                                                    fontSize: '13px',
-                                                                                    border: '2px solid #FF6B35'
-                                                                                }}
-                                                                            >
-                                                                                🎥 Abrir Vídeo Acusação
-                                                                            </a>
-                                                                        )}
+                                                                        <VideoEmbed 
+                                                                            videoLink={dados.videoLink} 
+                                                                            title="Vídeo da acusação"
+                                                                        />
                                                                     </div>
                                                                 )}
 
@@ -1029,53 +1102,10 @@ function Admin() {
                                                                         }}>
                                                                             🛡️ VISÃO DO DEFENSOR
                                                                         </div>
-                                                                        {videoEmbedDefesa ? (
-                                                                            <div style={{ 
-                                                                                position: 'relative', 
-                                                                                paddingBottom: '56.25%', 
-                                                                                height: 0, 
-                                                                                overflow: 'hidden',
-                                                                                borderRadius: '8px',
-                                                                                background: '#000',
-                                                                                border: '2px solid #22C55E'
-                                                                            }}>
-                                                                                <iframe
-                                                                                    src={videoEmbedDefesa}
-                                                                                    style={{
-                                                                                        position: 'absolute',
-                                                                                        top: 0,
-                                                                                        left: 0,
-                                                                                        width: '100%',
-                                                                                        height: '100%',
-                                                                                        border: 'none',
-                                                                                    }}
-                                                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                                                    allowFullScreen
-                                                                                    title="Vídeo da defesa"
-                                                                                />
-                                                                            </div>
-                                                                        ) : (
-                                                                            <a 
-                                                                                href={defesa.videoLinkDefesa} 
-                                                                                target="_blank" 
-                                                                                rel="noopener noreferrer"
-                                                                                style={{
-                                                                                    display: 'flex',
-                                                                                    alignItems: 'center',
-                                                                                    justifyContent: 'center',
-                                                                                    gap: '8px',
-                                                                                    padding: '40px 15px',
-                                                                                    background: '#1E293B',
-                                                                                    color: '#22C55E',
-                                                                                    borderRadius: '8px',
-                                                                                    textDecoration: 'none',
-                                                                                    fontSize: '13px',
-                                                                                    border: '2px solid #22C55E'
-                                                                                }}
-                                                                            >
-                                                                                🎥 Abrir Vídeo Defesa
-                                                                            </a>
-                                                                        )}
+                                                                        <VideoEmbed 
+                                                                            videoLink={defesa.videoLinkDefesa} 
+                                                                            title="Vídeo da defesa"
+                                                                        />
                                                                     </div>
                                                                 )}
                                                             </div>

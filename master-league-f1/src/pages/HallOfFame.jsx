@@ -201,7 +201,7 @@ function HallOfFame() {
         setStats({
             mostWins: [...driversArray].filter(d => d.wins > 0).sort((a, b) => b.wins - a.wins),
             mostPoles: [...driversArray].filter(d => d.poles > 0).sort((a, b) => b.poles - a.poles),
-            mostPodiums: [...driversArray].filter(d => d.races > 0).sort((a, b) => b.races - a.races),
+            mostPodiums: [...driversArray].filter(d => d.podiums > 0).sort((a, b) => b.podiums - a.podiums),
             mostFastLaps: [...driversArray].filter(d => d.fastLaps > 0).sort((a, b) => b.fastLaps - a.fastLaps),
             mostRaces: [...driversArray].filter(d => d.races > 0).sort((a, b) => b.races - a.races),
             mostTitles: Object.entries(titleCounts)
@@ -285,22 +285,41 @@ function HallOfFame() {
 
                 {activeTab === 'champions' && (
                     <div className="hof-grid-champions fade-in">
-                        {championsList.map(champ => (
-                            <div key={champ.season} className="hof-card-champion">
-                                <div className="hof-season-badge-corner">S{champ.season}</div>
-                                <div className="hof-champion-image-container">
-                                     <div className="hof-champion-circle">
-                                         {/* Aqui temos a temporada do título, então passamos ela */}
-                                         <DriverImage name={champ.name} gridType={gridType} season={champ.season} className="dch-photo" />
-                                     </div>
+                        {championsList.map(champ => {
+                            // Dividir nome em primeira palavra (nome) e resto (sobrenome)
+                            const nameParts = champ.name.split(' ');
+                            const firstName = nameParts[0] || '';
+                            const lastName = nameParts.slice(1).join(' ') || '';
+                            
+                            return (
+                                <div key={champ.season} className="hof-card-champion">
+                                    <div className="hof-season-badge-corner">S{champ.season}</div>
+                                    <div className="hof-champion-title" style={{ fontSize: '0.75rem', fontWeight: '700', color: '#FFD700', letterSpacing: '2px', textAlign: 'center', marginBottom: '15px', marginTop: '10px' }}>
+                                        CAMPEÃO
+                                    </div>
+                                    <div className="hof-champion-image-container">
+                                         <div className="hof-champion-circle">
+                                             {/* Aqui temos a temporada do título, então passamos ela */}
+                                             <DriverImage 
+                                                 name={champ.name} 
+                                                 gridType={gridType} 
+                                                 season={champ.season} 
+                                                 className="dch-photo"
+                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                             />
+                                         </div>
+                                    </div>
+                                    <div style={{padding: '0 15px'}}>
+                                        <div className="hof-champion-name">
+                                            <div className="hof-champion-firstname">{firstName}</div>
+                                            {lastName && <div className="hof-champion-lastname">{lastName}</div>}
+                                        </div>
+                                        <div className="hof-champion-team">{champ.team}</div>
+                                        <div className="hof-champion-points">{champ.points.toFixed(0)} PTS</div>
+                                    </div>
                                 </div>
-                                <div style={{padding: '0 15px'}}>
-                                    <div className="hof-champion-name">{champ.name}</div>
-                                    <div className="hof-champion-team">{champ.team}</div>
-                                    <div className="hof-champion-points">{champ.points.toFixed(0)} PTS</div>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 

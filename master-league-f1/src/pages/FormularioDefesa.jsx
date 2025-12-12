@@ -3,25 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { usePilotosData } from '../hooks/useAnalises';
 import { notifyAdminNewDefense } from '../utils/emailService';
+import { getVideoEmbedUrl } from '../utils/videoEmbed';
+import CustomAlert from '../components/CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 import '../index.css';
 
 // Temporada atual
 const TEMPORADA_ATUAL = 20;
 
-/**
- * Extrai o ID do vídeo do YouTube para embed
- */
-function getVideoEmbedUrl(url) {
-    if (!url) return null;
-    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch) {
-        return `https://www.youtube.com/embed/${ytMatch[1]}`;
-    }
-    return null;
-}
+// Função getVideoEmbedUrl agora importada de utils/videoEmbed.js
 
 function FormularioDefesa() {
     const navigate = useNavigate();
+    const { showAlert, alertState } = useCustomAlert();
     const { pilotos: pilotosInscritos, loading: loadingPilotos } = usePilotosData();
     
     const [pilotoLogado, setPilotoLogado] = useState(null);
@@ -139,13 +133,19 @@ function FormularioDefesa() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
+        // Verificar se há acusações disponíveis
+        if (acusacoesPendentes.length === 0) {
+            await showAlert('Você não possui acusações pendentes para defender.\n\nNão há acusações aguardando sua defesa no momento.', 'Aviso');
+            return;
+        }
+        
         if (!acusacaoSelecionada) {
-            alert('Por favor, selecione uma acusação para defender.');
+            await showAlert('Por favor, selecione uma acusação para defender.', 'Aviso');
             return;
         }
 
         if (!formData.descricaoDefesa) {
-            alert('Por favor, escreva sua defesa.');
+            await showAlert('Por favor, escreva sua defesa.', 'Aviso');
             return;
         }
 
@@ -221,7 +221,7 @@ Aguarde análise dos Stewards.`
 
         } catch (err) {
             console.error('Erro ao enviar defesa:', err);
-            alert('Erro ao enviar defesa. Tente novamente.');
+            await showAlert('Erro ao enviar defesa. Tente novamente.', 'Erro');
         } finally {
             setSubmitting(false);
         }
@@ -607,8 +607,7 @@ Aguarde análise dos Stewards.`
                             {/* Vídeo da Acusação INCORPORADO */}
                             {acusacaoSelecionada.dados?.videoLink && (() => {
                                 const videoUrl = acusacaoSelecionada.dados.videoLink;
-                                const ytMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-                                const embedUrl = ytMatch ? `https://www.youtube.com/embed/${ytMatch[1]}` : null;
+                                const embedUrl = getVideoEmbedUrl(videoUrl);
                                 
                                 return (
                                     <div style={{ marginTop: '15px' }}>
@@ -732,8 +731,75 @@ Aguarde análise dos Stewards.`
                                     }}
                                 />
                                 <p style={{ color: '#6B7280', fontSize: '0.75rem', marginTop: '5px' }}>
-                                    Se tiver um vídeo que comprove sua defesa, cole o link aqui
+                                    Se tiver um vídeo que comprove sua defesa, cole o link aqui (YouTube, Google Drive, Vimeo, etc.)
                                 </p>
+                                
+                                {/* Preview do vídeo incorporado */}
+                                {formData.videoLinkDefesa && (() => {
+                                    const embedUrl = getVideoEmbedUrl(formData.videoLinkDefesa);
+                                    
+                                    return embedUrl ? (
+                                        <div style={{ marginTop: '15px' }}>
+                                            <p style={{ color: '#22C55E', fontSize: '0.75rem', fontWeight: '700', margin: '0 0 10px 0' }}>🎥 PREVIEW DO VÍDEO</p>
+                                            <div style={{ 
+                                                position: 'relative', 
+                                                paddingBottom: '56.25%', 
+                                                height: 0, 
+                                                overflow: 'hidden',
+                                                borderRadius: '8px',
+                                                background: '#000',
+                                                border: '2px solid rgba(34, 197, 94, 0.3)'
+                                            }}>
+                                                <iframe
+                                                    src={embedUrl}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        border: 'none',
+                                                    }}
+                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                    allowFullScreen
+                                                    title="Preview do vídeo de defesa"
+                                                    loading="lazy"
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ 
+                                            marginTop: '10px', 
+                                            padding: '10px', 
+                                            background: 'rgba(245, 158, 11, 0.1)', 
+                                            border: '1px solid rgba(245, 158, 11, 0.3)', 
+                                            borderRadius: '6px' 
+                                        }}>
+                                            <p style={{ color: '#F59E0B', fontSize: '0.75rem', margin: 0 }}>
+                                                ⚠️ Link não reconhecido. O vídeo será exibido como link externo após o envio.
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
+                                
+                                {/* Aviso sobre vídeos */}
+                                <div style={{
+                                    marginTop: '10px',
+                                    padding: '12px',
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    borderRadius: '6px'
+                                }}>
+                                    <p style={{ 
+                                        fontSize: '0.75rem', 
+                                        color: '#EF4444', 
+                                        margin: 0,
+                                        fontWeight: '600',
+                                        lineHeight: '1.4'
+                                    }}>
+                                        ⚠️ <strong>ATENÇÃO:</strong> Vídeos privados, sem nitidez, com palavrão ou que impossibilitem análise por algum motivo técnico serão automaticamente descartados pela comissão.
+                                    </p>
+                                </div>
                             </div>
 
                             {/* Botões */}
@@ -784,6 +850,18 @@ Aguarde análise dos Stewards.`
                     </div>
                 )}
             </div>
+            
+            {/* Custom Alert */}
+            <CustomAlert
+                show={alertState.show}
+                title={alertState.title}
+                message={alertState.message}
+                type={alertState.type}
+                onConfirm={alertState.onConfirm}
+                onCancel={alertState.onCancel}
+                confirmText={alertState.confirmText}
+                cancelText={alertState.cancelText}
+            />
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import VideoEmbed from '../components/VideoEmbed';
 import '../index.css';
 
 function ConsultarAnalises() {
@@ -14,9 +15,6 @@ function ConsultarAnalises() {
     const [mostrarTodos, setMostrarTodos] = useState(false); // false = mostra só 5
 
     useEffect(() => {
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
         fetchAnalises();
     }, []);
 
@@ -52,15 +50,8 @@ function ConsultarAnalises() {
         }
     };
 
-    // Função para extrair embed do YouTube
-    const getYouTubeEmbed = (url) => {
-        if (!url) return null;
-        const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-        return match ? `https://www.youtube.com/embed/${match[1]}` : null;
-    };
-
     return (
-        <div style={{ 
+        <div className="analises-page" style={{ 
             minHeight: '100vh', 
             background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
             paddingBottom: '60px',
@@ -417,10 +408,6 @@ function ConsultarAnalises() {
                                 }
                             }
 
-                            // Tentar vários campos para o vídeo
-                            const videoAcusacao = dados.videoEmbed || getYouTubeEmbed(dados.videoLink) || getYouTubeEmbed(dados.video_link);
-                            const videoDefesa = defesa ? (defesa.videoEmbedDefesa || getYouTubeEmbed(defesa.videoLinkDefesa) || getYouTubeEmbed(defesa.video_link_defesa)) : null;
-
                             return (
                                 <div
                                     key={analise.id}
@@ -503,7 +490,7 @@ function ConsultarAnalises() {
                                     <div style={{
                                         padding: '25px',
                                         display: 'grid',
-                                        gridTemplateColumns: videoDefesa ? '1fr 1fr' : '1fr',
+                                        gridTemplateColumns: defesa ? '1fr 1fr' : '1fr',
                                         gap: '20px'
                                     }}>
                                         {/* Vídeo Acusação */}
@@ -517,58 +504,15 @@ function ConsultarAnalises() {
                                             }}>
                                                 👤 VISÃO DO ACUSADOR
                                             </div>
-                                            {videoAcusacao ? (
-                                                <div style={{
-                                                    position: 'relative',
-                                                    paddingBottom: '56.25%',
-                                                    height: 0,
-                                                    overflow: 'hidden',
-                                                    borderRadius: '10px',
-                                                    border: '2px solid #EF4444',
-                                                    background: '#000'
-                                                }}>
-                                                    <iframe
-                                                        src={videoAcusacao}
-                                                        style={{
-                                                            position: 'absolute',
-                                                            top: 0,
-                                                            left: 0,
-                                                            width: '100%',
-                                                            height: '100%',
-                                                            border: 'none'
-                                                        }}
-                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                        allowFullScreen
-                                                        title={`Vídeo acusação ${codigoLance}`}
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <div style={{
-                                                    background: '#1E293B',
-                                                    borderRadius: '10px',
-                                                    border: '2px solid #EF4444',
-                                                    padding: '60px 20px',
-                                                    textAlign: 'center',
-                                                    color: '#64748B'
-                                                }}>
-                                                    <div style={{ fontSize: '40px', marginBottom: '10px' }}>🎥</div>
-                                                    <p>Vídeo não disponível</p>
-                                                    {dados.videoLink && (
-                                                        <a 
-                                                            href={dados.videoLink} 
-                                                            target="_blank" 
-                                                            rel="noopener noreferrer"
-                                                            style={{ color: '#EF4444', fontSize: '13px' }}
-                                                        >
-                                                            Abrir link externo →
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            )}
+                                            <VideoEmbed 
+                                                videoLink={dados.videoLink || dados.video_link} 
+                                                title={`Vídeo acusação ${codigoLance}`}
+                                                borderColor="#EF4444"
+                                            />
                                         </div>
 
                                         {/* Vídeo Defesa */}
-                                        {videoDefesa && (
+                                        {defesa && (
                                             <div>
                                                 <div style={{
                                                     color: '#22C55E',
@@ -579,30 +523,11 @@ function ConsultarAnalises() {
                                                 }}>
                                                     🛡️ VISÃO DO DEFENSOR
                                                 </div>
-                                                <div style={{
-                                                    position: 'relative',
-                                                    paddingBottom: '56.25%',
-                                                    height: 0,
-                                                    overflow: 'hidden',
-                                                    borderRadius: '10px',
-                                                    border: '2px solid #22C55E',
-                                                    background: '#000'
-                                                }}>
-                                                    <iframe
-                                                        src={videoDefesa}
-                                                        style={{
-                                                            position: 'absolute',
-                                                            top: 0,
-                                                            left: 0,
-                                                            width: '100%',
-                                                            height: '100%',
-                                                            border: 'none'
-                                                        }}
-                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                        allowFullScreen
-                                                        title={`Vídeo defesa ${codigoLance}`}
-                                                    />
-                                                </div>
+                                                <VideoEmbed 
+                                                    videoLink={defesa.videoLinkDefesa || defesa.video_link_defesa} 
+                                                    title={`Vídeo defesa ${codigoLance}`}
+                                                    borderColor="#22C55E"
+                                                />
                                             </div>
                                         )}
                                     </div>

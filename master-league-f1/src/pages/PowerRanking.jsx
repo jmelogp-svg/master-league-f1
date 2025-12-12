@@ -160,28 +160,41 @@ function PowerRanking() {
                     </div>
                 )}
 
-                {/* LISTA ESTILIZADA (CARDS MENORES) */}
+                {/* LISTA ESTILIZADA (CARDS MODERNOS) */}
                 <div className="pr-list">
                     {rest.map((driver) => {
                         const tColor = getTeamColor(driver.team);
+                        const isPodium = driver.rank <= 3;
                         return (
-                            <div key={driver.name} className="pr-card" style={{"--team-color": tColor}}>
-                                <div className="pr-rank">{driver.rank}º</div>
+                            <div 
+                                key={driver.name} 
+                                className={`pr-card ${isPodium ? 'pr-card-podium' : ''}`} 
+                                style={{"--team-color": tColor}}
+                            >
+                                <div className="pr-rank-badge" style={{background: isPodium ? tColor : 'rgba(148, 163, 184, 0.2)'}}>
+                                    <span className="pr-rank-number">{driver.rank}</span>
+                                    {isPodium && <span className="pr-rank-medal">🏆</span>}
+                                </div>
                                 
                                 <div className="pr-photo-wrapper">
-                                    <DriverImage name={driver.name} season={selectedSeason} className="pr-card-photo" />
-                                </div>
-
-                                <div className="pr-info">
-                                    <div className="pr-name">{driver.name}</div>
-                                    <div className="pr-team-row">
-                                        {getTeamLogo(driver.team) && <img src={getTeamLogo(driver.team)} className="pr-team-logo-small" alt="" />}
-                                        <div className="pr-team-name">{driver.team}</div>
+                                    <div className="pr-photo-frame" style={{borderColor: tColor}}>
+                                        <DriverImage name={driver.name} season={selectedSeason} className="pr-card-photo" />
                                     </div>
                                 </div>
 
-                                <div className="pr-score-small">
+                                <div className="pr-info">
+                                    <div className="pr-name">{driver.name || 'Sem nome'}</div>
+                                    <div className="pr-team-row">
+                                        {getTeamLogo(driver.team) && (
+                                            <img src={getTeamLogo(driver.team)} className="pr-team-logo-small" alt={driver.team} />
+                                        )}
+                                        <div className="pr-team-name" style={{color: tColor}}>{driver.team || 'Sem equipe'}</div>
+                                    </div>
+                                </div>
+
+                                <div className="pr-score-container">
                                     <div className="pr-score-val" style={{color: tColor}}>{driver.displayScore}</div>
+                                    <div className="pr-score-label">PTS</div>
                                 </div>
                             </div>
                         );

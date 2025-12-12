@@ -35,8 +35,15 @@ function parseCSVLine(line) {
 }
 
 /**
- * Hook para buscar pilotos da planilha "INSCRIÇÃO T20"
- * Colunas: A=nome, B=gamertag, C=celular, D=plataforma, E=grid, I=email, P=Nome de Piloto
+ * Hook para buscar pilotos da planilha "CADASTRO MLF1"
+ * NOVA ESTRUTURA:
+ * - A (0): Nome Cadastrado
+ * - B (1): Gamertag/ID
+ * - C (2): WhatsApp
+ * - D (3): Plataforma
+ * - E (4): Grid
+ * - H (7): E-mail Login (usado para login)
+ * - O (14): Nome Piloto (nome oficial do piloto)
  */
 export function usePilotosData() {
     const [pilotos, setPilotos] = useState([]);
@@ -46,8 +53,9 @@ export function usePilotosData() {
     useEffect(() => {
         const fetchPilotos = async () => {
             try {
+                // CADASTRO MLF1 (gid=1844400629)
                 const sheetId = '2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM';
-                const gid = '1844400629'; // INSCRIÇÃO T20
+                const gid = '1844400629';
                 const url = `https://corsproxy.io/?https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?gid=${gid}&single=true&output=csv`;
 
                 const response = await fetch(url);
@@ -66,40 +74,42 @@ export function usePilotosData() {
                         // Debug primeira linha
                         if (idx === 0) {
                             console.log('🔍 Primeira linha valores:', values);
-                            console.log('  - Nome real (col A/0):', values[0]);
+                            console.log('  - Nome Cadastrado (col A/0):', values[0]);
                             console.log('  - Gamertag (col B/1):', values[1]);
-                            console.log('  - Celular (col C/2):', values[2]);
+                            console.log('  - WhatsApp (col C/2):', values[2]);
+                            console.log('  - Plataforma (col D/3):', values[3]);
                             console.log('  - Grid (col E/4):', values[4]);
-                            console.log('  - Email (col I/8):', values[8]);
-                            console.log('  - Nome Piloto (col P/15):', values[15]);
+                            console.log('  - E-mail Login (col H/7):', values[7]);
+                            console.log('  - Nome Piloto (col O/14):', values[14]);
                         }
 
-                        // Mapeamento baseado na estrutura REAL do CSV:
-                        // A=0: nome real, B=1: gamertag, C=2: celular, E=4: grid, I=8: email, P=15: Nome de Piloto
-                        const nomeReal = (values[0] || '').trim();
-                        const gamertag = (values[1] || '').trim();
-                        const celular = (values[2] || '').trim();
-                        const gridRaw = (values[4] || '').toLowerCase();
-                        const email = (values[8] || '').trim();
-                        const nomePiloto = (values[15] || '').trim().toUpperCase();
+                        // NOVA ESTRUTURA - CADASTRO MLF1
+                        const nomeCadastrado = (values[0] || '').trim(); // Coluna A
+                        const gamertag = (values[1] || '').trim(); // Coluna B
+                        const whatsapp = (values[2] || '').trim(); // Coluna C
+                        const plataformaRaw = (values[3] || '').trim(); // Coluna D
+                        const gridRaw = (values[4] || '').toLowerCase(); // Coluna E
+                        const emailLogin = (values[7] || '').trim(); // Coluna H - E-mail Login
+                        const nomePiloto = (values[14] || nomeCadastrado || '').trim(); // Coluna O - Nome Piloto
                         
                         // Determina grid
                         const grid = gridRaw.includes('light') ? 'light' : 'carreira';
                         
                         return {
-                            nome: nomePiloto || nomeReal.toUpperCase(),
-                            nomeReal: nomeReal,
+                            nome: nomePiloto.toUpperCase(), // Nome oficial da coluna O
+                            nomeCadastrado: nomeCadastrado, // Nome completo da coluna A
                             gamertag: gamertag,
-                            whatsapp: celular,
+                            whatsapp: whatsapp,
                             grid: grid,
-                            email: email,
+                            email: emailLogin, // Email da coluna H
+                            plataforma: plataformaRaw,
                             // Gera o nome da foto: remove espaços, acentos e converte para lowercase
-                            fotoNome: (nomePiloto || nomeReal).toLowerCase()
+                            fotoNome: nomePiloto.toLowerCase()
                                 .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                                 .replace(/\s+/g, '')
                         };
                     })
-                    .filter(p => p.gamertag && p.email); // Precisa ter gamertag e email
+                    .filter(p => p.email && p.nome); // Precisa ter email (coluna H) e nome (coluna O)
 
                 console.log('✅ Pilotos processados:', pilotosProcessados.length);
                 if (pilotosProcessados.length > 0) {
@@ -134,7 +144,7 @@ export function useCalendarioT20() {
     useEffect(() => {
         const fetchCalendario = async () => {
             try {
-                // GID=0 é a primeira aba (CALENDÁRIO ML1)
+                // CALENDÁRIO ML1 (gid=0)
                 const url = 'https://corsproxy.io/?https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv';
 
                 const response = await fetch(url);

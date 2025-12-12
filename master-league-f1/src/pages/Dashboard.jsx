@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLeagueData } from '../hooks/useLeagueData';
@@ -7,6 +7,7 @@ import Papa from 'papaparse';
 import '../index.css';
 
 // --- CONFIGURAÇÃO ---
+// CADASTRO MLF1 (gid=1844400629)
 const LINK_CONTROLE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1844400629&single=true&output=csv";
 
 const fetchWithProxy = async (url) => {
@@ -94,14 +95,18 @@ const Onboarding = ({ session, onComplete }) => {
                 complete: async (results) => {
                     const rows = results.data.slice(1);
                     const myEmail = session.user.email.toLowerCase().trim();
+                    // NOVA ESTRUTURA - CADASTRO MLF1
+                    // Coluna H (índice 7) = E-mail Login
+                    // Coluna C (índice 2) = WhatsApp
+                    // Coluna O (índice 14) = Nome Piloto
                     const match = rows.find(row => {
-                        const sheetPhone = cleanPhone(row[2]); 
-                        const sheetEmail = (row[13] || row[8] || '').toLowerCase().trim();
+                        const sheetPhone = cleanPhone(row[2]); // Coluna C
+                        const sheetEmail = (row[7] || '').toLowerCase().trim(); // Coluna H - E-mail Login
                         return sheetEmail === myEmail && sheetPhone.includes(clean);
                     });
 
                     if (match) {
-                        const nomeOficial = match[15]; 
+                        const nomeOficial = match[14] || match[0]; // Coluna O (Nome Piloto) ou Coluna A (Nome Cadastrado)
                         if (!nomeOficial) { setErrorMsg("Nome de Piloto vazio na planilha."); setValidating(false); return; }
                         await saveProfile({ nome_piloto: nomeOficial, whatsapp: match[2], status: 'active' }, true);
                     } else {
@@ -114,14 +119,17 @@ const Onboarding = ({ session, onComplete }) => {
     };
 
     const handleManualSubmit = async () => {
-        if (!manualData.nome || !manualData.gamertag || !manualData.nomePiloto || cleanPhone(whatsappInput).length < 10) {
-            return setErrorMsg("Preencha todos os campos.");
+        if (!manualData.nome || !manualData.nomePiloto || cleanPhone(whatsappInput).length < 10) {
+            return setErrorMsg("Preencha todos os campos obrigatórios.");
         }
         setValidating(true);
         await saveProfile({
-            nome_piloto: manualData.nomePiloto, whatsapp: whatsappInput, gamertag: manualData.gamertag,
-            plataforma: manualData.plataforma, grid_preferencia: manualData.grid, nome_completo: manualData.nome,
-            status: 'pending'
+            nome_piloto: manualData.nomePiloto, 
+            whatsapp: whatsappInput,
+            plataforma: manualData.plataforma, 
+            grid_preferencia: manualData.grid, 
+            nome: manualData.nome
+            // Removido 'status' e 'gamertag' pois não existem na tabela pilotos
         }, false);
     };
 
@@ -130,14 +138,10 @@ const Onboarding = ({ session, onComplete }) => {
             email: session.user.email,
             nome: extraData.nome_piloto || extraData.nome, // Campo 'nome' para consistência
             whatsapp: extraData.whatsapp,
-            gamertag: extraData.gamertag || null,
-            plataforma: extraData.plataforma || 'PC',
             grid: extraData.grid_preferencia || extraData.grid || 'carreira',
             equipe: null,
-            is_steward: false,
-            status: extraData.status || 'active',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            is_steward: false
+            // Removido 'status', 'gamertag', 'plataforma', 'created_at' e 'updated_at' pois não existem na tabela pilotos
         };
         
         console.log('💾 Salvando no banco (tabela pilotos):', updates);
@@ -198,40 +202,84 @@ function Dashboard() {
     const [acusacoesPendentes, setAcusacoesPendentes] = useState(0);
 
     useEffect(() => {
+        // Verificar sessão inicial
         supabase.auth.getSession().then(({ data: { session } }) => {
+            console.log('🔍 Dashboard - Sessão inicial:', session ? 'Encontrada' : 'Não encontrada');
             setSession(session);
-            if (!session) setLoadingAuth(false);
+            if (!session) {
+                console.log('⚠️ Nenhuma sessão encontrada. Redirecionando para login...');
+                setLoadingAuth(false);
+                navigate('/login');
+            }
         });
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        
+        // Listener para mudanças de autenticação
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log('🔄 Dashboard - Auth state changed:', event, session ? 'Sessão ativa' : 'Sem sessão');
             setSession(session);
-            if (!session) { setLoadingAuth(false); navigate('/login'); }
+            if (!session && event === 'SIGNED_OUT') {
+                console.log('🚪 Usuário deslogado. Redirecionando para login...');
+                setLoadingAuth(false);
+                navigate('/login');
+            } else if (session) {
+                console.log('✅ Sessão ativa no Dashboard');
+            }
         });
+        
         return () => subscription.unsubscribe();
     }, [navigate]);
 
     useEffect(() => {
-        if (session?.user?.email) {
-            console.log('🔍 Buscando piloto na tabela pilotos para:', session.user.email);
-            
-            supabase.from('pilotos').select('*').eq('email', session.user.email.toLowerCase()).single()
-                .then(({ data, error }) => {
-                    if (error) {
-                        console.error('❌ Erro ao buscar piloto:', error);
-                        setLoadingAuth(false);
+        if (!session?.user?.email) return;
+        
+        let isMounted = true;
+        console.log('🔍 Buscando piloto na tabela pilotos para:', session.user.email);
+        setLoadingAuth(true);
+        
+        supabase.from('pilotos').select('*').eq('email', session.user.email.toLowerCase()).single()
+            .then(({ data, error }) => {
+                if (!isMounted) return;
+                
+                if (error) {
+                    console.error('❌ Erro ao buscar piloto:', error);
+                    // Se o erro for "not found", pode ser que o piloto ainda não foi salvo
+                    if (error.code === 'PGRST116') {
+                        console.log('⚠️ Piloto não encontrado no banco ainda. Aguardando...');
+                        // Aguardar 2 segundos e tentar novamente (apenas uma vez)
+                        setTimeout(() => {
+                            if (!isMounted) return;
+                            supabase.from('pilotos').select('*').eq('email', session.user.email.toLowerCase()).single()
+                                .then(({ data: retryData, error: retryError }) => {
+                                    if (!isMounted) return;
+                                    if (retryData) {
+                                        console.log('✅ Piloto encontrado na segunda tentativa:', retryData);
+                                        setProfile(retryData);
+                                    } else {
+                                        console.log('⚠️ Piloto ainda não encontrado após retry');
+                                    }
+                                    setLoadingAuth(false);
+                                });
+                        }, 2000);
                         return;
                     }
-                    
-                    if (data) {
-                        console.log('✅ Piloto encontrado:', data);
-                        setProfile(data);
-                    } else {
-                        console.log('⚠️ Piloto não encontrado no banco');
-                    }
-                    
-                    setLoadingAuth(false); 
-                });
-        }
-    }, [session]);
+                    setLoadingAuth(false);
+                    return;
+                }
+                
+                if (data) {
+                    console.log('✅ Piloto encontrado:', data);
+                    setProfile(data);
+                } else {
+                    console.log('⚠️ Piloto não encontrado no banco');
+                }
+                
+                setLoadingAuth(false);
+            });
+        
+        return () => {
+            isMounted = false;
+        };
+    }, [session?.user?.email]); // Removido loadingAuth das dependências para evitar loop
 
     // Buscar acusações pendentes
     useEffect(() => {
@@ -265,63 +313,92 @@ function Dashboard() {
         buscarAcusacoesPendentes();
     }, [profile]);
 
-    // Processamento
+    // Processamento - usar ref para evitar loops
+    const processedRef = useRef(false);
+    const lastPilotNameRef = useRef(null);
+    
+    // Resetar refs quando o piloto mudar
     useEffect(() => {
-        console.log('🔄 useEffect processamento - profile:', profile);
-        console.log('   - profile.nome:', profile?.nome);
-        console.log('   - profile.status:', profile?.status);
-        console.log('   - loadingData:', loadingData);
-        
-        // REMOVER a verificação de status para permitir que funcione mesmo sem status definido
-        if (profile?.nome && !loadingData) {
-            const pilotName = profile.nome;
-            console.log('✅ Processando estatísticas para:', pilotName);
-            
-            const calcStats = (data) => {
-                let s = { races:0, wins:0, poles:0, podiums:0, best:999, seasons: new Set(), currentPoints: 0, racesList: [] };
-                data.forEach(row => {
-                    if (row[9] === pilotName) {
-                        s.races++; s.seasons.add(row[3]);
-                        const q = parseInt(row[6]); const r = parseInt(row[8]);
-                        if (q===1) s.poles++; if (r===1) s.wins++; if (r<=3) s.podiums++;
-                        if (r>0 && r<s.best) s.best = r;
-                        let p = parseFloat((row[15]||'0').replace(',', '.'));
-                        if(!isNaN(p)) s.currentPoints += p;
-                        s.racesList.push({ round: parseInt(row[4]), points: p });
-                    }
-                });
-                return s;
-            };
-
-            const sCarreira = calcStats(rawCarreira);
-            const sLight = calcStats(rawLight);
-
-            let maxS = 0, grid='carreira', team='Sem Equipe';
-            const check = (row, g) => {
-                if(row[9]===pilotName) {
-                    const s = parseInt(row[3]);
-                    if (s > maxS || (s === maxS && g === 'carreira')) { maxS = s; grid = g; team = row[10]; }
-                }
-            };
-            rawCarreira.forEach(r => check(r, 'carreira'));
-            rawLight.forEach(r => check(r, 'light'));
-
-            const targetData = grid === 'carreira' ? sCarreira : sLight;
-            const sortedRaces = targetData.racesList.sort((a,b) => a.round - b.round);
-            let acc = 0;
-            const chartData = sortedRaces.map(r => {
-                acc += r.points;
-                return { name: `R${r.round}`, points: acc };
-            });
-
-            console.log('📊 Estatísticas calculadas:', { currentGrid: grid, currentSeason: maxS, currentTeam: team });
-            setDashData({ currentGrid: grid, currentSeason: maxS, currentTeam: team, statsCarreira: sCarreira, statsLight: sLight, chartData });
-        } else {
-            console.log('⏸️ Aguardando dados completos...');
+        if (profile?.nome && lastPilotNameRef.current !== profile.nome) {
+            processedRef.current = false;
         }
-    }, [profile, loadingData, rawCarreira, rawLight]);
+    }, [profile?.nome]);
+    
+    useEffect(() => {
+        // Só processar se tiver todos os dados necessários
+        if (!profile?.nome || loadingData || !rawCarreira || !rawLight || rawCarreira.length === 0 || rawLight.length === 0) {
+            return;
+        }
+        
+        const pilotName = profile.nome;
+        
+        // Evitar reprocessar se já foi processado para o mesmo piloto
+        if (processedRef.current && lastPilotNameRef.current === pilotName) {
+            return;
+        }
+        
+        console.log('✅ Processando estatísticas para:', pilotName);
+        
+        const calcStats = (data) => {
+            let s = { races:0, wins:0, poles:0, podiums:0, best:999, seasons: new Set(), currentPoints: 0, racesList: [] };
+            data.forEach(row => {
+                if (row[9] === pilotName) {
+                    s.races++; s.seasons.add(row[3]);
+                    const q = parseInt(row[6]); const r = parseInt(row[8]);
+                    if (q===1) s.poles++; if (r===1) s.wins++; if (r<=3) s.podiums++;
+                    if (r>0 && r<s.best) s.best = r;
+                    let p = parseFloat((row[15]||'0').replace(',', '.'));
+                    if(!isNaN(p)) s.currentPoints += p;
+                    s.racesList.push({ round: parseInt(row[4]), points: p });
+                }
+            });
+            return s;
+        };
 
-    const handleLogout = async () => { await supabase.auth.signOut(); };
+        const sCarreira = calcStats(rawCarreira);
+        const sLight = calcStats(rawLight);
+
+        let maxS = 0, grid='carreira', team='Sem Equipe';
+        const check = (row, g) => {
+            if(row[9]===pilotName) {
+                const s = parseInt(row[3]);
+                if (s > maxS || (s === maxS && g === 'carreira')) { maxS = s; grid = g; team = row[10]; }
+            }
+        };
+        rawCarreira.forEach(r => check(r, 'carreira'));
+        rawLight.forEach(r => check(r, 'light'));
+
+        const targetData = grid === 'carreira' ? sCarreira : sLight;
+        const sortedRaces = targetData.racesList.sort((a,b) => a.round - b.round);
+        let acc = 0;
+        const chartData = sortedRaces.map(r => {
+            acc += r.points;
+            return { name: `R${r.round}`, points: acc };
+        });
+
+        console.log('📊 Estatísticas calculadas:', { currentGrid: grid, currentSeason: maxS, currentTeam: team });
+        setDashData({ currentGrid: grid, currentSeason: maxS, currentTeam: team, statsCarreira: sCarreira, statsLight: sLight, chartData });
+        
+        processedRef.current = true;
+        lastPilotNameRef.current = pilotName;
+    }, [profile?.nome, loadingData, rawCarreira?.length, rawLight?.length]); // Usar apenas length para detectar quando dados são carregados
+
+    const handleLogout = async () => {
+        try {
+            console.log('🚪 Fazendo logout...');
+            await supabase.auth.signOut();
+            // Limpar qualquer cache/localStorage se necessário
+            // Redirecionar para login após logout
+            navigate('/login');
+            // Recarregar a página para garantir que tudo seja limpo
+            window.location.reload();
+        } catch (error) {
+            console.error('Erro ao fazer logout:', error);
+            // Mesmo com erro, tentar redirecionar e recarregar
+            navigate('/login');
+            window.location.reload();
+        }
+    };
 
     if (loadingAuth || loadingData) return <div style={{color:'white', padding:'100px', textAlign:'center'}}>Carregando...</div>;
     if (!session) return null;
@@ -369,9 +446,39 @@ function Dashboard() {
                             {dashData.currentTeam}
                         </div>
                     </div>
-                    <div style={{display:'flex', gap:'10px'}}>
+                    <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
                         <Link to="/" className="btn-outline" style={{fontSize:'0.8rem', padding:'8px 20px', textDecoration:'none'}}>SITE</Link>
-                        <button onClick={handleLogout} className="btn-outline" style={{fontSize:'0.8rem', padding:'8px 20px', borderColor:'#EF4444', color:'#EF4444'}}>SAIR</button>
+                        <button 
+                            onClick={handleLogout} 
+                            className="btn-outline" 
+                            style={{
+                                fontSize:'0.8rem', 
+                                padding:'8px 20px', 
+                                borderColor:'#EF4444', 
+                                color:'#EF4444',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s',
+                                background: 'transparent'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.background = 'rgba(239, 68, 68, 0.1)';
+                                e.target.style.borderColor = '#DC2626';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.background = 'transparent';
+                                e.target.style.borderColor = '#EF4444';
+                            }}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                            SAIR
+                        </button>
                     </div>
                 </div>
             </div>
@@ -413,7 +520,7 @@ function Dashboard() {
                                     }}>
                                         <button 
                                             className="btn-analise btn-acusacao"
-                                            onClick={() => navigate('/analises?tab=acusacao')}
+                                            onClick={() => navigate('/acusacao')}
                                             style={{
                                                 padding: '10px 20px',
                                                 background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)',
@@ -476,7 +583,7 @@ function Dashboard() {
                                             )}
                                             <button 
                                                 className="btn-analise btn-defesa"
-                                                onClick={() => navigate('/analises?tab=defesa')}
+                                                onClick={() => navigate('/defesa')}
                                                 style={{
                                                     padding: '10px 20px',
                                                     background: acusacoesPendentes > 0 

@@ -174,17 +174,36 @@ function Standings() {
         return "#94A3B8";
     };
 
-    const getDrivers = () => { /* Mesma Lógica */ 
+    const getDrivers = () => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
+        console.log('🔍 getDrivers - gridType:', gridType, 'rawData length:', rawData.length, 'selectedSeason:', selectedSeason);
+        
         const totals = {};
         rawData.forEach(row => {
-            const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return;
-            const name = row[9]; const team = row[10]; if (!name) return;
+            const s = parseInt(row[3]);
+            if (s !== parseInt(selectedSeason)) return;
+            const name = row[9];
+            const team = row[10];
+            if (!name) return;
+            
             if (!totals[name]) totals[name] = { name, team, points: 0 };
-            if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) totals[name].points += p; }
-            else { const racePos = parseInt(row[8]); if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
+            
+            if (s >= 20) {
+                // Temporada 20+: usar coluna de pontos direta (coluna 15)
+                let p = parseFloat((row[15]||'0').replace(',', '.'));
+                if (!isNaN(p)) totals[name].points += p;
+            } else {
+                // Temporadas anteriores: calcular pontos baseado nas posições
+                const racePos = parseInt(row[8]);
+                if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1];
+                const sprintPos = parseInt(row[7]);
+                if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1];
+            }
         });
-        return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 }));
+        
+        const result = Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 }));
+        console.log('✅ getDrivers - result:', result.length, 'drivers');
+        return result;
     };
     const getConstructors = () => { /* Mesma Lógica */ 
         const drivers = getDrivers(); const teams = {}; drivers.forEach(d => { if (!teams[d.team]) teams[d.team] = { team: d.team, points: 0, driversList: [] }; teams[d.team].points += d.points; if (!teams[d.team].driversList.includes(d.name)) teams[d.team].driversList.push(d.name); });
@@ -221,6 +240,14 @@ function Standings() {
     const renderContent = () => {
         if (loading) return <div style={{padding:'40px', textAlign:'center', color:'var(--text-muted)'}}>Carregando Dados...</div>;
         if (gridType === 'light' && parseInt(selectedSeason) < 16) return <div style={{textAlign:'center', padding:'60px', color:'white'}}>TEMPORADA NÃO DISPONÍVEL NO GRID LIGHT</div>;
+        
+        // Debug: verificar se há dados
+        const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
+        console.log('📊 renderContent - rawData length:', rawData.length, 'seasons:', seasons, 'selectedSeason:', selectedSeason);
+        
+        if (rawData.length === 0) {
+            return <div style={{padding:'40px', textAlign:'center', color:'var(--text-muted)'}}>Nenhum dado disponível. Verifique se as planilhas estão acessíveis.</div>;
+        }
 
         if (viewType === 'calendar') {
             const { races, nextRace } = getCalendar();

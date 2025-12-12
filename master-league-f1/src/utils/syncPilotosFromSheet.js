@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 
-// URL CORRIGIDA - Substituir pubhtml por pub e adicionar output=csv
+// CADASTRO MLF1 (gid=1844400629)
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1844400629&single=true&output=csv';
 
 /**
@@ -138,12 +138,16 @@ export async function syncPilotosFromSheet() {
 }
 
 /**
- * Busca um piloto específico na planilha pelo e-mail para validação de login
- * Retorna os dados do piloto (Nome, WhatsApp esperado, etc) ou null se não encontrar
+ * Busca um piloto específico na planilha "CADASTRO MLF1" pelo e-mail de login
+ * NOVA ESTRUTURA:
+ * - Email de login: Coluna H (índice 7) - "E-mail Login"
+ * - WhatsApp: Coluna C (índice 2) - "WhatsApp"
+ * - Nome do Piloto: Coluna O (índice 14) - "Nome Piloto"
+ * Retorna os dados do piloto ou null se não encontrar
  */
 export async function findDriverByEmail(userEmail) {
     try {
-        console.log('🔍 Buscando piloto na planilha para:', userEmail);
+        console.log('🔍 Buscando piloto na planilha CADASTRO MLF1 para:', userEmail);
         console.log('📡 URL da planilha:', SHEET_CSV_URL);
         
         const response = await fetch(SHEET_CSV_URL);
@@ -155,7 +159,6 @@ export async function findDriverByEmail(userEmail) {
         
         const csvText = await response.text();
         console.log('📄 Tamanho do CSV:', csvText.length, 'caracteres');
-        console.log('📄 Primeiros 300 caracteres:', csvText.substring(0, 300));
         
         const lines = csvText.split('\n').filter(line => line.trim().length > 0);
         console.log('📋 Total de linhas:', lines.length);
@@ -170,46 +173,32 @@ export async function findDriverByEmail(userEmail) {
         console.log('📋 Nomes das colunas:', headerFields);
 
         const targetEmail = userEmail.trim().toLowerCase();
-        console.log('🎯 E-mail procurado:', targetEmail);
+        console.log('🎯 E-mail procurado (coluna H):', targetEmail);
 
-        // Listar todos os e-mails para debug (primeiras 20 linhas)
-        console.log('\n📧 E-mails nas primeiras 20 linhas:');
-        for (let i = 1; i < Math.min(lines.length, 20); i++) {
-            const fields = parseCSVLine(lines[i]);
-            // Testar várias colunas possíveis
-            const emailF = (fields[5] || '').trim().toLowerCase(); // Coluna F
-            const emailG = (fields[6] || '').trim().toLowerCase(); // Coluna G
-            const emailH = (fields[7] || '').trim().toLowerCase(); // Coluna H
-            console.log(`   Linha ${i}: F="${emailF}" | G="${emailG}" | H="${emailH}"`);
-        }
-
-        // Buscar em TODAS as colunas possíveis (F, G, H)
+        // Buscar APENAS na coluna H (índice 7) - "E-mail Login"
         for (let i = 1; i < lines.length; i++) {
             const fields = parseCSVLine(lines[i]);
             while (fields.length < 20) fields.push('');
 
-            // Testar múltiplas colunas
-            const emails = [
-                (fields[5] || '').trim().toLowerCase(), // Coluna F
-                (fields[6] || '').trim().toLowerCase(), // Coluna G
-                (fields[7] || '').trim().toLowerCase()  // Coluna H
-            ];
+            // Email de login está na coluna H (índice 7)
+            const emailLogin = (fields[7] || '').trim().toLowerCase();
 
-            // Se encontrar o e-mail em qualquer coluna
-            if (emails.includes(targetEmail)) {
-                const nome = (fields[0] || '').trim(); // Coluna A (name)
-                const nomePiloto = (fields[14] || nome || '').trim(); // Coluna O ou A
-                const whatsappRaw = (fields[2] || '').trim(); // Coluna C
-                const gamertag = (fields[1] || '').trim(); // Coluna B
-                const gridRaw = (fields[4] || '').trim(); // Coluna E
-                const plataformaRaw = (fields[3] || '').trim(); // Coluna D
+            // Se encontrar o e-mail na coluna H
+            if (emailLogin === targetEmail) {
+                const nomeCadastrado = (fields[0] || '').trim(); // Coluna A
+                const nomePiloto = (fields[14] || nomeCadastrado || '').trim(); // Coluna O (Nome Piloto)
+                const whatsappRaw = (fields[2] || '').trim(); // Coluna C (WhatsApp)
+                const gamertag = (fields[1] || '').trim(); // Coluna B (Gamertag/ID)
+                const gridRaw = (fields[4] || '').trim(); // Coluna E (Grid)
+                const plataformaRaw = (fields[3] || '').trim(); // Coluna D (Plataforma)
 
                 console.log('\n✅ PILOTO ENCONTRADO!');
-                console.log('   Nome:', nomePiloto);
-                console.log('   Email:', targetEmail);
-                console.log('   WhatsApp:', whatsappRaw);
-                console.log('   Grid:', gridRaw);
-                console.log('   Plataforma:', plataformaRaw);
+                console.log('   Nome Cadastrado (A):', nomeCadastrado);
+                console.log('   Nome Piloto (O):', nomePiloto);
+                console.log('   Email Login (H):', targetEmail);
+                console.log('   WhatsApp (C):', whatsappRaw);
+                console.log('   Grid (E):', gridRaw);
+                console.log('   Plataforma (D):', plataformaRaw);
 
                 // Determinar Grid
                 let grid = 'carreira';
@@ -224,7 +213,8 @@ export async function findDriverByEmail(userEmail) {
 
                 return {
                     found: true,
-                    nome: nomePiloto,
+                    nome: nomePiloto, // Usar nome da coluna O
+                    nomeCadastrado: nomeCadastrado, // Nome completo da coluna A
                     whatsappEsperado: whatsappRaw,
                     email: targetEmail,
                     gamertag: gamertag || null,
@@ -234,9 +224,9 @@ export async function findDriverByEmail(userEmail) {
             }
         }
 
-        console.log('\n❌ E-mail NÃO ENCONTRADO em nenhuma coluna');
+        console.log('\n❌ E-mail NÃO ENCONTRADO na coluna H (E-mail Login)');
         console.log(`   Total de linhas verificadas: ${lines.length - 1}`);
-        return { found: false, error: 'E-mail não cadastrado' };
+        return { found: false, error: 'E-mail não encontrado na planilha CADASTRO MLF1' };
 
     } catch (error) {
         console.error('❌ Erro ao buscar na planilha:', error);

@@ -2,9 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { supabase } from '../supabaseClient';
+import { useSupabaseCache } from '../hooks/useSupabaseCache';
 import Papa from 'papaparse';
 
 // URL do CSV da Minicup
+// Planilha: CONTROLE ML1
+// Aba: TAB MINICUP (gid=1709066718)
+// Link: https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pubhtml?gid=1709066718&single=true
 const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv';
 
 // --- ÍCONES ---
@@ -174,6 +178,7 @@ function Home() {
     const [topDriversLight, setTopDriversLight] = useState([]);
     const [seasonDrivers, setSeasonDrivers] = useState([]);
     const [minicupDrivers, setMinicupDrivers] = useState([]);
+    const [minicupLoading, setMinicupLoading] = useState(true);
 
     const scrollRef = useRef(null);
     const minicupScrollRef = useRef(null);
@@ -217,50 +222,109 @@ function Home() {
         return () => clearInterval(interval);
     }, [isMinicupPaused, minicupDrivers]);
 
-    // Buscar dados da Minicup
-    useEffect(() => {
-        const fetchMinicup = async () => {
-            try {
-                const response = await fetch(MINICUP_CSV_URL);
-                const csvText = await response.text();
-                
-                Papa.parse(csvText, {
-                    header: false,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        const data = results.data;
-                        const drivers = [];
-                        
-                        for (let i = 1; i < data.length; i++) {
-                            const row = data[i];
-                            const piloto = row[1]?.trim();
-                            const equipe = row[2]?.trim() || 'Reserva';
-                            
-                            if (!piloto) continue;
-
-                            let totalPoints = 0;
-                            for (let j = 4; j < 10; j++) {
-                                const pos = parseInt(row[j]?.trim());
-                                if (!isNaN(pos) && pos >= 1 && pos <= 20) {
-                                    totalPoints += (21 - pos);
-                                }
-                            }
-
-                            // Incluir TODOS os pilotos do grid, independente de terem pontos
-                            drivers.push({ name: piloto, team: equipe, points: totalPoints });
-                        }
-
-                        // Ordenar por pontos (pilotos com pontos primeiro, depois os sem pontos)
-                        drivers.sort((a, b) => b.points - a.points);
-                        setMinicupDrivers(drivers);
-                    }
-                });
-            } catch (err) {
-                console.error('Erro ao carregar Minicup:', err);
+    // Buscar dados da Minicup usando cache do Supabase
+    const { data: minicupCacheData, loading: minicupCacheLoading, source: minicupSource, error: minicupError } = useSupabaseCache('minicup_cache', {
+        fallbackUrl: MINICUP_CSV_URL,
+        cacheMaxAge: 10,
+        enableLocalCache: true,
+        parseData: (data) => {
+            console.log('🔍 parseData Minicup recebeu:', typeof data, data ? (Array.isArray(data) ? `Array[${data.length}]` : Object.keys(data)) : 'null');
+            // Os dados do Supabase vêm como { rows: [...] }
+            // Os dados do fallback também vêm como { rows: [...] }
+            if (data && typeof data === 'object' && Array.isArray(data.rows)) {
+                console.log('✅ parseData Minicup: retornando data.rows, tamanho:', data.rows.length);
+                return data.rows; // Retornar array de arrays
             }
+            // Se for array direto (não deveria acontecer, mas por segurança)
+            if (Array.isArray(data)) {
+                console.log('✅ parseData Minicup: retornando array direto, tamanho:', data.length);
+                return data;
+            }
+            // Fallback: retornar array vazio
+            console.warn('⚠️ Formato de dados inesperado da Minicup:', typeof data, data);
+            return [];
+        }
+    });
+
+    // Debug: Log do que o hook retornou
+    useEffect(() => {
+        console.log('🔍 useSupabaseCache Minicup retornou:', {
+            loading: minicupCacheLoading,
+            source: minicupSource,
+            hasData: !!minicupCacheData,
+            dataType: typeof minicupCacheData,
+            isArray: Array.isArray(minicupCacheData),
+            dataLength: Array.isArray(minicupCacheData) ? minicupCacheData.length : 'N/A',
+            error: minicupError
+        });
+    }, [minicupCacheData, minicupCacheLoading, minicupSource, minicupError]);
+
+    useEffect(() => {
+        if (minicupCacheLoading) {
+            setMinicupLoading(true);
+            return;
+        }
+
+        if (!minicupCacheData) {
+            setMinicupDrivers([]);
+            setMinicupLoading(false);
+            return;
+        }
+
+        // Processar dados da Minicup
+        const processRows = (rows) => {
+            console.log('📋 Total de linhas no CSV:', rows.length);
+            const drivers = [];
+            
+            // Nova estrutura do CSV:
+            // Coluna 0: #, Coluna 1: PILOTO, Coluna 2: EQUIPE, Coluna 3: #NUM
+            // Colunas 4-9: Posições nas corridas (ÁUSTRIA, AUSTRÁLIA, JAPÃO, MÔNACO, GRÃ-BRETANHA, ÍMOLA)
+            // Coluna 11: POSIÇÃO, Coluna 12: PTS
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const piloto = row[1]?.trim(); // Coluna PILOTO
+                const equipe = row[2]?.trim() || 'Reserva'; // Coluna EQUIPE
+                
+                if (!piloto) continue;
+
+                // SEMPRE calcular pontos baseado nas posições das corridas (colunas 4-9)
+                // Isso garante consistência com a página Minicup
+                let totalPoints = 0;
+                for (let j = 4; j <= 9; j++) { // Colunas 4 a 9 (inclusive)
+                    const position = row[j]?.trim();
+                    if (position && !isNaN(parseInt(position))) {
+                        const pos = parseInt(position);
+                        if (pos >= 1 && pos <= 20) {
+                            // Pontuação: 1º = 20pts, 2º = 19pts, ..., 20º = 1pt
+                            totalPoints += (21 - pos);
+                        }
+                    }
+                }
+
+                // Incluir TODOS os pilotos do grid, independente de terem pontos
+                drivers.push({ name: piloto, team: equipe, points: totalPoints });
+            }
+
+            // Ordenar por pontos (pilotos com pontos primeiro, depois os sem pontos)
+            drivers.sort((a, b) => b.points - a.points);
+            console.log('✅ Minicup drivers carregados:', drivers.length, `(${minicupSource === 'supabase' ? 'Supabase' : 'Google Sheets'})`);
+            if (drivers.length > 0) {
+                console.log('🎮 Primeiros 3 pilotos:', drivers.slice(0, 3));
+            }
+            
+            setMinicupDrivers(drivers);
+            setMinicupLoading(false);
         };
-        fetchMinicup();
-    }, []);
+
+        // Os dados já devem vir como array de arrays (parseados pelo hook)
+        if (Array.isArray(minicupCacheData)) {
+            processRows(minicupCacheData);
+        } else {
+            console.error('❌ Formato de dados inválido da Minicup:', typeof minicupCacheData);
+            setMinicupDrivers([]);
+            setMinicupLoading(false);
+        }
+    }, [minicupCacheData, minicupCacheLoading, minicupSource]);
 
     useEffect(() => { if (!loading && seasons.length > 0 && selectedSeason === 0) setSelectedSeason(seasons[0]); }, [seasons, loading]);
 
@@ -550,7 +614,7 @@ function Home() {
 
                     <div className="hub-container">
                         {/* GRID MINICUP */}
-                        {minicupDrivers.length > 0 && (
+                        {(minicupDrivers.length > 0 || minicupLoading) && (
                             <section className="hub-section minicup-section">
                                 <div className="section-header-hub" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                     <img src="/logos/minicup-logo.jpg" alt="Minicup" style={{ height: '40px', borderRadius: '6px' }} onError={(e) => e.target.style.display = 'none'} />
@@ -559,7 +623,13 @@ function Home() {
                                     <Link to="/minicup" className="btn-text" style={{ marginLeft: 'auto', color: '#22C55E' }}>Ver Classificação <ArrowRightIcon/></Link>
                                 </div>
                                 <div className="drivers-grid-hub minicup-grid" ref={minicupScrollRef} onMouseEnter={() => setIsMinicupPaused(true)} onMouseLeave={() => setIsMinicupPaused(false)} style={{ background: 'linear-gradient(90deg, rgba(34,197,94,0.05), transparent, rgba(34,197,94,0.05))' }}>
-                                    {minicupDrivers.map((d, idx) => {
+                                    {minicupLoading && minicupDrivers.length === 0 ? (
+                                        <div style={{ padding: '40px', textAlign: 'center', color: '#22C55E', width: '100%' }}>
+                                            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⏳</div>
+                                            <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>Carregando classificação Minicup...</div>
+                                        </div>
+                                    ) : (
+                                        minicupDrivers.map((d, idx) => {
                                         const nameParts = d.name.split(' ');
                                         const firstName = nameParts[0];
                                         const lastName = nameParts.slice(1).join(' ');
@@ -594,7 +664,8 @@ function Home() {
                                             </div>
                                         </div>
                                         );
-                                    })}
+                                        })
+                                    )}
                                 </div>
                             </section>
                         )}

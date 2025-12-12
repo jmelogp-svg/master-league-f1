@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { usePilotosData, useCalendarioT20 } from '../hooks/useAnalises';
 import { notifyAdminNewAccusation } from '../utils/emailService';
+import { getVideoEmbedUrl } from '../utils/videoEmbed';
+import CustomAlert from '../components/CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 import '../index.css';
 
 // Temporada atual
@@ -46,35 +49,11 @@ async function gerarCodigoLance(grid, temporada) {
     }
 }
 
-/**
- * Extrai o ID do vídeo do YouTube/Twitch para embed
- */
-function getVideoEmbedUrl(url) {
-    if (!url) return null;
-    
-    // YouTube
-    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch) {
-        return `https://www.youtube.com/embed/${ytMatch[1]}`;
-    }
-    
-    // Twitch clip
-    const twitchClipMatch = url.match(/clips\.twitch\.tv\/([a-zA-Z0-9_-]+)/);
-    if (twitchClipMatch) {
-        return `https://clips.twitch.tv/embed?clip=${twitchClipMatch[1]}&parent=${window.location.hostname}`;
-    }
-    
-    // Twitch video
-    const twitchVideoMatch = url.match(/twitch\.tv\/videos\/(\d+)/);
-    if (twitchVideoMatch) {
-        return `https://player.twitch.tv/?video=${twitchVideoMatch[1]}&parent=${window.location.hostname}`;
-    }
-    
-    return null;
-}
+// Função getVideoEmbedUrl agora importada de utils/videoEmbed.js
 
 function FormularioAcusacao() {
     const navigate = useNavigate();
+    const { showAlert, alertState } = useCustomAlert();
     const { pilotos: pilotosInscritos, loading: loadingPilotos } = usePilotosData();
     const { etapas: etapasRaw, loading: loadingCalendario } = useCalendarioT20();
     
@@ -94,6 +73,7 @@ function FormularioAcusacao() {
     const [codigoLance, setCodigoLance] = useState(null);
     
     const [formData, setFormData] = useState({
+        tipoSolicitacao: 'acusacao', // 'acusacao' ou 'retirada_bug'
         etapa: '',
         pilotoAcusado: '',
         descricao: '',
@@ -166,10 +146,34 @@ function FormularioAcusacao() {
         setPilotosGrid(pilotosDoGrid);
     }, [pilotoLogado, pilotosInscritos, loadingPilotos]);
 
+    // Quando o tipo de solicitação muda, setar automaticamente o responsável
+    useEffect(() => {
+        if (formData.tipoSolicitacao === 'retirada_bug') {
+            // Se for retirada de bug, setar automaticamente "Administração Master League F1"
+            if (formData.pilotoAcusado !== 'Administração Master League F1') {
+                setFormData(prev => ({ ...prev, pilotoAcusado: 'Administração Master League F1' }));
+                setPilotoAcusadoSelecionado(null);
+            }
+        } else {
+            // Se mudar para acusação normal e estiver com "Administração Master League F1", limpar
+            if (formData.pilotoAcusado === 'Administração Master League F1') {
+                setFormData(prev => ({ ...prev, pilotoAcusado: '' }));
+                setPilotoAcusadoSelecionado(null);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.tipoSolicitacao]);
+
     // Quando seleciona piloto acusado, carrega seus dados
     const handlePilotoAcusadoChange = (e) => {
         const nomeAcusado = e.target.value;
         setFormData({ ...formData, pilotoAcusado: nomeAcusado });
+        
+        // Se for "Administração Master League F1", não buscar dados de piloto
+        if (nomeAcusado === 'Administração Master League F1') {
+            setPilotoAcusadoSelecionado(null);
+            return;
+        }
         
         const piloto = pilotosGrid.find(p => p.nome === nomeAcusado);
         setPilotoAcusadoSelecionado(piloto || null);
@@ -180,7 +184,7 @@ function FormularioAcusacao() {
         e.preventDefault();
         
         if (!formData.etapa || !formData.pilotoAcusado || !formData.descricao || !formData.videoLink) {
-            alert('Por favor, preencha todos os campos obrigatórios, incluindo o link do vídeo.');
+            await showAlert('Por favor, preencha todos os campos obrigatórios, incluindo o link do vídeo.', 'Aviso');
             return;
         }
 
@@ -217,6 +221,9 @@ function FormularioAcusacao() {
                 videoEmbed: videoEmbed,
                 temporada: TEMPORADA_ATUAL,
                 dataEnvio: new Date().toISOString(),
+                tipoSolicitacao: formData.tipoSolicitacao,
+                // Se for retirada de bug, pular defesa e ir direto para aguardando análise
+                status: formData.tipoSolicitacao === 'retirada_bug' ? 'aguardando_analise' : 'aguardando_defesa',
             };
 
             // Envia automaticamente para o admin (background, não bloqueia)
@@ -271,7 +278,7 @@ Aguarde análise dos Stewards.`
 
         } catch (err) {
             console.error('Erro ao enviar acusação:', err);
-            alert('Erro ao enviar acusação. Tente novamente.');
+            await showAlert('Erro ao enviar acusação. Tente novamente.', 'Erro');
         } finally {
             setSubmitting(false);
         }
@@ -438,6 +445,44 @@ Aguarde análise dos Stewards.`
 
                     {/* Corpo do Documento */}
                     <div style={{ padding: '35px 40px' }}>
+                        
+                        {/* SEÇÃO: TIPO DE SOLICITAÇÃO */}
+                        <div style={{ marginBottom: '35px' }}>
+                            <label style={{ 
+                                display: 'block', 
+                                fontSize: '0.75rem', 
+                                fontWeight: '700', 
+                                color: '#374151', 
+                                marginBottom: '8px', 
+                                textTransform: 'uppercase', 
+                                letterSpacing: '1px' 
+                            }}>
+                                Tipo de Solicitação <span style={{ color: '#EF4444' }}>*</span>
+                            </label>
+                            <select
+                                value={formData.tipoSolicitacao}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, tipoSolicitacao: e.target.value });
+                                    // O useEffect vai cuidar de setar/limpar o pilotoAcusado automaticamente
+                                }}
+                                required
+                                style={{
+                                    width: '100%',
+                                    padding: '14px 16px',
+                                    background: '#374151',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontFamily: "'Montserrat', sans-serif",
+                                    fontSize: '0.95rem',
+                                    cursor: 'pointer',
+                                    outline: 'none'
+                                }}
+                            >
+                                <option value="acusacao" style={{ background: '#374151' }}>Acusação Normal</option>
+                                <option value="retirada_bug" style={{ background: '#374151' }}>Retirada de Bug do Jogo</option>
+                            </select>
+                        </div>
                         
                         {/* SEÇÃO: DADOS DO ACUSADOR */}
                         <div style={{ marginBottom: '35px' }}>
@@ -656,26 +701,28 @@ Aguarde análise dos Stewards.`
                                     textTransform: 'uppercase', 
                                     letterSpacing: '1px' 
                                 }}>
-                                    Piloto Acusado <span style={{ color: '#EF4444' }}>*</span>
+                                    {formData.tipoSolicitacao === 'retirada_bug' ? 'Destinatário' : 'Piloto Acusado'} <span style={{ color: '#EF4444' }}>*</span>
                                 </label>
                                 <select
                                     value={formData.pilotoAcusado}
                                     onChange={handlePilotoAcusadoChange}
                                     required
+                                    disabled={formData.tipoSolicitacao === 'retirada_bug'}
                                     style={{
                                         width: '100%',
                                         padding: '14px 16px',
-                                        background: '#374151',
+                                        background: formData.tipoSolicitacao === 'retirada_bug' ? '#1E293B' : '#374151',
                                         border: 'none',
                                         borderRadius: '8px',
-                                        color: 'white',
+                                        color: formData.tipoSolicitacao === 'retirada_bug' ? '#64748B' : 'white',
                                         fontFamily: "'Montserrat', sans-serif",
                                         fontSize: '0.95rem',
-                                        cursor: 'pointer',
-                                        outline: 'none'
+                                        cursor: formData.tipoSolicitacao === 'retirada_bug' ? 'not-allowed' : 'pointer',
+                                        outline: 'none',
+                                        opacity: formData.tipoSolicitacao === 'retirada_bug' ? 0.7 : 1
                                     }}
                                 >
-                                    <option value="">Selecione o piloto acusado...</option>
+                                    <option value="">Selecione {formData.tipoSolicitacao === 'retirada_bug' ? 'o destinatário' : 'o piloto acusado'}...</option>
                                     {pilotosGrid.map(p => (
                                         <option key={p.nome} value={p.nome} style={{ background: '#374151' }}>
                                             {p.nome}
@@ -685,7 +732,29 @@ Aguarde análise dos Stewards.`
                             </div>
 
                             {/* Info do Acusado (aparece após seleção) */}
-                            {pilotoAcusadoSelecionado && (
+                            {formData.pilotoAcusado === 'Administração Master League F1' ? (
+                                <div style={{
+                                    background: '#DBEAFE',
+                                    border: '1px solid #93C5FD',
+                                    borderRadius: '8px',
+                                    padding: '15px 20px',
+                                    marginTop: '15px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '15px'
+                                }}>
+                                    <div style={{ fontSize: '2rem' }}>🏛️</div>
+                                    <div style={{ flex: 1 }}>
+                                        <p style={{ fontSize: '0.7rem', color: '#1E40AF', margin: 0, fontWeight: '700', textTransform: 'uppercase' }}>Destinatário</p>
+                                        <p style={{ fontSize: '1rem', fontWeight: '700', color: '#1F2937', margin: '3px 0 0 0' }}>
+                                            Administração Master League F1
+                                        </p>
+                                        <p style={{ fontSize: '0.85rem', color: '#6B7280', margin: '2px 0 0 0' }}>
+                                            Este lance não requer defesa e irá direto para análise dos jurados.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : pilotoAcusadoSelecionado && (
                                 <div style={{
                                     background: '#FEE2E2',
                                     border: '1px solid #FECACA',
@@ -801,6 +870,23 @@ Aguarde análise dos Stewards.`
                                 }}>
                                     ⚠️ O link do vídeo é obrigatório para validar a acusação
                                 </p>
+                                <div style={{
+                                    marginTop: '10px',
+                                    padding: '12px',
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    borderRadius: '6px'
+                                }}>
+                                    <p style={{ 
+                                        fontSize: '0.75rem', 
+                                        color: '#EF4444', 
+                                        margin: 0,
+                                        fontWeight: '600',
+                                        lineHeight: '1.4'
+                                    }}>
+                                        ⚠️ <strong>ATENÇÃO:</strong> Vídeos privados, sem nitidez, com palavrão ou que impossibilitem análise por algum motivo técnico serão automaticamente descartados pela comissão.
+                                    </p>
+                                </div>
                             </div>
 
                             {/* Aviso */}
@@ -916,6 +1002,18 @@ Aguarde análise dos Stewards.`
                     </div>
                 </div>
             )}
+            
+            {/* Custom Alert */}
+            <CustomAlert
+                show={alertState.show}
+                title={alertState.title}
+                message={alertState.message}
+                type={alertState.type}
+                onConfirm={alertState.onConfirm}
+                onCancel={alertState.onCancel}
+                confirmText={alertState.confirmText}
+                cancelText={alertState.cancelText}
+            />
         </div>
     );
 }

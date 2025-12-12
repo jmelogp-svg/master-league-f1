@@ -17,6 +17,7 @@ import { supabase } from '../supabaseClient';
 import { generateLanceCode, calculatePenaltyPoints, getBRTDeadline, isDeadlineExceeded } from '../hooks/useAnalises';
 import { sendEmailNotification, getEmailTemplate } from '../utils/emailService';
 import { syncPilotosFromSheet } from '../utils/syncPilotosFromSheet';
+import VideoEmbed from '../components/VideoEmbed';
 import '../index.css';
 
 function Analises() {
@@ -38,12 +39,6 @@ function Analises() {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, []);
-    
-    useEffect(() => {
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, []);
 
     // Pegar a tab da URL se existir
@@ -649,7 +644,7 @@ function Analises() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-dark-main)', color: 'white', padding: '80px 20px 40px', fontFamily: "'Montserrat', sans-serif" }}>
+        <div className="analises-page" style={{ minHeight: '100vh', background: 'var(--bg-dark-main)', color: 'white', padding: '80px 20px 40px', fontFamily: "'Montserrat', sans-serif" }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header com gradiente */}
                 <div style={{ 
@@ -1323,16 +1318,6 @@ function Analises() {
                                         }
                                     }
 
-                                    // Helper para embed do YouTube
-                                    const getYouTubeEmbed = (url) => {
-                                        if (!url) return null;
-                                        const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-                                        return match ? `https://www.youtube.com/embed/${match[1]}` : null;
-                                    };
-
-                                    const videoEmbed = getYouTubeEmbed(dados.videoLink);
-                                    const videoEmbedDefesa = defesa ? getYouTubeEmbed(defesa.videoLinkDefesa) : null;
-
                                     return (
                                         <div key={lance.id} style={{
                                             background: decisao === 'CULPADO' 
@@ -1434,20 +1419,16 @@ function Analises() {
                                                 </div>
 
                                                 {/* Vídeos lado a lado */}
-                                                <div style={{ display: 'grid', gridTemplateColumns: videoEmbedDefesa ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '25px' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: defesa ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '25px' }}>
                                                     <div>
                                                         <div style={{ color: '#EF4444', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase' }}>
                                                             👤 Visão do Acusador
                                                         </div>
-                                                        {videoEmbed ? (
-                                                            <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: '8px', border: '2px solid #EF4444', overflow: 'hidden' }}>
-                                                                <iframe src={videoEmbed} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '40px', textAlign: 'center', color: '#64748B' }}>
-                                                                🎥 Vídeo não disponível
-                                                            </div>
-                                                        )}
+                                                        <VideoEmbed 
+                                                            videoLink={dados.videoLink} 
+                                                            title="Vídeo da acusação"
+                                                            borderColor="#EF4444"
+                                                        />
                                                         <div style={{ marginTop: '10px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', borderLeft: '3px solid #EF4444' }}>
                                                             <p style={{ color: '#E2E8F0', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
                                                                 {dados.descricao || 'Sem descrição'}
@@ -1460,15 +1441,11 @@ function Analises() {
                                                             <div style={{ color: '#22C55E', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase' }}>
                                                                 🛡️ Visão do Defensor
                                                             </div>
-                                                            {videoEmbedDefesa ? (
-                                                                <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: '8px', border: '2px solid #22C55E', overflow: 'hidden' }}>
-                                                                    <iframe src={videoEmbedDefesa} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                                                                </div>
-                                                            ) : (
-                                                                <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '40px', textAlign: 'center', color: '#64748B' }}>
-                                                                    🎥 Vídeo não disponível
-                                                                </div>
-                                                            )}
+                                                            <VideoEmbed 
+                                                                videoLink={defesa.videoLinkDefesa} 
+                                                                title="Vídeo da defesa"
+                                                                borderColor="#22C55E"
+                                                            />
                                                             <div style={{ marginTop: '10px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', borderLeft: '3px solid #22C55E' }}>
                                                                 <p style={{ color: '#E2E8F0', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
                                                                     {defesa.argumentos || 'Sem argumentos'}

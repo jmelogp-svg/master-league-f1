@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar'; // Importando o Menu
+import DisableAutoScroll from './components/DisableAutoScroll'; // Desabilitar scroll automático
 
 // Páginas
 import Home from './pages/Home';
@@ -14,6 +15,7 @@ import Telemetria from './pages/Telemetria';
 import Mercado from './pages/Mercado';
 import Standings from './pages/Standings';
 import Admin from './pages/Admin';
+import AdminSync from './pages/AdminSync';
 import Calendario from './pages/Calendario';
 import Analises from './pages/Analises';
 import ConsultarAnalises from './pages/ConsultarAnalises';
@@ -25,6 +27,7 @@ import Minicup from './pages/Minicup';
 function App() {
     return (
         <BrowserRouter>
+            <DisableAutoScroll />
             <Navbar />
             <Routes>
                 <Route path="/" element={<Home />} />
@@ -33,6 +36,7 @@ function App() {
                 <Route path="/login-jurado-teste" element={<LoginJuradoTeste />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/admin/sync" element={<AdminSync />} />
                 <Route path="/standings" element={<Standings />} />
                 <Route path="/powerranking" element={<PowerRanking />} />
                 <Route path="/halloffame" element={<HallOfFame />} />

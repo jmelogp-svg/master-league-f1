@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
+import { useSupabaseCache } from '../hooks/useSupabaseCache';
 import '../index.css';
 
 // URL do CSV do Minicup
+// Planilha: CONTROLE ML1
+// Aba: TAB MINICUP (gid=1709066718)
+// Link: https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pubhtml?gid=1709066718&single=true
 const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv';
 
 // Mapeamento de código de país para código ISO (para usar com flagcdn)
@@ -117,120 +121,150 @@ const DriverImage = ({ name, style }) => {
 function Minicup() {
     const [standings, setStandings] = useState([]);
     const [races, setRaces] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [expandedRows, setExpandedRows] = useState([]);
 
     useEffect(() => {
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
-        
-        const fetchData = async () => {
-            try {
-                const response = await fetch(MINICUP_CSV_URL);
-                const csvText = await response.text();
-                
-                Papa.parse(csvText, {
-                    complete: (results) => {
-                        const rows = results.data;
-                        if (rows.length < 2) {
-                            setError('Dados não encontrados');
-                            setLoading(false);
-                            return;
-                        }
-
-                        const header = rows[0];
-                        const raceNames = [];
-                        for (let i = 4; i <= 9; i++) {
-                            if (header[i] && header[i].trim()) {
-                                raceNames.push(header[i].trim());
-                            }
-                        }
-                        setRaces(raceNames);
-
-                        const driversData = [];
-                        for (let i = 1; i < rows.length; i++) {
-                            const row = rows[i];
-                            const piloto = row[1]?.trim();
-                            
-                            if (!piloto) continue;
-
-                            const equipe = row[2]?.trim() || 'Reserva';
-                            
-                            const raceResults = [];
-                            let totalPoints = 0;
-                            let racesParticipated = 0;
-                            let wins = 0;
-
-                            for (let j = 4; j <= 9; j++) {
-                                const position = row[j]?.trim();
-                                if (position && !isNaN(parseInt(position))) {
-                                    const pos = parseInt(position);
-                                    const pts = getPoints(pos);
-                                    raceResults.push({ position: pos, points: pts });
-                                    totalPoints += pts;
-                                    racesParticipated++;
-                                    if (pos === 1) wins++;
-                                } else {
-                                    raceResults.push({ position: null, points: 0 });
-                                }
-                            }
-
-                            if (racesParticipated > 0) {
-                                driversData.push({
-                                    name: piloto,
-                                    team: equipe,
-                                    totalPoints,
-                                    wins,
-                                    raceResults
-                                });
-                            }
-                        }
-
-                        driversData.sort((a, b) => {
-                            if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-                            return b.wins - a.wins;
-                        });
-
-                        setStandings(driversData);
-                        setLoading(false);
-                    },
-                    error: (err) => {
-                        setError('Erro ao processar dados: ' + err.message);
-                        setLoading(false);
-                    }
-                });
-            } catch (err) {
-                setError('Erro ao carregar dados: ' + err.message);
-                setLoading(false);
-            }
-        };
-
-        fetchData();
     }, []);
 
-    if (loading) {
+    // Buscar dados da Minicup usando cache do Supabase
+    const { data: minicupCacheData, loading: minicupCacheLoading, source: minicupSource, error: minicupError } = useSupabaseCache('minicup_cache', {
+        fallbackUrl: MINICUP_CSV_URL,
+        cacheMaxAge: 10,
+        enableLocalCache: true,
+        parseData: (data) => {
+            // Os dados do Supabase vêm como { rows: [...] }
+            // Os dados do fallback também vêm como { rows: [...] }
+            if (data && typeof data === 'object' && Array.isArray(data.rows)) {
+                return data.rows; // Retornar array de arrays
+            }
+            // Se for array direto (não deveria acontecer, mas por segurança)
+            if (Array.isArray(data)) {
+                return data;
+            }
+            // Fallback: retornar array vazio
+            console.warn('⚠️ Formato de dados inesperado da Minicup:', typeof data, data);
+            return [];
+        }
+    });
+
+    useEffect(() => {
+        if (minicupCacheLoading) {
+            return;
+        }
+
+        if (minicupError) {
+            console.error('❌ Erro ao carregar Minicup:', minicupError);
+            return;
+        }
+
+        if (!minicupCacheData || !Array.isArray(minicupCacheData)) {
+            console.warn('⚠️ Dados da Minicup inválidos ou vazios');
+            return;
+        }
+
+        // Processar dados da Minicup
+        const rows = minicupCacheData;
+        if (rows.length < 2) {
+            console.warn('⚠️ Dados da Minicup insuficientes');
+            return;
+        }
+
+        const header = rows[0];
+        
+        // Extrair nomes das corridas (colunas 4-9)
+        const raceNames = [];
+        for (let i = 4; i <= 9; i++) {
+            if (header[i] && header[i].trim()) {
+                raceNames.push(header[i].trim());
+            }
+        }
+        setRaces(raceNames);
+
+        // Processar dados dos pilotos
+        const driversData = [];
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const piloto = row[1]?.trim();
+            
+            if (!piloto) continue;
+
+            const equipe = row[2]?.trim() || 'Reserva';
+            
+            const raceResults = [];
+            let totalPoints = 0;
+            let racesParticipated = 0;
+            let wins = 0;
+
+            for (let j = 4; j <= 9; j++) {
+                const position = row[j]?.trim();
+                if (position && !isNaN(parseInt(position))) {
+                    const pos = parseInt(position);
+                    const pts = getPoints(pos);
+                    raceResults.push({ position: pos, points: pts });
+                    totalPoints += pts;
+                    racesParticipated++;
+                    if (pos === 1) wins++;
+                } else {
+                    raceResults.push({ position: null, points: 0 });
+                }
+            }
+
+            if (racesParticipated > 0) {
+                driversData.push({
+                    name: piloto,
+                    team: equipe,
+                    totalPoints,
+                    wins,
+                    raceResults
+                });
+            }
+        }
+
+        // Ordenar por pontos e vitórias
+        driversData.sort((a, b) => {
+            if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+            return b.wins - a.wins;
+        });
+
+        console.log(`✅ Minicup processado: ${driversData.length} pilotos, ${raceNames.length} corridas (${minicupSource === 'supabase' ? 'Supabase' : 'Google Sheets'})`);
+        
+        setStandings(driversData);
+    }, [minicupCacheData, minicupCacheLoading, minicupSource, minicupError]);
+
+    if (minicupCacheLoading) {
         return (
             <div style={{ minHeight: '100vh', background: '#0D3320', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🏎️</div>
-                    <p>Carregando classificação...</p>
+                    <div style={{ fontSize: '3rem', marginBottom: '20px', animation: 'pulse 2s ease-in-out infinite' }}>🏎️</div>
+                    <p style={{ fontSize: '1.1rem', color: '#10B981', fontWeight: '600' }}>Carregando classificação Minicup...</p>
+                    <p style={{ fontSize: '0.85rem', color: '#94A3B8', marginTop: '10px' }}>Aguarde enquanto buscamos os dados mais recentes</p>
                 </div>
             </div>
         );
     }
 
-    if (error) {
+    if (minicupError) {
         return (
             <div style={{ minHeight: '100vh', background: '#0D3320', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ textAlign: 'center', color: '#EF4444' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⚠️</div>
-                    <p>{error}</p>
+                    <p>Erro ao carregar dados: {minicupError}</p>
                 </div>
             </div>
         );
     }
 
     const leader = standings[0];
+
+    const toggleRow = (driverName) => {
+        setExpandedRows(prev => 
+            prev.includes(driverName) 
+                ? prev.filter(name => name !== driverName)
+                : [...prev, driverName]
+        );
+    };
 
     return (
         <div style={{ background: 'linear-gradient(180deg, #0D3320 0%, #0F172A 50%)', minHeight: '100vh' }}>
@@ -262,17 +296,23 @@ function Minicup() {
 
                 {/* Card do Líder */}
                 {leader && (
-                    <div style={{
-                        maxWidth: '900px',
-                        margin: '0 auto',
-                        background: 'rgba(16, 185, 129, 0.1)',
-                        borderRadius: '20px',
-                        padding: '25px 40px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        border: '1px solid rgba(16, 185, 129, 0.3)'
-                    }}>
+                    <div 
+                        className="minicup-leader-card"
+                        style={{
+                            maxWidth: '900px',
+                            margin: '0 auto',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            borderRadius: '20px',
+                            padding: '25px 40px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            border: '1px solid rgba(16, 185, 129, 0.3)'
+                        }}
+                    >
+                        <div className="leader-title-mobile" style={{ display: 'none', fontSize: '0.7rem', color: '#10B981', fontWeight: '700', letterSpacing: '1px', marginBottom: '10px', textAlign: 'center', width: '100%' }}>
+                            👑 LÍDER DO CAMPEONATO
+                        </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{
                                 width: '80px',
@@ -295,12 +335,15 @@ function Minicup() {
                                 }}
                             />
                             <div style={{ textAlign: 'left' }}>
-                                <div style={{ fontSize: '0.75rem', color: '#10B981', fontWeight: '700', letterSpacing: '1px', marginBottom: '5px' }}>👑 LÍDER DO CAMPEONATO</div>
-                                <div style={{ fontSize: '1.8rem', fontWeight: '800', color: 'white' }}>{leader.name}</div>
+                                <div className="leader-title-desktop" style={{ fontSize: '0.75rem', color: '#10B981', fontWeight: '700', letterSpacing: '1px', marginBottom: '5px' }}>👑 LÍDER DO CAMPEONATO</div>
+                                <div className="leader-name" style={{ fontSize: '1.8rem', fontWeight: '800', color: 'white' }}>{leader.name}</div>
                                 <div style={{ fontSize: '0.9rem', color: '#94A3B8' }}>{leader.team}</div>
+                                <div className="leader-points-mobile" style={{ display: 'none', fontSize: '1.5rem', fontWeight: '900', color: '#10B981', marginTop: '5px' }}>
+                                    {leader.totalPoints} <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>PONTOS | {leader.wins} VITÓRIA{leader.wins !== 1 ? 'S' : ''}</span>
+                                </div>
                             </div>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
+                        <div className="leader-points-desktop" style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#10B981' }}>{leader.totalPoints}</div>
                             <div style={{ fontSize: '0.8rem', color: '#94A3B8', letterSpacing: '1px' }}>PONTOS | {leader.wins} VITÓRIA{leader.wins !== 1 ? 'S' : ''}</div>
                         </div>
@@ -310,34 +353,42 @@ function Minicup() {
 
             {/* TABELA DE CLASSIFICAÇÃO */}
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
-                <h2 style={{ 
-                    fontSize: '1rem', 
-                    fontWeight: '800', 
-                    color: '#10B981', 
-                    marginBottom: '25px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    letterSpacing: '2px'
-                }}>
-                    🏁 CLASSIFICAÇÃO GERAL | MINICUP PRÉ-TEMPORADA
+                <h2 
+                    className="minicup-title"
+                    style={{ 
+                        fontSize: '1.1rem', 
+                        fontWeight: '800', 
+                        color: '#10B981', 
+                        marginBottom: '25px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        letterSpacing: '2px'
+                    }}
+                >
+                    <span className="title-full">🏁 CLASSIFICAÇÃO MINICUP ML1 🏁</span>
+                    <span className="title-mobile" style={{display: 'none'}}>🏁 CLASSIFICAÇÃO MINICUP ML1 🏁</span>
                 </h2>
 
                 {/* Header da tabela */}
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: `60px 280px repeat(${races.length}, 70px) 100px`,
-                    gap: '5px',
-                    padding: '15px 20px',
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    borderRadius: '12px 12px 0 0',
-                    fontSize: '0.7rem',
-                    fontWeight: '700',
-                    color: '#64748B',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    alignItems: 'center'
-                }}>
+                <div 
+                    className="minicup-table-header"
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: `60px 300px repeat(${races.length}, 70px) 100px`,
+                        gap: '5px',
+                        padding: '15px 20px',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        borderRadius: '12px 12px 0 0',
+                        fontSize: '0.7rem',
+                        fontWeight: '700',
+                        color: '#64748B',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        alignItems: 'center'
+                    }}
+                >
                     <div>POS</div>
                     <div>PILOTO</div>
                     {races.map((race, i) => {
@@ -357,139 +408,229 @@ function Minicup() {
                     const position = index + 1;
                     const teamColor = getTeamColor(driver.team);
                     const isTop3 = position <= 3;
+                    const isExpanded = expandedRows.includes(driver.name);
                     
                     return (
-                        <div 
-                            key={driver.name}
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: `60px 280px repeat(${races.length}, 70px) 100px`,
-                                gap: '5px',
-                                padding: '15px 20px',
-                                background: isTop3 
-                                    ? 'rgba(16, 185, 129, 0.08)' 
-                                    : 'rgba(30, 41, 59, 0.5)',
-                                borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                alignItems: 'center',
-                                borderLeft: `4px solid ${isTop3 ? '#10B981' : teamColor}`
-                            }}
-                        >
-                            {/* Posição */}
-                            <div style={{
-                                fontSize: '1.2rem',
-                                fontWeight: '900',
-                                color: isTop3 ? '#10B981' : '#64748B'
-                            }}>
-                                {position}º
-                            </div>
-
-                            {/* Piloto e Equipe */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div key={driver.name}>
+                            {/* Linha principal */}
+                            <div 
+                                className="minicup-table-row"
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: `60px 300px repeat(${races.length}, 70px) 100px`,
+                                    gap: '5px',
+                                    padding: '15px 20px',
+                                    background: isTop3 
+                                        ? 'rgba(16, 185, 129, 0.08)' 
+                                        : 'rgba(30, 41, 59, 0.5)',
+                                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                    alignItems: 'center',
+                                    borderLeft: `4px solid ${isTop3 ? '#10B981' : teamColor}`
+                                }}
+                            >
+                                {/* Posição */}
                                 <div style={{
-                                    width: '45px',
-                                    height: '55px',
-                                    borderRadius: '8px',
-                                    overflow: 'hidden',
-                                    background: '#1E293B',
-                                    border: `2px solid ${teamColor}`,
-                                    flexShrink: 0
+                                    fontSize: '1.2rem',
+                                    fontWeight: '900',
+                                    color: isTop3 ? '#10B981' : '#64748B'
                                 }}>
-                                    <DriverImage name={driver.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    {position}º
                                 </div>
-                                <img 
-                                    src={getTeamLogo(driver.team)} 
-                                    alt={driver.team}
-                                    style={{ 
-                                        width: '32px', 
-                                        height: '32px', 
-                                        objectFit: 'contain',
-                                        opacity: 0.9,
-                                        flexShrink: 0
-                                    }}
-                                />
-                                <div style={{ minWidth: 0, flex: 1 }}>
-                                    <div 
-                                        className="driver-name-minicup"
-                                        style={{ 
-                                            fontWeight: '700', 
-                                            fontSize: '0.95rem', 
-                                            color: 'white',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis'
-                                        }}
-                                        data-full-name={driver.name}
-                                    >
-                                        <span className="full-name">{driver.name}</span>
-                                        <span className="short-name" style={{ display: 'none' }}>
-                                            {(() => {
-                                                const nameParts = driver.name.trim().split(' ');
-                                                if (nameParts.length > 1) {
-                                                    return `${nameParts[0][0]}. ${nameParts.slice(1).join(' ')}`;
-                                                }
-                                                return driver.name;
-                                            })()}
-                                        </span>
-                                    </div>
-                                    <div style={{ 
-                                        fontSize: '0.75rem', 
-                                        color: teamColor, 
-                                        fontWeight: '600',
-                                        whiteSpace: 'nowrap',
+
+                                {/* Piloto e Equipe */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{
+                                        width: '60px',
+                                        height: '70px',
+                                        borderRadius: '8px',
                                         overflow: 'hidden',
-                                        textOverflow: 'ellipsis'
-                                    }}>{driver.team}</div>
+                                        background: '#1E293B',
+                                        border: `2px solid ${teamColor}`,
+                                        flexShrink: 0
+                                    }}>
+                                        <DriverImage name={driver.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    </div>
+                                    <img 
+                                        src={getTeamLogo(driver.team)} 
+                                        alt={driver.team}
+                                        style={{ 
+                                            width: '32px', 
+                                            height: '32px', 
+                                            objectFit: 'contain',
+                                            opacity: 0.9,
+                                            flexShrink: 0
+                                        }}
+                                    />
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div 
+                                            className="driver-name-minicup"
+                                            style={{ 
+                                                fontWeight: '700', 
+                                                fontSize: '0.95rem', 
+                                                color: 'white'
+                                            }}
+                                            data-full-name={driver.name}
+                                        >
+                                            <span className="full-name">{driver.name}</span>
+                                            <span className="short-name" style={{ display: 'none' }}>
+                                                {(() => {
+                                                    const nameParts = driver.name.trim().split(' ');
+                                                    if (nameParts.length > 1) {
+                                                        return `${nameParts[0][0]}. ${nameParts.slice(1).join(' ')}`;
+                                                    }
+                                                    return driver.name;
+                                                })()}
+                                            </span>
+                                        </div>
+                                        <div style={{ 
+                                            fontSize: '0.75rem', 
+                                            color: teamColor, 
+                                            fontWeight: '600'
+                                        }}>{driver.team}</div>
+                                    </div>
+                                </div>
+
+                                {/* Pontos por etapa */}
+                                <div className="minicup-race-results" style={{ display: 'contents' }}>
+                                    {driver.raceResults.map((result, i) => (
+                                        <div 
+                                            key={i} 
+                                            style={{ 
+                                                textAlign: 'center',
+                                                padding: '8px 4px',
+                                                borderRadius: '8px',
+                                                background: result.points > 0 
+                                                    ? result.position === 1 
+                                                        ? '#10B981' 
+                                                        : result.position <= 3 
+                                                            ? 'rgba(16, 185, 129, 0.3)' 
+                                                            : 'rgba(255,255,255,0.05)'
+                                                    : 'transparent',
+                                                color: result.points > 0 
+                                                    ? result.position === 1 
+                                                        ? '#0D3320' 
+                                                        : result.position <= 3 
+                                                            ? '#10B981' 
+                                                            : '#94A3B8'
+                                                    : '#374151',
+                                                fontWeight: result.points > 0 ? '700' : '400',
+                                                fontSize: '0.9rem'
+                                            }}
+                                        >
+                                            {result.points > 0 ? (
+                                                <>
+                                                    <div>{result.points}</div>
+                                                    <div style={{ fontSize: '0.6rem', opacity: 0.7 }}>P{result.position}</div>
+                                                </>
+                                            ) : '-'}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Total de Pontos e Botão Expandir (Mobile) */}
+                                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                                    <div>
+                                        <div style={{ 
+                                            fontSize: '1.3rem', 
+                                            fontWeight: '900', 
+                                            color: isTop3 ? '#10B981' : '#6EE7B7'
+                                        }}>
+                                            {driver.totalPoints}
+                                        </div>
+                                        {driver.wins > 0 && (
+                                            <div style={{ fontSize: '0.7rem', color: '#FFD700' }}>🏆</div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Botão expandir mobile */}
+                                    <button
+                                        onClick={() => toggleRow(driver.name)}
+                                        className="minicup-expand-btn"
+                                        style={{
+                                            display: 'none',
+                                            background: 'rgba(16, 185, 129, 0.1)',
+                                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                                            color: '#10B981',
+                                            padding: '4px 8px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.65rem',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {isExpanded ? '▲' : '▼'}
+                                    </button>
                                 </div>
                             </div>
 
-                            {/* Pontos por etapa */}
-                            {driver.raceResults.map((result, i) => (
+                            {/* Etapas expandidas (mobile) */}
+                            {isExpanded && (
                                 <div 
-                                    key={i} 
-                                    style={{ 
-                                        textAlign: 'center',
-                                        padding: '8px 4px',
-                                        borderRadius: '8px',
-                                        background: result.points > 0 
-                                            ? result.position === 1 
-                                                ? '#10B981' 
-                                                : result.position <= 3 
-                                                    ? 'rgba(16, 185, 129, 0.3)' 
-                                                    : 'rgba(255,255,255,0.05)'
-                                            : 'transparent',
-                                        color: result.points > 0 
-                                            ? result.position === 1 
-                                                ? '#0D3320' 
-                                                : result.position <= 3 
-                                                    ? '#10B981' 
-                                                    : '#94A3B8'
-                                            : '#374151',
-                                        fontWeight: result.points > 0 ? '700' : '400',
-                                        fontSize: '0.9rem'
+                                    className="minicup-races-expanded"
+                                    style={{
+                                        display: 'none',
+                                        width: '100%',
+                                        overflowX: 'auto',
+                                        padding: '10px 20px',
+                                        background: 'rgba(0,0,0,0.2)',
+                                        borderBottom: '1px solid rgba(255,255,255,0.05)'
                                     }}
                                 >
-                                    {result.points > 0 ? (
-                                        <>
-                                            <div>{result.points}</div>
-                                            <div style={{ fontSize: '0.6rem', opacity: 0.7 }}>P{result.position}</div>
-                                        </>
-                                    ) : '-'}
+                                    <div style={{ display: 'flex', gap: '8px', minWidth: 'max-content' }}>
+                                        {driver.raceResults.map((result, i) => (
+                                            <div 
+                                                key={i}
+                                                style={{
+                                                    minWidth: '60px',
+                                                    textAlign: 'center',
+                                                    padding: '8px',
+                                                    borderRadius: '8px',
+                                                    background: result.points > 0 
+                                                        ? result.position === 1 
+                                                            ? '#10B981' 
+                                                            : result.position <= 3 
+                                                                ? 'rgba(16, 185, 129, 0.3)' 
+                                                                : 'rgba(255,255,255,0.05)'
+                                                        : 'rgba(255,255,255,0.02)',
+                                                    border: '1px solid rgba(255,255,255,0.1)'
+                                                }}
+                                            >
+                                                <div style={{ marginBottom: '5px' }}>
+                                                    <FlagImage raceName={races[i]} />
+                                                </div>
+                                                <div style={{ 
+                                                    fontSize: '0.65rem', 
+                                                    color: '#94A3B8',
+                                                    marginBottom: '3px'
+                                                }}>
+                                                    {races[i]?.substring(0, 3).toUpperCase()}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '1rem',
+                                                    fontWeight: '700',
+                                                    color: result.points > 0 
+                                                        ? result.position === 1 
+                                                            ? '#0D3320' 
+                                                            : '#10B981'
+                                                        : '#64748B'
+                                                }}>
+                                                    {result.points > 0 ? result.points : '-'}
+                                                </div>
+                                                {result.position && (
+                                                    <div style={{ 
+                                                        fontSize: '0.6rem', 
+                                                        color: '#94A3B8',
+                                                        marginTop: '2px'
+                                                    }}>
+                                                        P{result.position}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            ))}
-
-                            {/* Total de Pontos */}
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ 
-                                    fontSize: '1.3rem', 
-                                    fontWeight: '900', 
-                                    color: isTop3 ? '#10B981' : '#6EE7B7'
-                                }}>
-                                    {driver.totalPoints}
-                                </div>
-                                {driver.wins > 0 && (
-                                    <div style={{ fontSize: '0.7rem', color: '#FFD700' }}>🏆</div>
-                                )}
-                            </div>
+                            )}
                         </div>
                     );
                 })}

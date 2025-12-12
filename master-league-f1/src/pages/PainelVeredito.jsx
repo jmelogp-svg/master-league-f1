@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import VideoEmbed from '../components/VideoEmbed';
+import CustomAlert from '../components/CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 import '../index.css';
 
 function PainelVeredito() {
     const navigate = useNavigate();
+    const { showAlert, showConfirm, alertState } = useCustomAlert();
     const [loading, setLoading] = useState(true);
     const [lances, setLances] = useState([]);
     const [expandedLances, setExpandedLances] = useState({});
@@ -34,7 +38,20 @@ function PainelVeredito() {
     // Scroll removido - estava causando problemas no formulário
 
     const toggleLance = (lanceId) => {
+        // Preservar posição do scroll antes de expandir/colapsar
+        const currentScroll = window.scrollY || document.documentElement.scrollTop;
+        
         setExpandedLances(prev => ({ ...prev, [lanceId]: !prev[lanceId] }));
+        
+        // Preservar scroll após expandir/colapsar
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const newScroll = window.scrollY || document.documentElement.scrollTop;
+                if (newScroll !== currentScroll && currentScroll > 0) {
+                    window.scrollTo(0, currentScroll);
+                }
+            });
+        });
     };
 
     // Formatar WhatsApp com máscara (00) 00000-0000
@@ -130,6 +147,9 @@ function PainelVeredito() {
     }, [isAuthenticated]);
 
     const fetchLances = async (showLoading = true) => {
+        // Preservar posição do scroll antes de buscar dados
+        const currentScroll = window.scrollY || document.documentElement.scrollTop;
+        
         if (showLoading) setLoading(true);
         try {
             const { data, error } = await supabase
@@ -149,8 +169,24 @@ function PainelVeredito() {
             });
             
             setLances(lancesNaoVotados);
+            
+            // Preservar scroll após atualizar dados
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const newScroll = window.scrollY || document.documentElement.scrollTop;
+                    if (newScroll !== currentScroll && currentScroll > 0) {
+                        window.scrollTo(0, currentScroll);
+                    }
+                });
+            });
         } catch (err) {
             console.error('Erro ao buscar lances:', err);
+            // Preservar scroll mesmo em caso de erro
+            requestAnimationFrame(() => {
+                if (currentScroll > 0) {
+                    window.scrollTo(0, currentScroll);
+                }
+            });
         } finally {
             if (showLoading) setLoading(false);
         }
@@ -217,22 +253,24 @@ function PainelVeredito() {
         navigate('/login-jurado');
     };
 
-    const getYouTubeEmbed = (url) => {
-        if (!url) return null;
-        const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-        return match ? `https://www.youtube.com/embed/${match[1]}` : null;
-    };
-
     // Registrar voto do jurado
     const registrarVoto = async (lance, voto) => {
         // voto = { culpado: boolean, punicao: string (se culpado), agravante: boolean, justificativa: string }
         
-        if (voto.culpado && !voto.punicao) {
-            alert('⚠️ Selecione a punição!');
+        // Verificar se é retirada de bug
+        const isRetiradaBug = lance.dados?.tipoSolicitacao === 'retirada_bug' || 
+                               lance.dados?.acusado?.nome === 'Administração Master League F1';
+        
+        // Preservar posição do scroll antes de qualquer operação
+        const currentScroll = window.scrollY || document.documentElement.scrollTop;
+        
+        // Validar punição apenas se for acusação normal (não retirada de bug)
+        if (voto.culpado && !voto.punicao && !isRetiradaBug) {
+            await showAlert('Selecione a punição!', 'Aviso');
             return;
         }
         if (!voto.justificativa || voto.justificativa.trim().length < 10) {
-            alert('⚠️ Escreva uma justificativa (mínimo 10 caracteres)');
+            await showAlert('Escreva uma justificativa (mínimo 10 caracteres)', 'Aviso');
             return;
         }
 
@@ -242,7 +280,7 @@ function PainelVeredito() {
             // Verifica se jurado já votou
             const jaVotou = votosAtuais.find(v => v.jurado === nomeJurado);
             if (jaVotou) {
-                alert('⚠️ Você já registrou seu voto neste lance!');
+                await showAlert('Você já registrou seu voto neste lance!', 'Aviso');
                 return;
             }
 
@@ -251,6 +289,7 @@ function PainelVeredito() {
                 culpado: voto.culpado,
                 punicao: voto.culpado ? voto.punicao : null,
                 agravante: voto.culpado ? voto.agravante : false,
+                semVideo: voto.semVideo || false,
                 justificativa: voto.justificativa,
                 dataVoto: new Date().toISOString()
             };
@@ -262,6 +301,10 @@ function PainelVeredito() {
             const votosInocente = novosVotos.filter(v => !v.culpado).length;
             const lanceDecidido = votosCulpado >= 3 || votosInocente >= 3;
             const decisaoFinal = votosCulpado >= 3 ? 'CULPADO' : (votosInocente >= 3 ? 'INOCENTE' : null);
+
+            // Calcular punição "Sem envio do vídeo" (maioria dos votos)
+            const votosSemVideo = novosVotos.filter(v => v.semVideo).length;
+            const aplicarSemVideo = votosSemVideo >= 2; // Maioria (2 de 3 ou mais)
 
             // Calcular punição final se culpado
             let veredito = null;
@@ -296,7 +339,7 @@ function PainelVeredito() {
 
                     const punicaoInfo = punicoes.find(p => p.value === punicaoVencedora?.punicao);
                     const pontosBase = punicaoInfo?.pontos || 0;
-                    const pontosFinal = pontosBase + (punicaoVencedora?.agravante ? 5 : 0);
+                    const pontosFinal = pontosBase + (punicaoVencedora?.agravante ? 5 : 0) + (aplicarSemVideo ? 5 : 0);
 
                     veredito = {
                         culpado: true,
@@ -304,6 +347,7 @@ function PainelVeredito() {
                         placar: `${votosCulpado} x ${votosInocente}`,
                         punicao: punicaoVencedora?.punicao,
                         agravante: punicaoVencedora?.agravante,
+                        semVideo: aplicarSemVideo,
                         pontosPerdidos: pontosFinal,
                         raceBan: punicaoInfo?.raceBan || false,
                         labelPunicao: punicaoInfo?.label || '',
@@ -311,13 +355,17 @@ function PainelVeredito() {
                         totalVotos: novosVotos.length
                     };
                 } else {
+                    // Inocente, mas pode ter punição por sem vídeo
+                    const pontosPerdidos = aplicarSemVideo ? 5 : 0;
+                    
                     veredito = {
                         culpado: false,
                         decisao: 'INOCENTE',
                         placar: `${votosInocente} x ${votosCulpado}`,
                         punicao: null,
                         agravante: false,
-                        pontosPerdidos: 0,
+                        semVideo: aplicarSemVideo,
+                        pontosPerdidos: pontosPerdidos,
                         raceBan: false,
                         labelPunicao: null,
                         dataVeredito: new Date().toISOString(),
@@ -346,9 +394,9 @@ function PainelVeredito() {
             // Se lance foi decidido, enviar notificação Telegram
             if (lanceDecidido && veredito) {
                 await enviarTelegramVeredito(lance, veredito);
-                alert(`✅ Voto registrado!\n\n🏁 LANCE DECIDIDO: ${decisaoFinal}\nPlacar: ${veredito.placar}`);
+                await showAlert(`Voto registrado!\n\n🏁 LANCE DECIDIDO: ${decisaoFinal}\nPlacar: ${veredito.placar}`, 'Sucesso');
             } else {
-                alert(`✅ Voto registrado com sucesso!`);
+                await showAlert('Voto registrado com sucesso!', 'Sucesso');
             }
             
             // Limpar estado do voto em edição para este lance
@@ -362,10 +410,24 @@ function PainelVeredito() {
             setExpandedLances(prev => ({ ...prev, [lance.id]: false }));
             
             fetchLances(true);
+            
+            // Preservar scroll após todas as atualizações
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const newScroll = window.scrollY || document.documentElement.scrollTop;
+                    if (newScroll !== currentScroll) {
+                        window.scrollTo(0, currentScroll);
+                    }
+                });
+            });
 
         } catch (err) {
             console.error('Erro ao registrar voto:', err);
-            alert('❌ Erro ao registrar voto: ' + err.message);
+            await showAlert('Erro ao registrar voto: ' + err.message, 'Erro');
+            // Preservar scroll mesmo em caso de erro
+            requestAnimationFrame(() => {
+                window.scrollTo(0, currentScroll);
+            });
         }
     };
 
@@ -382,8 +444,12 @@ function PainelVeredito() {
         if (veredito.culpado) {
             mensagem += `\n\n⚠️ Punição: ${veredito.labelPunicao}`;
             if (veredito.agravante) mensagem += `\n➕ Agravante: +5 pontos`;
+            if (veredito.semVideo) mensagem += `\n📹 Sem envio do vídeo: -5 pontos`;
             mensagem += `\n📉 Pontos perdidos: ${veredito.pontosPerdidos}`;
             if (veredito.raceBan) mensagem += `\n⛔ RACE BAN APLICADO!`;
+        } else if (veredito.semVideo) {
+            mensagem += `\n\n📹 Sem envio do vídeo: -5 pontos`;
+            mensagem += `\n📉 Pontos perdidos: ${veredito.pontosPerdidos}`;
         }
 
         mensagem += `\n\n🔗 masterleaguef1.netlify.app/analises?tab=consulta`;
@@ -429,16 +495,20 @@ function PainelVeredito() {
 
         const votosCulpado = votos.filter(v => v.culpado).length;
         const votosInocente = votos.filter(v => !v.culpado).length;
+        const votosSemVideo = votos.filter(v => v.semVideo).length;
+        const aplicarSemVideo = votosSemVideo >= 2; // Maioria
 
         const culpado = votosCulpado > votosInocente;
 
         if (!culpado) {
+            const pontosPerdidos = aplicarSemVideo ? 5 : 0;
             return {
                 culpado: false,
                 placar: `${votosInocente} x ${votosCulpado}`,
                 decisao: 'INOCENTADO',
                 punicaoFinal: null,
-                pontosPerdidos: 0,
+                semVideo: aplicarSemVideo,
+                pontosPerdidos: pontosPerdidos,
                 raceBan: false
             };
         }
@@ -473,7 +543,7 @@ function PainelVeredito() {
 
         const punicaoInfo = punicoes.find(p => p.value === punicaoVencedora.punicao);
         const pontosBase = punicaoInfo?.pontos || 0;
-        const pontosFinal = pontosBase + (punicaoVencedora.agravante ? 5 : 0);
+        const pontosFinal = pontosBase + (punicaoVencedora.agravante ? 5 : 0) + (aplicarSemVideo ? 5 : 0);
 
         return {
             culpado: true,
@@ -481,6 +551,7 @@ function PainelVeredito() {
             decisao: 'CULPADO',
             punicaoFinal: punicaoVencedora.punicao,
             agravante: punicaoVencedora.agravante,
+            semVideo: aplicarSemVideo,
             pontosPerdidos: pontosFinal,
             raceBan: punicaoInfo?.raceBan || false,
             labelPunicao: punicaoInfo?.label || ''
@@ -489,14 +560,19 @@ function PainelVeredito() {
 
     // Finalizar análise (quando tem mínimo 3 votos)
     const finalizarAnalise = async (lance) => {
+        // Preservar posição do scroll antes de qualquer operação
+        const currentScroll = window.scrollY || document.documentElement.scrollTop;
+        
         const resultado = calcularResultado(lance.dados?.votos);
         
         if (!resultado) {
-            alert('⚠️ São necessários pelo menos 3 votos para finalizar!');
+            await showAlert('São necessários pelo menos 3 votos para finalizar!', 'Aviso');
             return;
         }
 
-        if (!window.confirm(`Confirmar finalização?\n\nDecisão: ${resultado.decisao}\nPlacar: ${resultado.placar}${resultado.culpado ? `\nPunição: ${resultado.labelPunicao}${resultado.agravante ? ' + Agravante (+5pts)' : ''}\nPontos perdidos: ${resultado.pontosPerdidos}${resultado.raceBan ? '\n⛔ RACE BAN!' : ''}` : ''}`)) {
+        const confirmMessage = `Confirmar finalização?\n\nDecisão: ${resultado.decisao}\nPlacar: ${resultado.placar}${resultado.culpado ? `\nPunição: ${resultado.labelPunicao}${resultado.agravante ? ' + Agravante (+5pts)' : ''}\nPontos perdidos: ${resultado.pontosPerdidos}${resultado.raceBan ? '\n⛔ RACE BAN!' : ''}` : ''}`;
+        const confirmed = await showConfirm(confirmMessage, 'Confirmar Finalização');
+        if (!confirmed) {
             return;
         }
 
@@ -509,6 +585,7 @@ function PainelVeredito() {
                     placar: resultado.placar,
                     punicao: resultado.punicaoFinal,
                     agravante: resultado.agravante,
+                    semVideo: resultado.semVideo || false,
                     pontosPerdidos: resultado.pontosPerdidos,
                     raceBan: resultado.raceBan,
                     labelPunicao: resultado.labelPunicao,
@@ -526,12 +603,28 @@ function PainelVeredito() {
 
             await enviarTelegram(lance, resultado);
 
-            alert('✅ Análise finalizada com sucesso!');
-            fetchLances();
+            await showAlert('Análise finalizada com sucesso!', 'Sucesso');
+            fetchLances(false); // Não mostrar loading ao finalizar
+            
+            // Preservar scroll após finalizar
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const newScroll = window.scrollY || document.documentElement.scrollTop;
+                    if (newScroll !== currentScroll && currentScroll > 0) {
+                        window.scrollTo(0, currentScroll);
+                    }
+                });
+            });
 
         } catch (err) {
             console.error('Erro ao finalizar:', err);
-            alert('❌ Erro: ' + err.message);
+            await showAlert('Erro: ' + err.message, 'Erro');
+            // Preservar scroll mesmo em caso de erro
+            requestAnimationFrame(() => {
+                if (currentScroll > 0) {
+                    window.scrollTo(0, currentScroll);
+                }
+            });
         }
     };
 
@@ -547,8 +640,12 @@ function PainelVeredito() {
         if (resultado.culpado) {
             mensagem += `\n\n⚠️ Punição: ${resultado.labelPunicao}`;
             if (resultado.agravante) mensagem += `\n➕ Agravante: +5 pontos`;
+            if (resultado.semVideo) mensagem += `\n📹 Sem envio do vídeo: -5 pontos`;
             mensagem += `\n📉 Pontos perdidos: ${resultado.pontosPerdidos}`;
             if (resultado.raceBan) mensagem += `\n⛔ RACE BAN APLICADO!`;
+        } else if (resultado.semVideo) {
+            mensagem += `\n\n📹 Sem envio do vídeo: -5 pontos`;
+            mensagem += `\n📉 Pontos perdidos: ${resultado.pontosPerdidos}`;
         }
 
         mensagem += `\n\n🔗 masterleaguef1.netlify.app/analises`;
@@ -576,7 +673,11 @@ function PainelVeredito() {
     const VotacaoJurado = ({ lance }) => {
         const lanceId = lance.id;
         // Usar estado do componente pai para preservar durante re-renders
-        const voto = votosEmEdicao[lanceId] || { culpado: null, punicao: '', agravante: false, justificativa: '' };
+        const voto = votosEmEdicao[lanceId] || { culpado: null, punicao: '', agravante: false, semVideo: false, justificativa: '' };
+        
+        // Verificar se é retirada de bug
+        const isRetiradaBug = lance.dados?.tipoSolicitacao === 'retirada_bug' || 
+                           lance.dados?.acusado?.nome === 'Administração Master League F1';
         
         // Usar ref para justificativa (não causa re-render ao digitar)
         const justificativaRef = useRef(null);
@@ -596,12 +697,16 @@ function PainelVeredito() {
         };
 
         if (jaVotou) {
+            const votoTexto = isRetiradaBug 
+                ? (jaVotou.culpado ? 'RETIRAR PUNIÇÃO' : 'MANTER PUNIÇÃO')
+                : (jaVotou.culpado ? 'CULPADO' : 'INOCENTE');
+            
             return (
                 <div style={{ background: '#0F172A', borderRadius: '8px', padding: '15px', border: '2px solid #22C55E' }}>
                     <div style={{ color: '#22C55E', fontWeight: 'bold', marginBottom: '10px' }}>✅ Você já votou neste lance</div>
                     <div style={{ color: '#94A3B8', fontSize: '13px' }}>
-                        Seu voto: <strong style={{ color: jaVotou.culpado ? '#EF4444' : '#22C55E' }}>{jaVotou.culpado ? 'CULPADO' : 'INOCENTE'}</strong>
-                        {jaVotou.culpado && <span> • {punicoes.find(p => p.value === jaVotou.punicao)?.label}{jaVotou.agravante ? ' + Agravante' : ''}</span>}
+                        Seu voto: <strong style={{ color: jaVotou.culpado ? '#EF4444' : '#22C55E' }}>{votoTexto}</strong>
+                        {jaVotou.culpado && !isRetiradaBug && <span> • {punicoes.find(p => p.value === jaVotou.punicao)?.label}{jaVotou.agravante ? ' + Agravante' : ''}</span>}
                     </div>
                 </div>
             );
@@ -617,24 +722,66 @@ function PainelVeredito() {
                     <div style={{ display: 'flex', gap: '15px' }}>
                         <button
                             type="button"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVoto({ ...voto, culpado: true }); }}
+                            onClick={(e) => { 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                                const currentScroll = window.scrollY || document.documentElement.scrollTop;
+                                setVoto({ ...voto, culpado: true });
+                                // Preservar scroll após re-render
+                                requestAnimationFrame(() => {
+                                    window.scrollTo(0, currentScroll);
+                                });
+                            }}
                             style={{ flex: 1, padding: '15px', borderRadius: '8px', border: voto.culpado === true ? '3px solid #EF4444' : '2px solid #475569', background: voto.culpado === true ? 'rgba(239, 68, 68, 0.2)' : 'transparent', color: voto.culpado === true ? '#EF4444' : '#94A3B8', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
                         >
-                            ❌ CULPADO
+                            {isRetiradaBug ? '❌ RETIRAR PUNIÇÃO' : '❌ CULPADO'}
                         </button>
                         <button
                             type="button"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVoto({ ...voto, culpado: false, punicao: '', agravante: false }); }}
+                            onClick={(e) => { 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                                const currentScroll = window.scrollY || document.documentElement.scrollTop;
+                                setVoto({ ...voto, culpado: false, punicao: '', agravante: false });
+                                // Preservar scroll após re-render
+                                requestAnimationFrame(() => {
+                                    window.scrollTo(0, currentScroll);
+                                });
+                            }}
                             style={{ flex: 1, padding: '15px', borderRadius: '8px', border: voto.culpado === false ? '3px solid #22C55E' : '2px solid #475569', background: voto.culpado === false ? 'rgba(34, 197, 94, 0.2)' : 'transparent', color: voto.culpado === false ? '#22C55E' : '#94A3B8', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
                         >
-                            ✅ INOCENTE
+                            {isRetiradaBug ? '✅ MANTER PUNIÇÃO' : '✅ INOCENTE'}
                         </button>
                     </div>
                 </div>
 
-                {/* Punição (se culpado) - altura fixa para evitar scroll */}
-                <div style={{ minHeight: voto.culpado === true ? 'auto' : '0', overflow: 'hidden' }}>
-                {voto.culpado === true && (
+                {/* Punição por Sem Envio de Vídeo (desabilitada para retirada de bug) */}
+                {!isRetiradaBug && (
+                    <div style={{ marginBottom: '15px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px 15px', background: voto.semVideo ? 'rgba(245, 158, 11, 0.2)' : 'transparent', border: voto.semVideo ? '2px solid #F59E0B' : '1px solid #475569', borderRadius: '8px' }}>
+                            <input
+                                type="checkbox"
+                                checked={voto.semVideo || false}
+                                onChange={(e) => {
+                                    const currentScroll = window.scrollY || document.documentElement.scrollTop;
+                                    setVoto({ ...voto, semVideo: e.target.checked });
+                                    // Preservar scroll após re-render
+                                    requestAnimationFrame(() => {
+                                        window.scrollTo(0, currentScroll);
+                                    });
+                                }}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <span style={{ color: voto.semVideo ? '#F59E0B' : '#CBD5E1', fontWeight: voto.semVideo ? 'bold' : 'normal' }}>
+                                📹 Sem envio do vídeo de defesa (-5 pontos)
+                            </span>
+                        </label>
+                    </div>
+                )}
+
+                {/* Punição (se culpado e não for retirada de bug) - altura fixa para evitar scroll */}
+                <div style={{ minHeight: voto.culpado === true && !isRetiradaBug ? 'auto' : '0', overflow: 'hidden' }}>
+                {voto.culpado === true && !isRetiradaBug && (
                     <>
                         <div style={{ marginBottom: '15px' }}>
                             <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '10px' }}>PUNIÇÃO *</label>
@@ -643,7 +790,16 @@ function PainelVeredito() {
                                     <button
                                         key={p.value}
                                         type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVoto({ ...voto, punicao: p.value }); }}
+                                        onClick={(e) => { 
+                                            e.preventDefault(); 
+                                            e.stopPropagation(); 
+                                            const currentScroll = window.scrollY || document.documentElement.scrollTop;
+                                            setVoto({ ...voto, punicao: p.value });
+                                            // Preservar scroll após re-render
+                                            requestAnimationFrame(() => {
+                                                window.scrollTo(0, currentScroll);
+                                            });
+                                        }}
                                         style={{
                                             padding: '12px 15px',
                                             borderRadius: '8px',
@@ -667,7 +823,14 @@ function PainelVeredito() {
                                 <input
                                     type="checkbox"
                                     checked={voto.agravante}
-                                    onChange={(e) => setVoto({ ...voto, agravante: e.target.checked })}
+                                    onChange={(e) => {
+                                        const currentScroll = window.scrollY || document.documentElement.scrollTop;
+                                        setVoto({ ...voto, agravante: e.target.checked });
+                                        // Preservar scroll após re-render
+                                        requestAnimationFrame(() => {
+                                            window.scrollTo(0, currentScroll);
+                                        });
+                                    }}
                                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                                 />
                                 <span style={{ color: voto.agravante ? '#EF4444' : '#CBD5E1', fontWeight: voto.agravante ? 'bold' : 'normal' }}>
@@ -686,6 +849,15 @@ function PainelVeredito() {
                         ref={justificativaRef}
                         defaultValue={voto.justificativa || ''}
                         onChange={(e) => setCharCount(e.target.value.length)}
+                        onFocus={(e) => {
+                            // Prevenir scroll automático ao focar
+                            const currentScroll = window.scrollY || document.documentElement.scrollTop;
+                            requestAnimationFrame(() => {
+                                if (window.scrollY !== currentScroll) {
+                                    window.scrollTo(0, currentScroll);
+                                }
+                            });
+                        }}
                         placeholder="Descreva sua análise do lance..."
                         rows={3}
                         style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #475569', background: '#1E293B', color: '#F8FAFC', fontSize: '14px', resize: 'vertical' }}
@@ -697,7 +869,12 @@ function PainelVeredito() {
 
                 {/* Botão Registrar Voto */}
                 <button
-                    onClick={() => registrarVoto(lance, { ...voto, justificativa: getJustificativa() })}
+                    type="button"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        registrarVoto(lance, { ...voto, justificativa: getJustificativa() });
+                    }}
                     disabled={voto.culpado === null}
                     style={{
                         width: '100%',
@@ -801,7 +978,12 @@ function PainelVeredito() {
                 {/* Botão Finalizar */}
                 {podeFinalizarJurado && (
                     <button
-                        onClick={() => finalizarAnalise(lance)}
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            finalizarAnalise(lance);
+                        }}
                         style={{
                             width: '100%',
                             padding: '15px',
@@ -937,7 +1119,7 @@ function PainelVeredito() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)', paddingTop: '90px', paddingBottom: '60px' }}>
+        <div className="analises-page" style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)', paddingTop: '90px', paddingBottom: '60px' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
 
                 {/* Header */}
@@ -985,7 +1167,17 @@ function PainelVeredito() {
                 {/* Contador */}
                 <div style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)', borderRadius: '10px', padding: '15px 20px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: 'white', fontWeight: 'bold' }}>📋 {lances.length} lance{lances.length !== 1 ? 's' : ''} aguardando análise</span>
-                    <button onClick={fetchLances} style={{ padding: '6px 15px', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '13px' }}>🔄 Atualizar</button>
+                    <button 
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            fetchLances(false); // Não mostrar loading ao atualizar manualmente
+                        }} 
+                        style={{ padding: '6px 15px', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '13px' }}
+                    >
+                        🔄 Atualizar
+                    </button>
                 </div>
 
                 {/* Lista de Lances */}
@@ -1006,9 +1198,6 @@ function PainelVeredito() {
                             const defesa = dados.defesa || null;
                             const isExpanded = expandedLances[lance.id];
                             const votos = dados.votos || [];
-
-                            const videoEmbed = getYouTubeEmbed(dados.videoLink);
-                            const videoEmbedDefesa = defesa ? getYouTubeEmbed(defesa.videoLinkDefesa) : null;
 
                             // Função para obter cores baseadas no status
                             const getStatusColors = (status) => {
@@ -1048,7 +1237,13 @@ function PainelVeredito() {
                                     
                                     {/* Prévia */}
                                     <div
-                                        onClick={() => !bloqueado && toggleLance(lance.id)}
+                                        onClick={(e) => {
+                                            if (!bloqueado) {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                toggleLance(lance.id);
+                                            }
+                                        }}
                                         style={{ display: 'flex', alignItems: 'center', padding: '12px 15px', cursor: bloqueado ? 'default' : 'pointer', gap: '12px', transition: 'background 0.2s' }}
                                         onMouseEnter={(e) => !bloqueado && (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
@@ -1090,23 +1285,23 @@ function PainelVeredito() {
                                             </div>
 
                                             {/* Vídeos */}
-                                            <div style={{ display: 'grid', gridTemplateColumns: videoEmbedDefesa ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '20px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: defesa ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '20px' }}>
                                                 <div>
                                                     <div style={{ color: '#EF4444', fontSize: '18px', fontWeight: '900', marginBottom: '12px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', textShadow: '0 2px 10px rgba(239, 68, 68, 0.3)' }}>👤 VISÃO DO ACUSADOR</div>
-                                                    {videoEmbed ? (
-                                                        <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: '8px', border: '2px solid #EF4444', overflow: 'hidden' }}>
-                                                            <iframe src={videoEmbed} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                                                        </div>
-                                                    ) : <div style={{ background: '#1E293B', borderRadius: '8px', border: '2px solid #EF4444', padding: '40px', textAlign: 'center', color: '#64748B' }}>🎥 Vídeo não disponível</div>}
+                                                    <VideoEmbed 
+                                                        videoLink={dados.videoLink} 
+                                                        title="Vídeo da acusação"
+                                                        borderColor="#EF4444"
+                                                    />
                                                 </div>
                                                 {defesa && (
                                                     <div>
                                                         <div style={{ color: '#22C55E', fontSize: '18px', fontWeight: '900', marginBottom: '12px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px', textShadow: '0 2px 10px rgba(34, 197, 94, 0.3)' }}>🛡️ VISÃO DO DEFENSOR</div>
-                                                        {videoEmbedDefesa ? (
-                                                            <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: '8px', border: '2px solid #22C55E', overflow: 'hidden' }}>
-                                                                <iframe src={videoEmbedDefesa} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                                                            </div>
-                                                        ) : <div style={{ background: '#1E293B', borderRadius: '8px', border: '2px solid #22C55E', padding: '40px', textAlign: 'center', color: '#64748B' }}>🎥 Vídeo não disponível</div>}
+                                                        <VideoEmbed 
+                                                            videoLink={defesa.videoLinkDefesa} 
+                                                            title="Vídeo da defesa"
+                                                            borderColor="#22C55E"
+                                                        />
                                                     </div>
                                                 )}
                                             </div>
@@ -1138,6 +1333,18 @@ function PainelVeredito() {
                     </div>
                 )}
             </div>
+            
+            {/* Custom Alert */}
+            <CustomAlert
+                show={alertState.show}
+                title={alertState.title}
+                message={alertState.message}
+                type={alertState.type}
+                onConfirm={alertState.onConfirm}
+                onCancel={alertState.onCancel}
+                confirmText={alertState.confirmText}
+                cancelText={alertState.cancelText}
+            />
         </div>
     );
 }
