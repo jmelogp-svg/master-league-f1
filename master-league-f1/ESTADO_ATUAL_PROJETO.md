@@ -1,7 +1,7 @@
 # 📋 Estado Atual do Projeto - Master League F1
 
-**Data:** 13/12/2024  
-**Última Atualização:** Implementação de autenticação 2FA via WhatsApp (em progresso)
+**Data:** 13/01/2025  
+**Última Atualização:** Sistema de autenticação 2FA via WhatsApp totalmente funcional com persistência via localStorage
 
 ---
 
@@ -57,54 +57,79 @@
   - ✅ Gerenciamento de jurados
   - ✅ Notificações de acusações
   - ✅ Visualização de pilotos cadastrados (tabela `pilotos`)
+  - ✅ Sincronização de edições para Supabase (tabela `pilotos`)
 
-### 4. Sistema de Autenticação 2FA via WhatsApp (EM PROGRESSO)
+### 4. Sistema de Autenticação 2FA via WhatsApp (✅ CONCLUÍDO E FUNCIONAL)
 
 #### ✅ Backend Implementado:
 - ✅ Tabela `whatsapp_verification_codes` criada no Supabase
   - Armazena códigos de verificação de 6 dígitos
   - Expiração de 10 minutos
   - Controle de tentativas e uso
-  - RLS policies configuradas
+  - RLS policies configuradas e corrigidas
 
 - ✅ Edge Function `send-whatsapp-code` criada e deployada
   - Gera código de 6 dígitos
   - Formata números de telefone (remove máscaras, adiciona código do país)
-  - Suporta múltiplas APIs: Twilio, Z-API, CallMeBot
+  - Suporta múltiplas APIs: **Twilio** (padrão) e **Z-API** (fallback)
   - Valida piloto na tabela `pilotos`
   - Atualiza WhatsApp do piloto se necessário
   - Logs detalhados para debugging
+  - Invalida códigos anteriores antes de criar novo
 
 - ✅ Utilitário `src/utils/whatsappAuth.js` criado
   - `requestVerificationCode()` - Solicita código via Edge Function
-  - `verifyCode()` - Valida código digitado (a implementar)
+  - `verifyCode()` - Valida código digitado
+  - Tratamento robusto de erros (respostas não-JSON)
+  - Uso de `supabase.functions.invoke()` para garantir URL correta
 
-#### ⏳ Frontend (PENDENTE):
-- ⏳ Atualizar `src/pages/Login.jsx` com novo fluxo:
-  - Verificar email na tabela `pilotos` (Supabase)
-  - Solicitar WhatsApp se não cadastrado
-  - Enviar código via Edge Function
-  - Validar código digitado
-  - Autenticar e redirecionar para `/dashboard`
+#### ✅ Frontend Implementado:
+- ✅ `src/pages/Login.jsx` com fluxo completo:
+  - **Estado 1:** Login com Google OAuth
+  - **Estado 2:** Verificação de email na tabela `pilotos` (Supabase)
+  - **Estado 3:** Se não encontrado, busca na planilha Google Sheets e sincroniza automaticamente
+  - **Estado 4:** Solicitação de WhatsApp (campo sempre vazio, piloto precisa digitar)
+  - **Estado 5:** Validação de WhatsApp (compara com planilha/Supabase)
+  - **Estado 6:** Envio de código via Edge Function
+  - **Estado 7:** Validação de código (até 3 tentativas)
+  - **Estado 8:** Redirecionamento para Dashboard após sucesso
+  - **Estado 9:** Formulário de inscrição manual (se email não encontrado ou após 3 tentativas)
 
-- ⏳ Atualizar `src/pages/Dashboard.jsx`:
-  - Proteger rota com verificação de autenticação
-  - Verificar se piloto está validado (tem WhatsApp)
+- ✅ `src/pages/Dashboard.jsx` protegido:
+  - Verifica se piloto tem WhatsApp cadastrado
+  - Redireciona para `/login` se não tiver
+  - Limpa localStorage no logout explícito
 
-#### ⏳ Configuração (EM PROGRESSO):
-- ✅ Conta Twilio criada
+- ✅ **Persistência de 2FA via localStorage:**
+  - Após validação bem-sucedida, salva `localStorage["ml_pilot_2fa_ok:<email>"] = "true"`
+  - Próximos acessos no mesmo navegador/dispositivo não pedem código novamente
+  - Flag é limpa apenas no logout explícito (botão "SAIR")
+  - Cada navegador/dispositivo precisa validar separadamente (mais seguro)
+
+#### ✅ Sincronização Automática:
+- ✅ `src/utils/syncPilotosFromSheet.js`:
+  - `syncPilotosFromSheet()` - Sincroniza todos os pilotos da planilha
+  - `findDriverByEmail(email)` - Busca piloto específico na planilha
+  - `findAndSyncPilotoFromSheet(email)` - Busca e sincroniza piloto específico automaticamente
+  - Mapeamento correto de colunas (Coluna H = E-mail Login)
+
+#### ✅ Configuração:
+- ✅ Conta Twilio configurada e funcionando
 - ✅ WhatsApp Sandbox configurado
-- ✅ Número cadastrado no Sandbox (`+551983433940`)
-- ⏳ Secrets do Twilio no Supabase (parcialmente configurado - verificar)
+- ✅ Secrets do Twilio no Supabase configurados:
   - `WHATSAPP_API_TYPE` = `twilio`
-  - `TWILIO_ACCOUNT_SID` = (configurar)
-  - `TWILIO_AUTH_TOKEN` = (configurar)
+  - `TWILIO_ACCOUNT_SID` = (configurado)
+  - `TWILIO_AUTH_TOKEN` = (configurado)
   - `TWILIO_WHATSAPP_NUMBER` = `whatsapp:+14155238886`
+- ✅ Z-API mantido como fallback (basta mudar `WHATSAPP_API_TYPE` para `z-api`)
 
-#### 🧪 Testes Realizados:
-- ✅ Edge Function testada via terminal (curl/PowerShell)
-- ✅ Função retorna `{"success":true,"message":"Código enviado com sucesso"}`
-- ⚠️ Mensagem não chegou no WhatsApp (problema de configuração dos secrets)
+#### ✅ Testes Realizados:
+- ✅ Edge Function testada e funcionando
+- ✅ Mensagens chegando no WhatsApp via Twilio
+- ✅ Validação de código funcionando
+- ✅ Persistência de 2FA funcionando (não pede código novamente após validação)
+- ✅ Logout limpa localStorage corretamente
+- ✅ Sincronização automática de pilotos funcionando
 
 ### 5. Funcionalidades Principais
 - ✅ Sistema de login com Google OAuth
@@ -116,27 +141,23 @@
 
 ## 🔄 TAREFAS PENDENTES
 
-### 1. Finalizar Autenticação 2FA (ALTA PRIORIDADE)
-**Status:** Em progresso  
-**Tempo estimado:** 2-3 horas
+### 1. Melhorias no Sistema 2FA (BAIXA PRIORIDADE)
+**Status:** Funcional, melhorias opcionais  
+**Tempo estimado:** 1-2 horas
 
 **Sub-tarefas:**
-- [ ] Verificar e configurar todos os secrets do Twilio no Supabase
-- [ ] Testar envio de mensagem e confirmar recebimento
-- [ ] Atualizar `Login.jsx` com novo fluxo completo
-- [ ] Implementar validação de código no frontend
-- [ ] Atualizar `Dashboard.jsx` com proteção de rota
-- [ ] Testar fluxo completo de autenticação
+- [ ] Adicionar timer de reenvio de código (ex: "Reenviar código em 60s")
+- [ ] Melhorar mensagens de erro para usuário
+- [ ] Adicionar analytics de tentativas de login
 
 ### 2. Sincronização Automática Google Sheets → Supabase (pilotos)
-**Status:** Pendente  
-**Prioridade:** Alta (necessário para 2FA funcionar)  
+**Status:** Funcional (on-demand)  
+**Prioridade:** Baixa (já funciona automaticamente no login)  
 **Tempo estimado:** 30-40 min
 
 **Descrição:**
-- Garantir que pilotos da planilha estejam sempre sincronizados com Supabase
-- Opção 1: Adicionar ao `sync-scheduler` existente
-- Opção 2: Criar botão manual no painel admin
+- Atualmente funciona automaticamente quando piloto não é encontrado no Supabase
+- Opção: Adicionar ao `sync-scheduler` para sincronização periódica completa
 
 ### 3. Atualizar Standings.jsx
 **Status:** Pendente  
@@ -187,8 +208,8 @@
 - `src/pages/PowerRanking.jsx` - Power Ranking (usa Supabase via `usePowerRankingCache`)
 - `src/pages/Admin.jsx` - Painel administrativo
 - `src/pages/AdminSync.jsx` - Dashboard de sincronização (criado, não integrado)
-- `src/pages/Login.jsx` - Login (PRECISA SER ATUALIZADO para 2FA)
-- `src/pages/Dashboard.jsx` - Painel do piloto (PRECISA SER ATUALIZADO para proteção)
+- `src/pages/Login.jsx` - Login com 2FA completo ✅
+- `src/pages/Dashboard.jsx` - Painel do piloto com proteção 2FA ✅
 
 ### Edge Functions
 - `supabase/functions/sync-google-sheets/index.ts` - Sincroniza Google Sheets → Supabase
@@ -199,6 +220,7 @@
 ### Utilitários
 - `src/utils/whatsappAuth.js` - Funções para autenticação WhatsApp (2FA) ✅
 - `src/utils/emailService.js` - Serviço de envio de emails
+- `src/utils/syncPilotosFromSheet.js` - Sincronização de pilotos da planilha ✅
 
 ### Componentes
 - `src/components/VideoEmbed.jsx` - Embed de vídeos de múltiplas plataformas
@@ -208,11 +230,11 @@
 ### Schemas SQL
 - `supabase-schema.sql` - Schema principal (pilotos, lances, acusacoes, defesas, verdicts, etc.)
 - `supabase-schema-auth.sql` - Schema de autenticação (whatsapp_verification_codes) ✅
+- `supabase-schema-auth-fix-rls.sql` - Correção de RLS policies ✅
 
 ### Scripts de Teste
 - `teste-whatsapp-curl.bat` - Teste da Edge Function via cURL (Windows)
 - `teste-whatsapp-terminal.ps1` - Teste da Edge Function via PowerShell
-- `test-whatsapp-code.html` - Teste da Edge Function via navegador
 
 ---
 
@@ -238,21 +260,26 @@
 ### Tabelas de Autenticação
 - `whatsapp_verification_codes` - Códigos de verificação 2FA ✅
   - Campos: `id`, `email`, `whatsapp`, `code`, `expires_at`, `used`, `attempts`, `created_at`
-  - RLS habilitado
+  - RLS habilitado e corrigido
   - Índices otimizados
+  - Policies usando `auth.jwt() ->> 'email'` para validação
 
 ### Edge Functions
 - `SERVICE_ROLE_KEY` configurada como secret
 - `SUPABASE_URL` disponível automaticamente
-- Secrets do Twilio (configurar):
+- Secrets do Twilio configurados:
   - `WHATSAPP_API_TYPE` = `twilio`
-  - `TWILIO_ACCOUNT_SID` = (configurar)
-  - `TWILIO_AUTH_TOKEN` = (configurar)
+  - `TWILIO_ACCOUNT_SID` = (configurado)
+  - `TWILIO_AUTH_TOKEN` = (configurado)
   - `TWILIO_WHATSAPP_NUMBER` = `whatsapp:+14155238886`
+- Secrets do Z-API (mantidos para fallback):
+  - `ZAPI_INSTANCE` = (configurado)
+  - `ZAPI_TOKEN` = (configurado)
+  - `ZAPI_PHONE_ID` = (configurado)
 
 ### Variáveis de Ambiente
 - `SERVICE_ROLE_KEY`: Chave de serviço do Supabase (configurada nas Edge Functions)
-- Secrets do Twilio (verificar configuração)
+- Secrets do Twilio configurados e funcionando
 
 ---
 
@@ -264,7 +291,7 @@
 - ✅ Tracks
 - ✅ Minicup
 - ⚠️ Calendário (tabela criada, mas não sincronizado ainda)
-- ⏳ Pilotos (precisa sincronização automática para 2FA funcionar)
+- ✅ Pilotos (sincronização automática on-demand no login)
 
 ### Frequência de Sincronização
 - Configurado no `sync-scheduler`:
@@ -273,6 +300,7 @@
   - Tracks: A cada 2 horas
   - Minicup: A cada 15 minutos
   - Calendário: A cada 1 hora
+- Pilotos: Sincronização automática quando necessário (login)
 
 ---
 
@@ -286,36 +314,30 @@
    - Problema: Tela subia automaticamente ao expandir elementos
    - Solução: `DisableAutoScroll.jsx` + preservação de scroll position
 
-3. **Mensagem WhatsApp não chegando** - EM INVESTIGAÇÃO ⚠️
-   - Problema: Edge Function retorna sucesso, mas mensagem não chega
-   - Possíveis causas:
-     - Secrets do Twilio não configurados corretamente
-     - Número não cadastrado no Sandbox (já verificado - está cadastrado)
-     - Formato do número incorreto
-   - Status: Logs mostram "❌ Twilio não configurado" - precisa verificar secrets
+3. **Mensagem WhatsApp não chegando** - RESOLVIDO ✅
+   - Problema: Edge Function retornava sucesso, mas mensagem não chegava
+   - Solução: Configuração correta dos secrets do Twilio
 
-4. **Número com formatação incorreta no banco** - DETECTADO ⚠️
-   - Problema: Número cadastrado como `5551983433940` (5 extra) vs `551983433940` (correto)
-   - Solução: A função `formatPhoneNumber` já remove caracteres não numéricos, mas pode haver inconsistência no banco
+4. **Código inválido após receber no WhatsApp** - RESOLVIDO ✅
+   - Problema: RLS policies não autorizavam leitura/atualização do código
+   - Solução: Correção das policies para usar `auth.jwt() ->> 'email'` em vez de `auth.users`
+
+5. **2FA pedindo código novamente após navegação** - RESOLVIDO ✅
+   - Problema: Sistema não persistia validação entre recarregamentos
+   - Solução: Implementado `localStorage["ml_pilot_2fa_ok:<email>"]` que persiste até logout
 
 ---
 
 ## 📝 PRÓXIMOS PASSOS SUGERIDOS
 
 ### Alta Prioridade:
-1. **Finalizar configuração do Twilio**
-   - Verificar todos os secrets no Supabase
-   - Testar envio de mensagem e confirmar recebimento
-   - Corrigir problemas de formatação de número
+1. **Testar fluxo completo com múltiplos usuários**
+   - Verificar se sincronização automática funciona para todos
+   - Validar persistência de 2FA em diferentes navegadores
 
-2. **Implementar frontend do 2FA**
-   - Atualizar `Login.jsx` com novo fluxo
-   - Implementar validação de código
-   - Atualizar `Dashboard.jsx` com proteção
-
-3. **Configurar sincronização automática de pilotos**
-   - Adicionar ao `sync-scheduler` ou criar botão manual no admin
-   - Garantir que pilotos da planilha estejam sempre no Supabase
+2. **Monitorar logs do Supabase**
+   - Verificar se há erros na Edge Function
+   - Acompanhar uso de códigos de verificação
 
 ### Média Prioridade:
 - Atualizar `Standings.jsx` para usar Supabase
@@ -324,7 +346,8 @@
 
 ### Baixa Prioridade:
 - Melhorar `syncPilotosFromSheet.js` com hash e sincronização incremental
-- Adicionar mais logs e métricas de performance
+- Adicionar timer de reenvio de código
+- Adicionar analytics de login
 
 ---
 
@@ -348,16 +371,25 @@
 - Todas as sincronizações são **logadas** na tabela `sync_log` para monitoramento
 
 ### Sistema de Autenticação 2FA
-- **Backend:** 100% implementado e testado ✅
-- **Frontend:** Pendente de implementação ⏳
-- **Configuração:** Secrets do Twilio precisam ser verificados ⚠️
-- **Fluxo:** Email → Supabase → WhatsApp → Código → Validação → Dashboard
+- **Backend:** 100% implementado e funcionando ✅
+- **Frontend:** 100% implementado e funcionando ✅
+- **Configuração:** Twilio configurado e funcionando ✅
+- **Fluxo:** Email → Supabase/Planilha → WhatsApp → Código → Validação → Dashboard ✅
+- **Persistência:** localStorage (`ml_pilot_2fa_ok:<email>`) - válido até logout explícito ✅
+- **Segurança:** Cada navegador/dispositivo precisa validar separadamente ✅
 
 ### Números de Telefone
 - A função `formatPhoneNumber` remove automaticamente máscaras e caracteres não numéricos
 - Formato esperado: `551983433940` (55 + DDD + número)
 - Formato Twilio: `whatsapp:+551983433940`
 - Formato Sandbox: `whatsapp:+14155238886` (número do Twilio)
+
+### Persistência de 2FA
+- **Como funciona:** Após validação bem-sucedida, salva `localStorage["ml_pilot_2fa_ok:<email>"] = "true"`
+- **Quando persiste:** Entre recarregamentos, navegação entre páginas, fechar/abrir navegador
+- **Quando limpa:** Apenas no logout explícito (botão "SAIR" no Dashboard)
+- **Segurança:** Cada navegador/dispositivo precisa validar separadamente (mais seguro)
+- **Vantagem:** Usuário não precisa validar código toda vez que acessa o sistema
 
 ---
 
@@ -368,7 +400,9 @@
 - `DATABASE_STRUCTURE.md` - Estrutura completa do banco de dados
 - `supabase-schema.sql` - Schema SQL principal
 - `supabase-schema-auth.sql` - Schema SQL de autenticação
+- `supabase-schema-auth-fix-rls.sql` - Correção de RLS policies
+- `ESTADO_ATUAL_DOCUMENTACAO_COMPLETA.md` - Documentação detalhada do estado atual
 
 ---
 
-**Última modificação:** 13/12/2024 - Sistema de autenticação 2FA via WhatsApp (backend concluído, frontend pendente)
+**Última modificação:** 13/01/2025 - Sistema de autenticação 2FA via WhatsApp totalmente funcional com persistência via localStorage

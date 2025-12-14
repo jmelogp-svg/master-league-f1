@@ -6,6 +6,35 @@ Este arquivo documenta as versões do projeto e suas alterações.
 
 ---
 
+## v1.1.0 - 2025-01-13 (VERSÃO ATUAL)
+**Backup:** Commit `262280c` - "feat: Implementação completa de 2FA com persistência via localStorage"
+
+### Funcionalidades Implementadas:
+- ✅ Sistema completo de autenticação 2FA via WhatsApp
+- ✅ Persistência de validação 2FA usando localStorage (ml_pilot_2fa_ok:email)
+- ✅ Sincronização automática de pilotos da planilha Google Sheets para Supabase
+- ✅ Validação de WhatsApp com até 3 tentativas antes de forçar reenvio de inscrição
+- ✅ Suporte a Twilio (padrão) e Z-API (fallback) com auto-detecção
+- ✅ Correção de RLS policies para validação de códigos WhatsApp
+- ✅ Fluxo completo: Login → Verificação Email → WhatsApp → Código → Dashboard
+- ✅ Limpeza de localStorage apenas no logout explícito
+- ✅ Proteção de rota no Dashboard com verificação de 2FA
+
+### Melhorias Técnicas:
+- ✅ Tratamento robusto de erros (respostas não-JSON)
+- ✅ Uso de `supabase.functions.invoke()` para garantir URL correta
+- ✅ Correção de OAuth flow (PKCE e hash antigo)
+- ✅ Sincronização on-demand de pilotos durante login
+- ✅ Validação de WhatsApp sempre requerida (campo não pré-preenchido)
+
+### Status:
+- Sistema 2FA totalmente funcional
+- Twilio configurado e enviando mensagens
+- Validação de código funcionando
+- Persistência entre sessões funcionando
+
+---
+
 ## v1.0.0 - 2025-12-10 (VERSÃO ESTÁVEL)
 **Backup:** `master-league-f1-BACKUP-v1.0.0-2025-12-10`
 
