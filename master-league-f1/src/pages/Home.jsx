@@ -124,35 +124,68 @@ function Home() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Verificar se é um retorno de OAuth de jurado (detectar hash na URL)
+    // Verificar se é um retorno de OAuth (piloto ou jurado)
     useEffect(() => {
         const checkOAuthReturn = async () => {
-            // Se há um hash de autenticação na URL (retorno do OAuth)
-            if (window.location.hash && window.location.hash.includes('access_token')) {
-                console.log('🔄 Detectado retorno de OAuth na Home...');
-                
-                // Aguardar a sessão ser processada
-                const { data: { session } } = await supabase.auth.getSession();
-                
-                if (session) {
-                    const email = session.user.email?.toLowerCase().trim();
-                    console.log('📧 Email do OAuth:', email);
-                    
-                    // Verificar se é um jurado
-                    const { data: jurado } = await supabase
-                        .from('jurados')
-                        .select('*')
-                        .eq('email_google', email)
-                        .eq('ativo', true)
-                        .single();
-                    
-                    if (jurado) {
-                        console.log('✅ É jurado! Redirecionando para /veredito...');
-                        navigate('/veredito');
-                        return;
-                    }
+            const url = new URL(window.location.href);
+            const hasAccessTokenInHash = !!(url.hash && url.hash.includes('access_token'));
+            const hasCode = url.searchParams.has('code');
+            const hasOAuthError = url.searchParams.has('error') || url.searchParams.has('error_description');
+
+            // Supabase/Google normalmente retorna com ?code=... (PKCE) — não só via hash
+            const isOAuthReturn = hasAccessTokenInHash || hasCode || hasOAuthError;
+            if (!isOAuthReturn) return;
+
+            console.log('🔄 Detectado retorno de OAuth na Home...', {
+                hasCode,
+                hasAccessTokenInHash,
+                hasOAuthError,
+            });
+
+            // Dar um tempo para o Supabase processar o retorno
+            await new Promise((resolve) => setTimeout(resolve, 800));
+
+            // Se ainda não houver sessão e houver code, tentar exchange manualmente
+            let { data: { session } } = await supabase.auth.getSession();
+            if (!session && hasCode) {
+                const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
+                if (exchangeError) {
+                    console.warn('⚠️ Falha ao trocar code por sessão na Home:', exchangeError);
                 }
+                ({ data: { session } } = await supabase.auth.getSession());
             }
+
+            // Limpar URL (code/hash) para evitar loops
+            try {
+                window.history.replaceState({}, '', window.location.pathname);
+            } catch {
+                // noop
+            }
+
+            if (!session?.user?.email) {
+                console.log('⚠️ OAuth retornou, mas sessão ainda não está disponível.');
+                return;
+            }
+
+            const email = session.user.email?.toLowerCase().trim();
+            console.log('📧 Email do OAuth:', email);
+
+            // Verificar se é jurado (senão, piloto)
+            const { data: jurado } = await supabase
+                .from('jurados')
+                .select('*')
+                .eq('email_google', email)
+                .eq('ativo', true)
+                .single();
+
+            if (jurado) {
+                console.log('✅ É jurado! Redirecionando para /veredito...');
+                navigate('/veredito');
+                return;
+            }
+
+            console.log('🔄 Não é jurado, redirecionando para /login (fluxo piloto / WhatsApp)...');
+            navigate('/login');
         };
         
         checkOAuthReturn();

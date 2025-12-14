@@ -31,17 +31,62 @@ function Login() {
         nomePiloto: ''
     });
 
+    // Flag local para manter 2FA validado entre recarregamentos/navegação
+    const get2FAKey = (email) => `ml_pilot_2fa_ok:${(email || '').toLowerCase().trim()}`;
+
     // 1. Verificar se já existe sessão ao carregar
     useEffect(() => {
         const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
+            // Processar retorno OAuth (PKCE: ?code=...) ou hash antigo (#access_token)
+            const url = new URL(window.location.href);
+            const hasAccessTokenInHash = !!(url.hash && url.hash.includes('access_token'));
+            const hasCode = url.searchParams.has('code');
+            const hasOAuthError = url.searchParams.has('error') || url.searchParams.has('error_description');
+
+            if (hasAccessTokenInHash || hasCode || hasOAuthError) {
+                console.log('🔄 Detectado retorno de OAuth na página /login', { hasCode, hasAccessTokenInHash, hasOAuthError });
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+            
+            let { data: { session } } = await supabase.auth.getSession();
+
+            // Se ainda não houver sessão e houver code, tentar exchange manualmente
+            if (!session && hasCode) {
+                const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
+                if (exchangeError) {
+                    console.warn('⚠️ Falha ao trocar code por sessão no /login:', exchangeError);
+                }
+                ({ data: { session } } = await supabase.auth.getSession());
+            }
+
+            // Limpar URL (code/hash) para não ficar com parâmetros de OAuth
+            try {
+                window.history.replaceState({}, '', window.location.pathname);
+            } catch {
+                // noop
+            }
+
+            if (session?.user?.email) {
+                console.log('📧 Sessão encontrada com email:', session.user.email);
                 setUser(session.user);
+
+                // Se já validou 2FA anteriormente, ir direto ao dashboard
+                const already2FAOk = localStorage.getItem(get2FAKey(session.user.email)) === 'true';
+                if (already2FAOk) {
+                    console.log('✅ 2FA já validado anteriormente. Redirecionando direto para /dashboard...');
+                    navigate('/dashboard');
+                    return;
+                }
+
                 // Se há sessão ativa, verificar se o piloto já está validado no banco
                 // SEMPRE verificar e pedir confirmação do WhatsApp (mesmo se já tiver cadastrado)
                 // Isso garante segurança a cada login
                 console.log('🔍 Sempre pedir confirmação de WhatsApp (segurança a cada login)...');
                 checkDriverRegistration(session.user.email);
+            } else if (session?.user && !session.user.email) {
+                console.error('⚠️ Sessão encontrada mas sem email!');
+                setErrorMsg('❌ Erro: Email não foi obtido do login. Por favor, faça login novamente.');
+                setStep('login');
             }
         };
         checkSession();
@@ -49,11 +94,34 @@ function Login() {
         // Listener para mudanças de auth (login do Google)
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('🔄 Login - Auth state changed:', event, session ? 'Sessão ativa' : 'Sem sessão');
-            if (event === 'SIGNED_IN' && session?.user) {
+            
+            // Verificar se estamos na página de login antes de processar
+            if (window.location.pathname !== '/login') {
+                console.log('⚠️ Auth event fora da página /login, ignorando...');
+                return;
+            }
+            
+            if (event === 'SIGNED_IN' && session?.user?.email) {
                 console.log('✅ Login - Usuário autenticado (pode ser após logout):', session.user.email);
                 setUser(session.user);
+                
+                // Garantir que estamos na página de login
+                if (window.location.pathname !== '/login') {
+                    console.log('🔄 Redirecionando para /login...');
+                    window.location.href = '/login';
+                    return;
+                }
+                
                 // Aguardar um pouco para garantir que a sessão está persistida
                 await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Se já validou 2FA anteriormente, ir direto ao dashboard
+                const already2FAOk = localStorage.getItem(get2FAKey(session.user.email)) === 'true';
+                if (already2FAOk) {
+                    console.log('✅ 2FA já validado anteriormente. Redirecionando direto para /dashboard...');
+                    navigate('/dashboard');
+                    return;
+                }
                 
                 // Quando o piloto faz login (incluindo após logout), SEMPRE verificar na planilha
                 // e pedir confirmação do WhatsApp para garantir que é ele mesmo
@@ -89,14 +157,18 @@ function Login() {
     const handleGoogleLogin = async () => {
         setLoading(true);
         setErrorMsg('');
-        
+
+        // Sempre voltar para /login após o OAuth
+        const redirectUrl = `${window.location.origin}/login`;
+
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/login`,
+                redirectTo: redirectUrl,
                 queryParams: {
-                    prompt: 'select_account' // Força o Google a mostrar seletor de conta
-                }
+                    prompt: 'select_account', // Força o Google a mostrar seletor de conta (quando aplicável)
+                },
+                skipBrowserRedirect: false
             }
         });
         
@@ -111,6 +183,11 @@ function Login() {
         try {
             // 1. Fazer logout no Supabase
             await supabase.auth.signOut();
+
+            // Limpar flag local de 2FA
+            if (user?.email) {
+                localStorage.removeItem(get2FAKey(user.email));
+            }
             
             // 2. Limpar todos os estados
             setUser(null);
@@ -121,9 +198,29 @@ function Login() {
             setStep('login');
             setLoading(false);
             
-            // 3. Limpar cache do Google OAuth (forçar nova seleção de conta)
-            // Isso faz com que o Google peça para escolher a conta novamente
-            console.log('🚪 Logout realizado. Por favor, selecione outra conta do Google ao fazer login novamente.');
+            // 3. Limpar cookies do Google (tentar limpar sessão do Google OAuth)
+            // Isso ajuda a forçar o Google a pedir seleção de conta novamente
+            try {
+                // Limpar cookies relacionados ao Google
+                const cookies = document.cookie.split(';');
+                cookies.forEach(cookie => {
+                    const eqPos = cookie.indexOf('=');
+                    const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+                    // Limpar cookies do Google (gid, __Secure-3PSID, etc)
+                    if (name.includes('google') || name.includes('gid') || name.includes('SID') || name.includes('HSID')) {
+                        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.google.com`;
+                        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.googleapis.com`;
+                        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+                    }
+                });
+            } catch (cookieError) {
+                console.warn('Não foi possível limpar cookies do Google:', cookieError);
+            }
+            
+            // 4. Aguardar um pouco antes de permitir novo login
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            console.log('🚪 Logout realizado. Ao fazer login novamente, o Google pedirá para selecionar a conta.');
             
         } catch (error) {
             console.error('Erro ao fazer logout:', error);
@@ -133,10 +230,19 @@ function Login() {
 
     // 3. Verificar se o email está na tabela pilotos do Supabase
     const checkDriverRegistration = async (email) => {
+        // Verificar se o email foi fornecido
+        if (!email || !email.trim()) {
+            console.error('❌ Email não fornecido!');
+            setErrorMsg('❌ Erro: Email não foi obtido do login. Por favor, faça login novamente com Google.');
+            setStep('login');
+            return;
+        }
+        
         setStep('verifying_email');
         setErrorMsg('');
         
         console.log('🔍 [PASSO 1] Buscando piloto na tabela pilotos (Supabase)...');
+        console.log('📧 Email sendo verificado:', email);
         
         try {
             // PASSO 1: Verificar se email está no Supabase
@@ -229,11 +335,14 @@ function Login() {
                 
                 if (whatsappCleaned !== whatsappPlanilha && ultimos9Digitado !== ultimos9Planilha) {
                     console.log('❌ WhatsApp não confere com a planilha');
+                    const newAttempts = (whatsappAttempts || 0) + 1;
+                    setWhatsappAttempts(newAttempts);
+                    setShowWhatsAppError(true);
                     setSendingCode(false);
-                    setErrorMsg('❌ O número de WhatsApp informado não confere com o cadastro na planilha.\n\nPor favor, verifique o número ou reenvie a inscrição para atualizar os dados.');
-                    
-                    // Oferecer opção de reenvio de inscrição
-                    setTimeout(() => {
+
+                    // Até 3 tentativas: 1 e 2 ficam na tela para tentar de novo
+                    if (newAttempts >= 3) {
+                        setErrorMsg('❌ O número informado não confere com o cadastro na planilha.\n\nPor segurança, você atingiu o limite de tentativas.\n\nPreencha o formulário abaixo para reenviar sua inscrição e o administrador validar seus dados.');
                         setStep('inscricao_manual');
                         setInscricaoData(prev => ({ 
                             ...prev, 
@@ -242,11 +351,19 @@ function Login() {
                             nomePiloto: pilotoPlanilhaData.nome || '',
                             whatsapp: whatsappInput
                         }));
-                    }, 2000);
+                        return;
+                    }
+
+                    setErrorMsg(`❌ O número de WhatsApp informado não confere com o cadastro na planilha.\n\nTente novamente. Tentativa ${newAttempts} de 3.\n\nSe preferir, você pode reenviar sua inscrição para atualização dos dados.`);
+                    // Dar chance de digitar novamente (limpa o campo)
+                    setWhatsappInput('');
                     return;
                 }
                 
                 console.log('✅ WhatsApp confere com a planilha!');
+                // Resetar tentativas ao validar corretamente
+                setShowWhatsAppError(false);
+                setWhatsappAttempts(0);
             }
             
             // Se WhatsApp está no Supabase, usar ele; senão, usar o informado
@@ -264,8 +381,21 @@ function Login() {
 
             if (!result.success) {
                 console.error('❌ Falha ao enviar código:', result.error);
+                
+                // Mensagem de erro mais específica baseada no tipo de erro
+                let errorMessage = result.error || 'Erro desconhecido';
+                
+                // Se for erro 404, significa que a Edge Function não está deployada
+                if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+                    errorMessage = `❌ Serviço de envio de código não configurado (HTTP 404).\n\nA Edge Function 'send-whatsapp-code' precisa ser deployada no Supabase.\n\nPor favor, entre em contato com o administrador do sistema.`;
+                } else if (errorMessage.includes('Erro ao processar resposta')) {
+                    errorMessage = `❌ Erro ao processar resposta do servidor.\n\nPor favor, tente novamente em alguns instantes.`;
+                } else {
+                    errorMessage = `❌ Erro ao enviar código de verificação: ${errorMessage}\n\nPor favor, verifique o número e tente novamente.`;
+                }
+                
                 // Manter na tela de input_whatsapp para permitir nova tentativa
-                setErrorMsg(`❌ Erro ao enviar código de verificação: ${result.error || 'Erro desconhecido'}\n\nPor favor, verifique o número e tente novamente.`);
+                setErrorMsg(errorMessage);
                 setSendingCode(false);
                 // Garantir que estamos no step correto
                 if (step !== 'input_whatsapp') {
@@ -341,6 +471,11 @@ function Login() {
 
             console.log('✅ Código validado com sucesso!');
             setCodeAttempts(0); // Resetar contador de tentativas
+
+            // Marcar 2FA como validado para manter o piloto logado nas próximas visitas
+            if (user?.email) {
+                localStorage.setItem(get2FAKey(user.email), 'true');
+            }
             
             // SEMPRE atualizar WhatsApp do piloto no Supabase após validação bem-sucedida
             // Isso garante que o WhatsApp está salvo no banco antes de redirecionar
@@ -612,6 +747,11 @@ function Login() {
                             animation: 'spin 1s linear infinite'
                         }} />
                         <p style={{ color: '#06B6D4', fontSize: '1.1rem', fontWeight: 'bold' }}>🔍 Verificando inscrição...</p>
+                        {user?.email && (
+                            <p style={{ color: '#94A3B8', fontSize: '0.9rem', marginTop: '15px', marginBottom: '5px' }}>
+                                E-mail: <strong style={{ color: '#E2E8F0' }}>{user.email}</strong>
+                            </p>
+                        )}
                         <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: '10px' }}>Consultando base de dados</p>
                     </div>
                 )}
@@ -631,11 +771,13 @@ function Login() {
                                 Piloto Identificado
                             </p>
                             <h3 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.4rem', fontWeight: '900' }}>
-                                {pilotoData?.nome || user?.email}
+                                {pilotoData?.nome || 'Piloto'}
                             </h3>
-                            <p style={{ color: '#06B6D4', fontSize: '0.85rem', margin: 0 }}>
-                                {user?.email}
-                            </p>
+                            {user?.email && (
+                                <p style={{ color: '#06B6D4', fontSize: '0.85rem', margin: 0 }}>
+                                    📧 {user.email}
+                                </p>
+                            )}
                             {pilotoData?.grid && (
                                 <p style={{ color: '#94A3B8', fontSize: '0.8rem', marginTop: '8px' }}>
                                     {pilotoData.grid === 'carreira' ? '🏆 Grid Carreira' : '💡 Grid Light'}
@@ -692,6 +834,37 @@ function Login() {
                         >
                             {sendingCode ? '📤 Enviando código...' : '📱 Enviar Código de Verificação'}
                         </button>
+
+                        {/* Se WhatsApp não confere, permitir reenviar inscrição sem forçar imediatamente */}
+                        {showWhatsAppError && (
+                            <button
+                                onClick={() => {
+                                    setStep('inscricao_manual');
+                                    setInscricaoData(prev => ({
+                                        ...prev,
+                                        email: user?.email || '',
+                                        nome: pilotoPlanilhaData?.nomeCadastrado || '',
+                                        nomePiloto: pilotoPlanilhaData?.nome || pilotoData?.nome || '',
+                                        whatsapp: whatsappInput
+                                    }));
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    marginTop: '12px',
+                                    background: 'transparent',
+                                    color: '#FCA5A5',
+                                    border: '1px solid rgba(239, 68, 68, 0.5)',
+                                    borderRadius: '10px',
+                                    fontWeight: '700',
+                                    fontSize: '0.95rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s'
+                                }}
+                            >
+                                📝 Reenviar inscrição (atualizar dados)
+                            </button>
+                        )}
                     </div>
                 )}
 

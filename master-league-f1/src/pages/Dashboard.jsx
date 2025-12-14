@@ -201,6 +201,8 @@ function Dashboard() {
     const [dashData, setDashData] = useState(null);
     const [acusacoesPendentes, setAcusacoesPendentes] = useState(0);
 
+    const get2FAKey = (email) => `ml_pilot_2fa_ok:${(email || '').toLowerCase().trim()}`;
+
     useEffect(() => {
         // Verificar sessão inicial
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -208,6 +210,15 @@ function Dashboard() {
             setSession(session);
             if (!session) {
                 console.log('⚠️ Nenhuma sessão encontrada. Redirecionando para login...');
+                setLoadingAuth(false);
+                navigate('/login');
+                return;
+            }
+
+            // Se tem sessão mas não tem 2FA validado, voltar para /login
+            const has2FA = localStorage.getItem(get2FAKey(session.user?.email)) === 'true';
+            if (!has2FA) {
+                console.log('⚠️ Sessão ativa mas 2FA não validado. Redirecionando para /login...');
                 setLoadingAuth(false);
                 navigate('/login');
             }
@@ -223,6 +234,13 @@ function Dashboard() {
                 navigate('/login');
             } else if (session) {
                 console.log('✅ Sessão ativa no Dashboard');
+
+                const has2FA = localStorage.getItem(get2FAKey(session.user?.email)) === 'true';
+                if (!has2FA) {
+                    console.log('⚠️ Sessão ativa mas 2FA não validado. Redirecionando para /login...');
+                    setLoadingAuth(false);
+                    navigate('/login');
+                }
             }
         });
         
@@ -389,6 +407,10 @@ function Dashboard() {
     const handleLogout = async () => {
         try {
             console.log('🚪 Fazendo logout...');
+            // Limpar flag local de 2FA (para exigir validação no próximo login)
+            if (session?.user?.email) {
+                localStorage.removeItem(get2FAKey(session.user.email));
+            }
             await supabase.auth.signOut();
             // Limpar qualquer cache/localStorage se necessário
             // Redirecionar para login após logout

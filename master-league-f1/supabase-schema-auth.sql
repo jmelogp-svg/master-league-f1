@@ -45,15 +45,15 @@ CREATE POLICY verification_codes_insert ON whatsapp_verification_codes
 CREATE POLICY verification_codes_select ON whatsapp_verification_codes
     FOR SELECT
     USING (
-        auth.uid() IS NOT NULL AND 
-        email = (SELECT email FROM auth.users WHERE id = auth.uid())
+        auth.uid() IS NOT NULL AND
+        lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
     );
 
 CREATE POLICY verification_codes_update ON whatsapp_verification_codes
     FOR UPDATE
     USING (
-        auth.uid() IS NOT NULL AND 
-        email = (SELECT email FROM auth.users WHERE id = auth.uid())
+        auth.uid() IS NOT NULL AND
+        lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
     );
 
 -- Comentário: Para desenvolvimento, pode desabilitar RLS temporariamente

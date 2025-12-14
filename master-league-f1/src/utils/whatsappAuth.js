@@ -5,9 +5,6 @@
 
 import { supabase } from '../supabaseClient';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
 /**
  * Solicita envio de código de verificação via WhatsApp
  * @param {string} email - Email do piloto
@@ -19,51 +16,37 @@ export async function requestVerificationCode(email, whatsapp, nomePiloto = null
     try {
         console.log('📱 Solicitando código de verificação...', { email, whatsapp });
 
-        // Chamar Edge Function
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/send-whatsapp-code`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            },
-            body: JSON.stringify({
+        // Chamar Edge Function via supabase-js (evita depender de VITE_SUPABASE_URL/.env)
+        const { data, error } = await supabase.functions.invoke('send-whatsapp-code', {
+            body: {
                 email: email.toLowerCase().trim(),
-                whatsapp: whatsapp,
-                nomePiloto: nomePiloto,
-            }),
+                whatsapp,
+                nomePiloto,
+            },
         });
 
-        // Verificar se a resposta tem conteúdo antes de fazer parse JSON
-        const responseText = await response.text();
-        let data;
-        
-        try {
-            data = responseText ? JSON.parse(responseText) : {};
-        } catch (parseError) {
-            console.error('❌ Erro ao fazer parse da resposta:', parseError);
-            console.error('📄 Resposta recebida (texto):', responseText);
-            return {
-                success: false,
-                error: `Erro ao processar resposta do servidor: ${responseText.substring(0, 100)}`,
-            };
-        }
+        if (error) {
+            console.error('❌ Erro ao solicitar código (invoke):', error);
+            const status = error.status || error.code;
 
-        if (!response.ok) {
-            console.error('❌ Erro ao solicitar código (HTTP não OK):', {
-                status: response.status,
-                statusText: response.statusText,
-                data: data
-            });
+            // 404 geralmente significa função não deployada no projeto Supabase configurado
+            if (String(status) === '404') {
+                return {
+                    success: false,
+                    error: "Serviço de envio de código não configurado (HTTP 404). A Edge Function 'send-whatsapp-code' precisa ser deployada no Supabase.",
+                };
+            }
+
             return {
                 success: false,
-                error: data.error || data.message || `Erro ao enviar código (HTTP ${response.status}). Verifique se o número está correto e tente novamente.`,
+                error: error.message || `Erro ao enviar código (HTTP ${status || 'desconhecido'}).`,
             };
         }
 
         console.log('✅ Código solicitado com sucesso');
         return {
             success: true,
-            code_id: data.code_id, // Para debug - não usar em produção
+            code_id: data?.code_id, // Para debug - não usar em produção
         };
 
     } catch (error) {
@@ -144,7 +127,8 @@ export async function verifyCode(email, code) {
             .from('whatsapp_verification_codes')
             .update({ 
                 used: true,
-                attempts: codeRecord.attempts + 1,
+                // Não incrementa attempts em caso de sucesso
+                attempts: codeRecord.attempts,
             })
             .eq('id', codeRecord.id);
 
