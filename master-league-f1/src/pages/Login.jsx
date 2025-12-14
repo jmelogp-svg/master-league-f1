@@ -1,18 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { findDriverByEmail } from '../utils/syncPilotosFromSheet';
+import { requestVerificationCode, verifyCode, cleanWhatsAppNumber, formatWhatsAppDisplay } from '../utils/whatsappAuth';
+import { findAndSyncPilotoFromSheet, findDriverByEmail } from '../utils/syncPilotosFromSheet';
 
 function Login() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [step, setStep] = useState('login'); // 'login', 'verifying_email', 'input_whatsapp', 'success', 'inscricao_manual'
+    const [step, setStep] = useState('login'); // 'login', 'verifying_email', 'input_whatsapp', 'verify_code', 'success', 'inscricao_manual'
     const [user, setUser] = useState(null);
-    const [sheetData, setSheetData] = useState(null);
     const [whatsappInput, setWhatsappInput] = useState('');
+    const [codeInput, setCodeInput] = useState('');
+    const [codeSent, setCodeSent] = useState(false);
+    const [sendingCode, setSendingCode] = useState(false);
+    const [verifyingCode, setVerifyingCode] = useState(false);
+    const [codeAttempts, setCodeAttempts] = useState(0); // Contador de tentativas de código
     const [errorMsg, setErrorMsg] = useState('');
     const [showWhatsAppError, setShowWhatsAppError] = useState(false);
     const [whatsappAttempts, setWhatsappAttempts] = useState(0);
+    const [pilotoData, setPilotoData] = useState(null);
+    const [pilotoPlanilhaData, setPilotoPlanilhaData] = useState(null); // Dados da planilha para validação
     const [inscricaoEnviada, setInscricaoEnviada] = useState(false);
     const [inscricaoData, setInscricaoData] = useState({
         email: '',
@@ -31,21 +38,9 @@ function Login() {
             if (session?.user) {
                 setUser(session.user);
                 // Se há sessão ativa, verificar se o piloto já está validado no banco
-                const { data: pilotoExistente, error: pilotoError } = await supabase
-                    .from('pilotos')
-                    .select('*')
-                    .eq('email', session.user.email.toLowerCase())
-                    .single();
-                
-                if (pilotoExistente && pilotoExistente.whatsapp) {
-                    // Piloto já validado e com sessão ativa (não fez logout), redirecionar direto
-                    // Não precisa pedir WhatsApp novamente se já está logado
-                    console.log('✅ Piloto já validado com sessão ativa. Redirecionando para dashboard...');
-                    navigate('/dashboard');
-                    return;
-                }
-                
-                // Piloto não validado ainda ou sem WhatsApp, verificar na planilha e pedir confirmação
+                // SEMPRE verificar e pedir confirmação do WhatsApp (mesmo se já tiver cadastrado)
+                // Isso garante segurança a cada login
+                console.log('🔍 Sempre pedir confirmação de WhatsApp (segurança a cada login)...');
                 checkDriverRegistration(session.user.email);
             }
         };
@@ -66,26 +61,21 @@ function Login() {
                 console.log('🔍 Verificando na planilha e pedindo confirmação do WhatsApp...');
                 checkDriverRegistration(session.user.email);
             } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-                console.log('🔄 Login - Token atualizado:', session.user.email);
+                console.log('🔄 Login - Token atualizado (renovação, não novo login):', session.user.email);
                 setUser(session.user);
-                // Em refresh de token (não é novo login, apenas renovação), verificar se já está validado
-                const { data: pilotoExistente } = await supabase
-                    .from('pilotos')
-                    .select('*')
-                    .eq('email', session.user.email.toLowerCase())
-                    .single();
-                
-                if (pilotoExistente && pilotoExistente.whatsapp) {
-                    // Só redirecionar se já validou WhatsApp anteriormente (não é novo login)
-                    navigate('/dashboard');
-                }
+                // Em refresh de token, apenas manter a sessão ativa
+                // NÃO redirecionar - deixar o usuário onde está
+                // Se estiver na página de login, não fazer nada (não é novo login)
             } else if (event === 'SIGNED_OUT') {
                 console.log('🚪 Login - Usuário deslogado');
                 setUser(null);
                 setStep('login');
                 // Limpar estados ao fazer logout
-                setSheetData(null);
                 setWhatsappInput('');
+                setCodeInput('');
+                setCodeAttempts(0);
+                setPilotoData(null);
+                setPilotoPlanilhaData(null);
                 setErrorMsg('');
                 setShowWhatsAppError(false);
                 setWhatsappAttempts(0);
@@ -124,8 +114,9 @@ function Login() {
             
             // 2. Limpar todos os estados
             setUser(null);
-            setSheetData(null);
+            setPilotoData(null);
             setWhatsappInput('');
+            setCodeInput('');
             setErrorMsg('');
             setStep('login');
             setLoading(false);
@@ -140,132 +131,266 @@ function Login() {
         }
     };
 
-    // 3. Verificar se o email está na planilha
+    // 3. Verificar se o email está na tabela pilotos do Supabase
     const checkDriverRegistration = async (email) => {
         setStep('verifying_email');
         setErrorMsg('');
         
-        // SEMPRE buscar na planilha e pedir confirmação do WhatsApp
-        // Isso garante que o piloto sempre confirme sua identidade
-        console.log('🔍 Buscando piloto na planilha CADASTRO MLF1...');
-        const result = await findDriverByEmail(email);
+        console.log('🔍 [PASSO 1] Buscando piloto na tabela pilotos (Supabase)...');
+        
+        try {
+            // PASSO 1: Verificar se email está no Supabase
+            const { data: piloto, error } = await supabase
+                .from('pilotos')
+                .select('*')
+                .eq('email', email.toLowerCase().trim())
+                .single();
 
-        if (result.found) {
-            setSheetData(result);
+            if (error || !piloto) {
+                console.log('❌ [PASSO 1] Piloto não encontrado no Supabase.');
+                console.log('🔍 [PASSO 2] Buscando na planilha CADASTRO MLF1...');
+                
+                // PASSO 2: Se não encontrou no Supabase, buscar na planilha
+                const syncResult = await findAndSyncPilotoFromSheet(email);
+                
+                if (syncResult.found && syncResult.piloto) {
+                    console.log('✅ [PASSO 2] Piloto encontrado na planilha e sincronizado com Supabase!');
+                    
+                    // Armazenar dados do piloto e da planilha
+                    setPilotoData(syncResult.piloto);
+                    setPilotoPlanilhaData(syncResult.dadosPlanilha);
+                    
+                    // NÃO pré-preencher WhatsApp - piloto deve digitar para confirmar
+                    setWhatsappInput('');
+                    
+                    setStep('input_whatsapp');
+                    return;
+                } else {
+                    // PASSO 3: Não encontrou nem no Supabase nem na planilha
+                    console.log('❌ [PASSO 2] Piloto não encontrado na planilha.');
+                    setStep('inscricao_manual');
+                    setInscricaoData(prev => ({ ...prev, email: email }));
+                    setErrorMsg(`❌ E-mail não encontrado na base de dados nem na planilha de inscrição.\n\nPreencha o formulário abaixo para que a administração possa verificar suas informações.`);
+                    return;
+                }
+            }
+
+            // PASSO 1: Piloto encontrado no Supabase
+            console.log('✅ [PASSO 1] Piloto encontrado no Supabase:', piloto);
+            setPilotoData(piloto);
+            
+            // Buscar dados da planilha também para validação de WhatsApp
+            console.log('🔍 Buscando dados na planilha para validação...');
+            const planilhaResult = await findDriverByEmail(email);
+            if (planilhaResult.found) {
+                setPilotoPlanilhaData(planilhaResult);
+            }
+            
+            // NÃO pré-preencher WhatsApp - piloto deve digitar para confirmar
+            setWhatsappInput('');
+            
             setStep('input_whatsapp');
-        } else {
-            // Se não encontrou, abrir formulário de inscrição manual para admin verificar
-            setStep('inscricao_manual');
-            setInscricaoData(prev => ({ ...prev, email: email }));
-            setErrorMsg(`❌ E-mail não encontrado na planilha CADASTRO MLF1.\n\nPreencha o formulário abaixo para que a administração possa verificar suas informações.`);
+            
+        } catch (err) {
+            console.error('❌ Erro ao buscar piloto:', err);
+            setErrorMsg('Erro ao verificar cadastro. Tente novamente.');
+            setStep('login');
         }
     };
 
-    // 4. Validar WhatsApp
-    const handleVerifyWhatsApp = async () => {
-        if (!whatsappInput || !sheetData) {
-            setErrorMsg('Digite o número do WhatsApp');
+    // 4. Enviar código de verificação via WhatsApp (com validação)
+    const handleSendCode = async () => {
+        if (!whatsappInput || whatsappInput.length < 14) {
+            setErrorMsg('Digite um número de WhatsApp válido');
             return;
         }
 
-        const cleanInput = whatsappInput.replace(/\D/g, '');
-        const cleanExpected = sheetData.whatsappEsperado.replace(/\D/g, '');
+        if (!user?.email || !pilotoData) {
+            setErrorMsg('Erro: Sessão inválida. Faça login novamente.');
+            setStep('login');
+            return;
+        }
 
-        console.log('📱 Comparando WhatsApp:');
-        console.log('   Digitado:', cleanInput);
-        console.log('   Esperado:', cleanExpected);
+        setSendingCode(true);
+        setErrorMsg('');
 
-        const lastDigitsInput = cleanInput.slice(-9);
-        const lastDigitsExpected = cleanExpected.slice(-9);
-
-        if (cleanInput === cleanExpected || lastDigitsInput === lastDigitsExpected) {
-            console.log('✅ WhatsApp validado com sucesso!');
-            // Resetar tentativas ao validar com sucesso
-            setWhatsappAttempts(0);
-            setShowWhatsAppError(false);
-            setStep('success');
+        try {
+            const whatsappCleaned = cleanWhatsAppNumber(whatsappInput);
+            console.log('📱 WhatsApp informado:', whatsappCleaned);
             
-            try {
-                console.log('💾 Salvando piloto no banco...');
-
-                const pilotoData = {
-                    email: sheetData.email,
-                    nome: sheetData.nome,
-                    whatsapp: sheetData.whatsappEsperado,
-                    grid: sheetData.grid || 'carreira',
-                    equipe: null,
-                    is_steward: false
-                    // Removido 'status', 'gamertag' e 'plataforma' pois não existem na tabela pilotos
-                };
-
-                console.log('📋 Dados a inserir:', pilotoData);
-
-                const { data, error } = await supabase
-                    .from('pilotos')
-                    .upsert(pilotoData, { 
-                        onConflict: 'email',
-                        ignoreDuplicates: false
-                    })
-                    .select();
-
-                if (error) {
-                    console.error('❌ Erro do Supabase:', error);
-                    setErrorMsg(`Erro ao salvar dados: ${error.message}`);
-                    setStep('input_whatsapp');
+            // VALIDAÇÃO: Se tem dados da planilha, validar WhatsApp
+            if (pilotoPlanilhaData?.whatsappEsperado) {
+                const whatsappPlanilha = cleanWhatsAppNumber(pilotoPlanilhaData.whatsappEsperado);
+                console.log('📱 WhatsApp esperado (planilha):', whatsappPlanilha);
+                
+                // Comparar últimos 9 dígitos ou número completo
+                const ultimos9Digitado = whatsappCleaned.slice(-9);
+                const ultimos9Planilha = whatsappPlanilha.slice(-9);
+                
+                if (whatsappCleaned !== whatsappPlanilha && ultimos9Digitado !== ultimos9Planilha) {
+                    console.log('❌ WhatsApp não confere com a planilha');
+                    setSendingCode(false);
+                    setErrorMsg('❌ O número de WhatsApp informado não confere com o cadastro na planilha.\n\nPor favor, verifique o número ou reenvie a inscrição para atualizar os dados.');
+                    
+                    // Oferecer opção de reenvio de inscrição
+                    setTimeout(() => {
+                        setStep('inscricao_manual');
+                        setInscricaoData(prev => ({ 
+                            ...prev, 
+                            email: user.email,
+                            nome: pilotoPlanilhaData.nomeCadastrado || '',
+                            nomePiloto: pilotoPlanilhaData.nome || '',
+                            whatsapp: whatsappInput
+                        }));
+                    }, 2000);
                     return;
                 }
+                
+                console.log('✅ WhatsApp confere com a planilha!');
+            }
+            
+            // Se WhatsApp está no Supabase, usar ele; senão, usar o informado
+            const whatsappParaEnviar = pilotoData.whatsapp 
+                ? cleanWhatsAppNumber(pilotoData.whatsapp)
+                : whatsappCleaned;
 
-                console.log('✅ Piloto salvo com sucesso!', data);
-                
-                // Verificar se a sessão está ativa antes de redirecionar
-                const { data: { session: currentSession } } = await supabase.auth.getSession();
-                if (!currentSession) {
-                    console.warn('⚠️ Sessão não encontrada após salvar piloto. Aguardando...');
-                    // Aguardar um pouco e verificar novamente
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    const { data: { session: retrySession } } = await supabase.auth.getSession();
-                    if (!retrySession) {
-                        console.error('❌ Sessão ainda não encontrada. Redirecionando para login...');
-                        setErrorMsg('Erro ao manter sessão. Por favor, faça login novamente.');
-                        setStep('login');
-                        return;
-                    }
+            console.log('📱 Enviando código para:', whatsappParaEnviar);
+
+            const result = await requestVerificationCode(
+                user.email,
+                whatsappParaEnviar,
+                pilotoData.nome || 'Piloto'
+            );
+
+            if (!result.success) {
+                console.error('❌ Falha ao enviar código:', result.error);
+                // Manter na tela de input_whatsapp para permitir nova tentativa
+                setErrorMsg(`❌ Erro ao enviar código de verificação: ${result.error || 'Erro desconhecido'}\n\nPor favor, verifique o número e tente novamente.`);
+                setSendingCode(false);
+                // Garantir que estamos no step correto
+                if (step !== 'input_whatsapp') {
+                    setStep('input_whatsapp');
                 }
-                
-                console.log('✅ Sessão confirmada. Redirecionando para /dashboard...');
-                // Não marcar como inscrição enviada, é login bem-sucedido
-                setInscricaoEnviada(false);
-                // Redirecionar imediatamente já que a sessão está confirmada
-                navigate('/dashboard');
-                
-            } catch (err) {
-                console.error('❌ Erro inesperado:', err);
-                setErrorMsg(`Erro ao salvar dados: ${err.message}`);
+                return;
+            }
+
+            console.log('✅ Código enviado com sucesso!');
+            setCodeSent(true);
+            setErrorMsg(''); // Limpar erros anteriores
+            setStep('verify_code');
+            setSendingCode(false);
+            
+        } catch (err) {
+            console.error('❌ Erro ao enviar código (exceção):', err);
+            // Manter na tela de input_whatsapp para permitir nova tentativa
+            setErrorMsg(`❌ Erro inesperado ao enviar código: ${err.message || 'Erro desconhecido'}\n\nPor favor, tente novamente ou verifique sua conexão.`);
+            setSendingCode(false);
+            // Garantir que estamos no step correto
+            if (step !== 'input_whatsapp') {
                 setStep('input_whatsapp');
             }
-        } else {
-            console.log('❌ WhatsApp não confere');
-            // Incrementar contador de tentativas
-            const newAttempts = whatsappAttempts + 1;
-            setWhatsappAttempts(newAttempts);
-            
-            // Se já tentou 3 vezes, oferecer reenviar inscrição
-            if (newAttempts >= 3) {
-                setShowWhatsAppError(false);
-                setStep('inscricao_manual');
-                setInscricaoData(prev => ({ 
-                    ...prev, 
-                    email: sheetData.email,
-                    nome: sheetData.nomeCadastrado || '',
-                    nomePiloto: sheetData.nome || '',
-                    whatsapp: whatsappInput
-                }));
-                setErrorMsg('❌ Após várias tentativas, o número informado não confere com o cadastro na planilha.\n\nPreencha o formulário abaixo para que a administração possa verificar suas informações.');
-            } else {
-                // Mostrar popup de erro e permitir tentar novamente
-                setShowWhatsAppError(true);
-                setWhatsappInput(''); // Limpar campo para nova tentativa
+        }
+    };
+
+    // 5. Validar código de verificação
+    const handleVerifyCode = async () => {
+        if (!codeInput || codeInput.length !== 6) {
+            setErrorMsg('Digite o código de 6 dígitos');
+            return;
+        }
+
+        if (!user?.email) {
+            setErrorMsg('Erro: Sessão inválida. Faça login novamente.');
+            setStep('login');
+            return;
+        }
+
+        setVerifyingCode(true);
+        setErrorMsg('');
+
+        try {
+            console.log('🔍 Validando código...');
+
+            const result = await verifyCode(user.email, codeInput);
+
+            if (!result.success || !result.valid) {
+                const newAttempts = codeAttempts + 1;
+                setCodeAttempts(newAttempts);
+                
+                // Após 3 tentativas incorretas, redirecionar para formulário de inscrição
+                if (newAttempts >= 3) {
+                    console.log('❌ Muitas tentativas incorretas de código. Redirecionando para formulário...');
+                    setErrorMsg('❌ Muitas tentativas incorretas.\n\nPreencha o formulário abaixo para que a administração possa verificar suas informações.');
+                    setStep('inscricao_manual');
+                    setInscricaoData(prev => ({ 
+                        ...prev, 
+                        email: user.email,
+                        nome: pilotoPlanilhaData?.nomeCadastrado || pilotoData?.nome || '',
+                        nomePiloto: pilotoPlanilhaData?.nome || pilotoData?.nome || '',
+                        whatsapp: whatsappInput
+                    }));
+                    setVerifyingCode(false);
+                    return;
+                }
+                
+                setErrorMsg(result.error || `Código inválido. Tentativa ${newAttempts} de 3. Verifique e tente novamente.`);
+                setVerifyingCode(false);
+                setCodeInput(''); // Limpar campo para nova tentativa
+                return;
             }
+
+            console.log('✅ Código validado com sucesso!');
+            setCodeAttempts(0); // Resetar contador de tentativas
+            
+            // SEMPRE atualizar WhatsApp do piloto no Supabase após validação bem-sucedida
+            // Isso garante que o WhatsApp está salvo no banco antes de redirecionar
+            if (user?.email && whatsappInput) {
+                const whatsappCleaned = cleanWhatsAppNumber(whatsappInput);
+                console.log('💾 Atualizando WhatsApp do piloto no Supabase:', whatsappCleaned);
+                
+                const { error: updateError } = await supabase
+                    .from('pilotos')
+                    .update({ whatsapp: whatsappCleaned })
+                    .eq('email', user.email.toLowerCase().trim());
+                
+                if (updateError) {
+                    console.error('❌ Erro ao atualizar WhatsApp:', updateError);
+                    // Mesmo com erro, continuar o fluxo pois o código foi validado
+                } else {
+                    console.log('✅ WhatsApp atualizado no Supabase com sucesso!');
+                }
+            } else {
+                console.warn('⚠️ Não foi possível atualizar WhatsApp: email ou whatsappInput ausente');
+            }
+
+            // Verificar se a sessão está ativa antes de redirecionar
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            if (!currentSession) {
+                console.warn('⚠️ Sessão não encontrada após validar código. Aguardando...');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const { data: { session: retrySession } } = await supabase.auth.getSession();
+                if (!retrySession) {
+                    console.error('❌ Sessão ainda não encontrada. Redirecionando para login...');
+                    setErrorMsg('Erro ao manter sessão. Por favor, faça login novamente.');
+                    setStep('login');
+                    setVerifyingCode(false);
+                    return;
+                }
+            }
+            
+            console.log('✅ Sessão confirmada. Redirecionando para /dashboard...');
+            setStep('success');
+            setVerifyingCode(false);
+            
+            // Redirecionar após um breve delay
+            setTimeout(() => {
+                navigate('/dashboard');
+            }, 1500);
+            
+        } catch (err) {
+            console.error('❌ Erro ao validar código:', err);
+            setErrorMsg('Erro ao validar código. Tente novamente.');
+            setVerifyingCode(false);
         }
     };
 
@@ -506,18 +631,20 @@ function Login() {
                                 Piloto Identificado
                             </p>
                             <h3 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.4rem', fontWeight: '900' }}>
-                                {sheetData?.nome}
+                                {pilotoData?.nome || user?.email}
                             </h3>
                             <p style={{ color: '#06B6D4', fontSize: '0.85rem', margin: 0 }}>
-                                {sheetData?.email}
+                                {user?.email}
                             </p>
-                            <p style={{ color: '#94A3B8', fontSize: '0.8rem', marginTop: '8px' }}>
-                                {sheetData?.grid === 'carreira' ? '🏆 Grid Carreira' : '💡 Grid Light'} • {sheetData?.plataforma}
-                            </p>
+                            {pilotoData?.grid && (
+                                <p style={{ color: '#94A3B8', fontSize: '0.8rem', marginTop: '8px' }}>
+                                    {pilotoData.grid === 'carreira' ? '🏆 Grid Carreira' : '💡 Grid Light'}
+                                </p>
+                            )}
                         </div>
 
                         <p style={{ color: '#E2E8F0', marginBottom: '20px', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                            Para confirmar sua identidade, informe o <strong style={{ color: '#06B6D4' }}>WhatsApp cadastrado</strong>:
+                            Para confirmar sua identidade, informe seu <strong style={{ color: '#06B6D4' }}>WhatsApp</strong>. Enviaremos um código de verificação:
                         </p>
 
                         <input
@@ -545,12 +672,12 @@ function Login() {
                         />
 
                         <button
-                            onClick={handleVerifyWhatsApp}
-                            disabled={whatsappInput.length < 14}
+                            onClick={handleSendCode}
+                            disabled={whatsappInput.length < 14 || sendingCode}
                             style={{
                                 width: '100%',
                                 padding: '16px',
-                                background: whatsappInput.length >= 14 
+                                background: (whatsappInput.length >= 14 && !sendingCode)
                                     ? 'linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%)' 
                                     : 'rgba(255,255,255,0.1)',
                                 color: 'white',
@@ -558,12 +685,124 @@ function Login() {
                                 borderRadius: '10px',
                                 fontWeight: 'bold',
                                 fontSize: '1.05rem',
-                                cursor: whatsappInput.length >= 14 ? 'pointer' : 'not-allowed',
+                                cursor: (whatsappInput.length >= 14 && !sendingCode) ? 'pointer' : 'not-allowed',
                                 transition: 'all 0.3s',
-                                opacity: whatsappInput.length >= 14 ? 1 : 0.5
+                                opacity: (whatsappInput.length >= 14 && !sendingCode) ? 1 : 0.5
                             }}
                         >
-                            ✅ Confirmar Acesso
+                            {sendingCode ? '📤 Enviando código...' : '📱 Enviar Código de Verificação'}
+                        </button>
+                    </div>
+                )}
+
+                {/* STEP: Verificar Código */}
+                {step === 'verify_code' && (
+                    <div>
+                        {/* Info do Piloto */}
+                        <div style={{ 
+                            marginBottom: '25px', 
+                            padding: '20px',
+                            background: 'rgba(6, 182, 212, 0.1)',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(6, 182, 212, 0.3)'
+                        }}>
+                            <p style={{ color: '#64748B', fontSize: '0.8rem', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Código Enviado
+                            </p>
+                            <p style={{ color: '#E2E8F0', fontSize: '0.95rem', margin: 0 }}>
+                                Enviamos um código de 6 dígitos para:
+                            </p>
+                            <p style={{ color: '#06B6D4', fontSize: '1rem', marginTop: '8px', fontWeight: 'bold' }}>
+                                📱 {formatWhatsAppDisplay(whatsappInput)}
+                            </p>
+                        </div>
+
+                        <p style={{ color: '#E2E8F0', marginBottom: '20px', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                            Digite o código que você recebeu no WhatsApp:
+                        </p>
+
+                        <input
+                            type="text"
+                            value={codeInput}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                                setCodeInput(value);
+                                setErrorMsg(''); // Limpa erro ao digitar
+                            }}
+                            placeholder="000000"
+                            maxLength={6}
+                            style={{
+                                width: '100%',
+                                padding: '16px',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '2px solid rgba(6, 182, 212, 0.3)',
+                                borderRadius: '10px',
+                                color: 'white',
+                                fontSize: '1.5rem',
+                                textAlign: 'center',
+                                marginBottom: '20px',
+                                outline: 'none',
+                                fontWeight: 'bold',
+                                letterSpacing: '8px',
+                                transition: 'all 0.3s',
+                                boxSizing: 'border-box'
+                            }}
+                            autoFocus
+                        />
+
+                        <button
+                            onClick={handleVerifyCode}
+                            disabled={codeInput.length !== 6 || verifyingCode}
+                            style={{
+                                width: '100%',
+                                padding: '16px',
+                                background: (codeInput.length === 6 && !verifyingCode)
+                                    ? 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)' 
+                                    : 'rgba(255,255,255,0.1)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '10px',
+                                fontWeight: 'bold',
+                                fontSize: '1.05rem',
+                                cursor: (codeInput.length === 6 && !verifyingCode) ? 'pointer' : 'not-allowed',
+                                transition: 'all 0.3s',
+                                opacity: (codeInput.length === 6 && !verifyingCode) ? 1 : 0.5,
+                                marginBottom: '15px'
+                            }}
+                        >
+                            {verifyingCode ? '⏳ Validando...' : '✅ Confirmar Código'}
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                setCodeSent(false);
+                                setCodeInput('');
+                                setCodeAttempts(0); // Resetar tentativas ao voltar
+                                setStep('input_whatsapp');
+                            }}
+                            disabled={sendingCode}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                background: 'transparent',
+                                color: '#94A3B8',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '10px',
+                                fontWeight: '600',
+                                fontSize: '0.9rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.background = 'rgba(255,255,255,0.05)';
+                                e.target.style.color = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.background = 'transparent';
+                                e.target.style.color = '#94A3B8';
+                            }}
+                        >
+                            🔄 Usar outro número ou reenviar código
                         </button>
                     </div>
                 )}
@@ -918,9 +1157,9 @@ function Login() {
                                             setStep('inscricao_manual');
                                             setInscricaoData(prev => ({ 
                                                 ...prev, 
-                                                email: sheetData?.email || user?.email || '',
-                                                nome: sheetData?.nomeCadastrado || '',
-                                                nomePiloto: sheetData?.nome || '',
+                                                email: user?.email || '',
+                                                nome: pilotoData?.nome || '',
+                                                nomePiloto: pilotoData?.nome || '',
                                                 whatsapp: whatsappInput
                                             }));
                                             setErrorMsg('❌ O número informado não confere com o cadastro na planilha.\n\nPreencha o formulário abaixo para que a administração possa verificar suas informações.');
@@ -956,9 +1195,9 @@ function Login() {
                                         setStep('inscricao_manual');
                                         setInscricaoData(prev => ({ 
                                             ...prev, 
-                                            email: sheetData?.email || user?.email || '',
-                                            nome: sheetData?.nomeCadastrado || '',
-                                            nomePiloto: sheetData?.nome || '',
+                                            email: user?.email || '',
+                                            nome: pilotoData?.nome || '',
+                                            nomePiloto: pilotoData?.nome || '',
                                             whatsapp: whatsappInput
                                         }));
                                         setErrorMsg('❌ Após várias tentativas, o número informado não confere com o cadastro na planilha.\n\nPreencha o formulário abaixo para que a administração possa verificar suas informações.');

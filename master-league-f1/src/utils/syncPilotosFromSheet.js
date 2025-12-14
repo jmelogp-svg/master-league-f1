@@ -53,21 +53,25 @@ export async function syncPilotosFromSheet() {
             // Coluna C (2) = WhatsApp  
             // Coluna D (3) = Plataforma
             // Coluna E (4) = Grid
-            // Coluna F (5) = Email
+            // Coluna F (5) = Email (alternativo)
+            // Coluna H (7) = E-mail Login (principal - usado para autenticação)
             // Coluna O (14) = Nome do Piloto
             const nome = (fields[14] || fields[0] || '').trim();
             const gamertag = (fields[1] || '').trim();
             const whatsapp = (fields[2] || '').trim();
             const plataformaRaw = (fields[3] || '').trim();
             const gridRaw = (fields[4] || '').trim();
-            const emailColunaF = (fields[5] || '').trim().toLowerCase();
-            const emailColunaG = (fields[6] || '').trim().toLowerCase(); // Novo mapeamento para coluna G
+            const emailColunaH = (fields[7] || '').trim().toLowerCase(); // Coluna H - E-mail Login (principal)
+            const emailColunaF = (fields[5] || '').trim().toLowerCase(); // Coluna F - Email alternativo
 
-            console.log(`Linha ${i + 1}: Gamertag="${gamertag}", Email="${emailColunaG}", Nome="${nome}", Grid="${gridRaw}"`);
+            // Usar email da coluna H (principal), se vazio, usar coluna F como fallback
+            const email = emailColunaH || emailColunaF;
+
+            console.log(`Linha ${i + 1}: Gamertag="${gamertag}", Email="${email}", Nome="${nome}", Grid="${gridRaw}"`);
 
             // Validar campos obrigatórios
-            if (!emailColunaG || !nome) {
-                console.warn(`⚠️ Linha ${i + 1} ignorada - email: "${emailColunaG}", nome: "${nome}"`);
+            if (!email || !nome) {
+                console.warn(`⚠️ Linha ${i + 1} ignorada - email: "${email}", nome: "${nome}"`);
                 continue;
             }
 
@@ -91,17 +95,15 @@ export async function syncPilotosFromSheet() {
             }
 
             pilotosParaInserir.push({
-                email: emailColunaG, // Usar email da coluna G
+                email: email, // Email da coluna H (E-mail Login)
                 nome,
-                gamertag: gamertag || null,
                 whatsapp: whatsapp || null,
                 grid,
-                plataforma,
                 equipe: null,
                 is_steward: false
             });
 
-            console.log(`✅ Piloto adicionado: ${nome} (${emailColunaG}) - Grid: ${grid}`);
+            console.log(`✅ Piloto adicionado: ${nome} (${email}) - Grid: ${grid}`);
         }
 
         console.log(`📊 Total de pilotos para inserir: ${pilotosParaInserir.length}`);
@@ -230,6 +232,64 @@ export async function findDriverByEmail(userEmail) {
 
     } catch (error) {
         console.error('❌ Erro ao buscar na planilha:', error);
+        return { found: false, error: error.message };
+    }
+}
+
+/**
+ * Busca um piloto específico na planilha e o insere no Supabase
+ * @param {string} userEmail - Email do piloto para buscar
+ * @returns {Promise<{found: boolean, piloto?: object, dadosPlanilha?: object, error?: string}>}
+ */
+export async function findAndSyncPilotoFromSheet(userEmail) {
+    try {
+        console.log('🔍 Buscando e sincronizando piloto da planilha para:', userEmail);
+        
+        // Buscar na planilha
+        const result = await findDriverByEmail(userEmail);
+        
+        if (!result.found) {
+            return { found: false, error: result.error || 'E-mail não encontrado na planilha' };
+        }
+        
+        console.log('✅ Piloto encontrado na planilha. Inserindo no Supabase...');
+        
+        // Preparar dados para inserção no Supabase
+        const pilotoData = {
+            email: result.email.toLowerCase().trim(),
+            nome: result.nome,
+            whatsapp: result.whatsappEsperado || null,
+            grid: result.grid,
+            equipe: null,
+            is_steward: false
+        };
+        
+        console.log('📋 Dados a inserir:', pilotoData);
+        
+        // Inserir no Supabase (upsert - atualiza se existir, cria se não existir)
+        const { data: pilotoInserido, error: insertError } = await supabase
+            .from('pilotos')
+            .upsert(pilotoData, { 
+                onConflict: 'email',
+                ignoreDuplicates: false
+            })
+            .select()
+            .single();
+        
+        if (insertError) {
+            console.error('❌ Erro ao inserir piloto no Supabase:', insertError);
+            return { found: true, error: `Erro ao inserir no Supabase: ${insertError.message}` };
+        }
+        
+        console.log('✅ Piloto inserido/sincronizado no Supabase com sucesso!');
+        return { 
+            found: true, 
+            piloto: pilotoInserido,
+            dadosPlanilha: result // Manter dados da planilha para validação de WhatsApp
+        };
+        
+    } catch (error) {
+        console.error('❌ Erro ao buscar e sincronizar piloto:', error);
         return { found: false, error: error.message };
     }
 }

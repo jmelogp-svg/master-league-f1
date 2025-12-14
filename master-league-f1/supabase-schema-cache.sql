@@ -113,3 +113,9 @@ COMMENT ON TABLE tracks_cache IS 'Cache de dados de tracks/circuitos sincronizad
 COMMENT ON TABLE minicup_cache IS 'Cache de dados da Minicup sincronizados do Google Sheets';
 COMMENT ON TABLE sync_log IS 'Log de todas as sincronizações realizadas para auditoria';
 
+
+
+
+
+
+

@@ -36,6 +36,10 @@ function Admin() {
     const [editingJurado, setEditingJurado] = useState(null); // { id, nome, email_google, whatsapp }
     const [savingJurado, setSavingJurado] = useState(false);
 
+    // Estados para Edição de Usuários/Pilotos
+    const [editingUser, setEditingUser] = useState(null); // { id, nome, email, grid, equipe, whatsapp, is_steward }
+    const [savingUser, setSavingUser] = useState(false);
+
     // Toggle para expandir/colapsar gaveta + marcar como lida automaticamente
     // Ao abrir uma gaveta, fecha todas as outras
     const toggleLance = async (notifId, isLido, event) => {
@@ -189,13 +193,23 @@ function Admin() {
 
     const fetchAllUsers = async () => {
         // setLoading(true); // Comentado para não piscar a tela no refresh
+        // Buscar pilotos da tabela 'pilotos'
         const { data, error } = await supabase
-            .from('profiles')
+            .from('pilotos')
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) console.error(error);
-        else setUsersList(data || []);
+        if (error) {
+            console.error('Erro ao buscar pilotos:', error);
+            // Tentar fallback para 'profiles' se 'pilotos' não existir
+            const { data: fallbackData, error: fallbackError } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (!fallbackError) setUsersList(fallbackData || []);
+        } else {
+            setUsersList(data || []);
+        }
         // setLoading(false);
     };
 
@@ -513,6 +527,119 @@ function Admin() {
         if (!error) { alert('Resetado!'); fetchAllUsers(); }
     };
 
+    // ===== FUNÇÕES DE EDIÇÃO DE USUÁRIOS =====
+    const handleEditUser = (user) => {
+        setEditingUser({
+            id: user.id,
+            email_original: user.email || '', // Guardar email original para busca
+            nome: user.nome_piloto || user.nome || '',
+            email: user.email || '',
+            grid: user.grid_preferencia || user.grid || 'carreira',
+            equipe: user.equipe || '',
+            whatsapp: user.whatsapp || '',
+            is_steward: user.is_steward || false,
+            nome_completo: user.nome_completo || '',
+            gamertag: user.gamertag || ''
+        });
+    };
+
+    const handleSaveUser = async () => {
+        if (!editingUser) return;
+
+        // Validações
+        if (!editingUser.nome.trim()) {
+            alert('⚠️ Informe o nome do piloto!');
+            return;
+        }
+        if (!editingUser.email.trim()) {
+            alert('⚠️ Informe o e-mail!');
+            return;
+        }
+        if (!editingUser.email.includes('@')) {
+            alert('⚠️ E-mail inválido!');
+            return;
+        }
+        if (editingUser.whatsapp && editingUser.whatsapp.replace(/\D/g, '').length < 10) {
+            alert('⚠️ WhatsApp inválido! Deve ter pelo menos 10 dígitos.');
+            return;
+        }
+
+        setSavingUser(true);
+        try {
+            // Preparar dados para atualização na tabela 'pilotos'
+            const dadosAtualizacao = {
+                nome: editingUser.nome.trim().toUpperCase(),
+                email: editingUser.email.trim().toLowerCase(),
+                grid: editingUser.grid,
+                equipe: editingUser.equipe || null,
+                whatsapp: editingUser.whatsapp || null,
+                is_steward: editingUser.is_steward || false,
+                updated_at: new Date().toISOString()
+            };
+
+            // Atualizar na tabela 'pilotos' usando ID (mais seguro) ou email original como fallback
+            let pilotosError = null;
+            if (editingUser.id) {
+                const { error } = await supabase
+                    .from('pilotos')
+                    .update(dadosAtualizacao)
+                    .eq('id', editingUser.id);
+                pilotosError = error;
+            }
+            
+            // Se não tem ID ou falhou, tentar por email original
+            if (pilotosError && editingUser.email_original) {
+                console.log('⚠️ Tentando atualizar por email original...');
+                const { error } = await supabase
+                    .from('pilotos')
+                    .update(dadosAtualizacao)
+                    .eq('email', editingUser.email_original.toLowerCase().trim());
+                pilotosError = error;
+            }
+
+            // Também atualizar na tabela 'profiles' (se existir) usando ID
+            let profilesError = null;
+            if (editingUser.id) {
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({
+                        nome_piloto: editingUser.nome.trim().toUpperCase(),
+                        nome_completo: editingUser.nome_completo || editingUser.nome.trim(),
+                        email: editingUser.email.trim().toLowerCase(),
+                        grid_preferencia: editingUser.grid,
+                        equipe: editingUser.equipe || null,
+                        whatsapp: editingUser.whatsapp || null,
+                        gamertag: editingUser.gamertag || null,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', editingUser.id);
+                profilesError = error;
+            }
+
+            // Se ambas as tabelas falharem, mostrar erro
+            if (pilotosError && profilesError) {
+                throw new Error(profilesError.message || pilotosError.message || 'Erro ao atualizar piloto');
+            }
+
+            // Se pelo menos uma atualização funcionou, considerar sucesso
+            if (!pilotosError) {
+                console.log('✅ Piloto atualizado na tabela pilotos com sucesso!');
+            }
+            if (!profilesError) {
+                console.log('✅ Perfil atualizado na tabela profiles com sucesso!');
+            }
+
+            alert('✅ Usuário atualizado com sucesso no Supabase!');
+            setEditingUser(null);
+            fetchAllUsers();
+        } catch (err) {
+            console.error('Erro ao salvar usuário:', err);
+            alert('❌ Erro ao salvar: ' + err.message);
+        } finally {
+            setSavingUser(false);
+        }
+    };
+
     if (loading) return <div style={{padding:'100px', textAlign:'center', color:'white'}}>Carregando...</div>;
 
     // TELA DE BLOQUEIO
@@ -600,7 +727,7 @@ function Admin() {
                     <div className="adm-content">
                         <div className="adm-list-header">
                             <div style={{flex:2}}>PILOTO / NOME</div>
-                            <div style={{flex:1}}>GAMERTAG</div>
+                            <div style={{flex:1}}>EQUIPE</div>
                             <div style={{flex:1}}>GRID</div>
                             <div style={{width:'100px', textAlign:'center'}}>STATUS</div>
                             <div style={{width:'180px', textAlign:'right'}}>AÇÕES</div>
@@ -611,15 +738,25 @@ function Admin() {
                         ) : (
                             <div className="adm-list-body">
                                 {usersList.map(user => {
-                                    const isPending = user.status === 'pending' || !user.status;
+                                    // Adaptar para campos da tabela 'pilotos' ou 'profiles'
+                                    const nome = user.nome || user.nome_piloto || 'Sem Nome';
+                                    const email = user.email || '';
+                                    const grid = user.grid || user.grid_preferencia || '-';
+                                    const equipe = user.equipe || '-';
+                                    const whatsapp = user.whatsapp || '-';
+                                    const isSteward = user.is_steward || false;
+                                    // Para 'profiles', verificar status; para 'pilotos', considerar sempre ativo
+                                    const isPending = user.status === 'pending' || (!user.status && user.nome_piloto);
+                                    
                                     return (
                                         <div key={user.id} className="adm-row">
                                             <div style={{flex:2}}>
-                                                <div style={{fontWeight:'800', color:'white', fontSize:'1rem'}}>{user.nome_piloto || 'Sem Nome'}</div>
-                                                <div style={{fontSize:'0.75rem', color:'#94A3B8'}}>{user.nome_completo || user.email}</div>
+                                                <div style={{fontWeight:'800', color:'white', fontSize:'1rem'}}>{nome}</div>
+                                                <div style={{fontSize:'0.75rem', color:'#94A3B8'}}>{email}</div>
+                                                {isSteward && <div style={{fontSize:'0.7rem', color:'#FFD700', marginTop:'2px'}}>👨‍⚖️ STEWARD</div>}
                                             </div>
-                                            <div style={{flex:1, fontSize:'0.9rem', color:'#CBD5E1'}}>{user.gamertag || '-'}</div>
-                                            <div style={{flex:1, fontSize:'0.8rem', textTransform:'uppercase', fontWeight:'700', color:'var(--highlight-cyan)'}}>{user.grid_preferencia || '-'}</div>
+                                            <div style={{flex:1, fontSize:'0.9rem', color:'#CBD5E1'}}>{equipe}</div>
+                                            <div style={{flex:1, fontSize:'0.8rem', textTransform:'uppercase', fontWeight:'700', color:'var(--highlight-cyan)'}}>{grid}</div>
                                             
                                             <div style={{width:'100px', textAlign:'center'}}>
                                                 <span className={`status-badge ${isPending ? 'pending' : 'active'}`}>
@@ -628,10 +765,11 @@ function Admin() {
                                             </div>
 
                                             <div className="adm-row-actions">
+                                                <button onClick={() => handleEditUser(user)} className="btn-icon-edit" title="Editar" style={{background:'rgba(59, 130, 246, 0.2)', border:'1px solid #3B82F6', color:'#3B82F6'}}>✏️</button>
                                                 {isPending && (
-                                                    <button onClick={() => handleApprove(user.id, user.nome_piloto)} className="btn-icon-approve" title="Aprovar">✅</button>
+                                                    <button onClick={() => handleApprove(user.id, nome)} className="btn-icon-approve" title="Aprovar">✅</button>
                                                 )}
-                                                <button onClick={() => handleReset(user.id, user.nome_piloto)} className="btn-icon-reset" title="Resetar">🔄</button>
+                                                <button onClick={() => handleReset(user.id, nome)} className="btn-icon-reset" title="Resetar">🔄</button>
                                             </div>
                                         </div>
                                     );
@@ -1384,6 +1522,238 @@ function Admin() {
                                 ))}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* ===== MODAL DE EDIÇÃO DE USUÁRIO ===== */}
+                {editingUser && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000,
+                        padding: '20px'
+                    }}
+                    onClick={() => setEditingUser(null)}
+                    >
+                        <div style={{
+                            background: '#1E293B',
+                            borderRadius: '12px',
+                            padding: '30px',
+                            maxWidth: '600px',
+                            width: '100%',
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            border: '2px solid #3B82F6'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h3 style={{ color: '#3B82F6', margin: 0, fontSize: '18px' }}>
+                                    ✏️ Editar Usuário
+                                </h3>
+                                <button
+                                    onClick={() => setEditingUser(null)}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#94A3B8',
+                                        fontSize: '24px',
+                                        cursor: 'pointer',
+                                        padding: '0',
+                                        width: '30px',
+                                        height: '30px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Nome do Piloto *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editingUser.nome}
+                                        onChange={(e) => setEditingUser({ ...editingUser, nome: e.target.value })}
+                                        placeholder="Ex: ALAIN PROST"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        E-mail *
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={editingUser.email}
+                                        onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                                        placeholder="Ex: piloto@example.com"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Grid *
+                                    </label>
+                                    <select
+                                        value={editingUser.grid}
+                                        onChange={(e) => setEditingUser({ ...editingUser, grid: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <option value="carreira">Carreira</option>
+                                        <option value="light">Light</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Equipe
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editingUser.equipe || ''}
+                                        onChange={(e) => setEditingUser({ ...editingUser, equipe: e.target.value })}
+                                        placeholder="Ex: MCLAREN"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        WhatsApp
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editingUser.whatsapp || ''}
+                                        onChange={(e) => setEditingUser({ ...editingUser, whatsapp: formatWhatsApp(e.target.value) })}
+                                        placeholder="(00) 00000-0000"
+                                        maxLength={15}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Gamertag
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editingUser.gamertag || ''}
+                                        onChange={(e) => setEditingUser({ ...editingUser, gamertag: e.target.value })}
+                                        placeholder="Ex: Piloto123"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: '#0F172A', borderRadius: '6px' }}>
+                                    <input
+                                        type="checkbox"
+                                        id="is_steward"
+                                        checked={editingUser.is_steward || false}
+                                        onChange={(e) => setEditingUser({ ...editingUser, is_steward: e.target.checked })}
+                                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                    />
+                                    <label htmlFor="is_steward" style={{ color: '#F8FAFC', fontSize: '14px', cursor: 'pointer', margin: 0 }}>
+                                        É Steward (acesso ao painel de análises)
+                                    </label>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                                    <button
+                                        onClick={() => setEditingUser(null)}
+                                        style={{
+                                            padding: '10px 20px',
+                                            background: '#475569',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleSaveUser}
+                                        disabled={savingUser}
+                                        style={{
+                                            padding: '10px 20px',
+                                            background: savingUser ? '#475569' : '#22C55E',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: savingUser ? 'not-allowed' : 'pointer',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        {savingUser ? '⏳ Salvando...' : '💾 Salvar'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

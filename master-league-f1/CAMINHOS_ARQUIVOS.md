@@ -121,3 +121,9 @@ Antes de fazer mudanças, faça backup:
 1. No Supabase: Settings → Database → Backups
 2. Ou exporte as tabelas manualmente via SQL Editor
 
+
+
+
+
+
+

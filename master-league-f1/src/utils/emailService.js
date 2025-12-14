@@ -77,7 +77,18 @@ async function sendTelegramMessage(message) {
             }),
         });
 
-        const data = await response.json();
+        // Verificar se a resposta tem conteúdo antes de fazer parse JSON
+        const responseText = await response.text();
+        let data;
+        
+        try {
+            data = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+            console.error('❌ Erro ao fazer parse da resposta Telegram:', parseError);
+            console.error('📄 Resposta recebida (texto):', responseText);
+            return false;
+        }
+        
         console.log('📬 Resposta Telegram:', data);
 
         if (response.ok && data.ok) {

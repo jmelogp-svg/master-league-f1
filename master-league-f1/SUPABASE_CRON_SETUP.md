@@ -177,3 +177,9 @@ SELECT cron.unschedule(jobid) FROM cron.job;
 
 4. **Falhas**: Se uma sincronização falhar, ela será registrada em `sync_log` com `status = 'error'`. Configure alertas se necessário.
 
+
+
+
+
+
+

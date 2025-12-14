@@ -269,8 +269,11 @@ function Dashboard() {
                 if (data) {
                     console.log('✅ Piloto encontrado:', data);
                     setProfile(data);
+                    // O Login.jsx já garante que o piloto validou o código antes de redirecionar aqui
+                    // Então não precisamos verificar WhatsApp novamente
                 } else {
-                    console.log('⚠️ Piloto não encontrado no banco');
+                    console.log('⚠️ Piloto não encontrado no banco. Redirecionando para login...');
+                    navigate('/login');
                 }
                 
                 setLoadingAuth(false);
