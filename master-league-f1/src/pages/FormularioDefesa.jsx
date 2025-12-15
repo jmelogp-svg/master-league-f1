@@ -53,23 +53,46 @@ function FormularioDefesa() {
                 if (pilotoEncontrado) {
                     setPilotoLogado(pilotoEncontrado);
                 } else {
-                    const { data: profileData } = await supabase
-                        .from('profiles')
+                    // Fallback 1: buscar da tabela 'pilotos' do Supabase
+                    const { data: pilotoData } = await supabase
+                        .from('pilotos')
                         .select('*')
-                        .eq('id', session.user.id)
+                        .eq('email', userEmail)
                         .single();
 
-                    if (profileData) {
+                    if (pilotoData) {
+                        const fotoNome = (pilotoData.nome || '').toLowerCase()
+                            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                            .replace(/\s+/g, '');
+                        
                         setPilotoLogado({
-                            nome: profileData.nome_piloto,
-                            gamertag: profileData.gamertag || '',
-                            whatsapp: profileData.whatsapp || '',
+                            nome: pilotoData.nome,
+                            gamertag: pilotoData.gamertag || '',
+                            whatsapp: pilotoData.whatsapp || '',
                             email: session.user.email,
-                            grid: profileData.grid || 'carreira',
-                            fotoNome: (profileData.nome_piloto || '').toLowerCase()
-                                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                                .replace(/\s+/g, '')
+                            grid: pilotoData.grid || 'carreira',
+                            fotoNome: fotoNome
                         });
+                    } else {
+                        // Fallback 2: buscar do perfil Supabase (tabela 'profiles')
+                        const { data: profileData } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', session.user.id)
+                            .single();
+
+                        if (profileData) {
+                            setPilotoLogado({
+                                nome: profileData.nome_piloto,
+                                gamertag: profileData.gamertag || '',
+                                whatsapp: profileData.whatsapp || '',
+                                email: session.user.email,
+                                grid: profileData.grid || 'carreira',
+                                fotoNome: (profileData.nome_piloto || '').toLowerCase()
+                                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                                    .replace(/\s+/g, '')
+                            });
+                        }
                     }
                 }
             } catch (err) {
