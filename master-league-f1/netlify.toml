@@ -1,6 +1,6 @@
 [build]
   # Comando para fazer o build do projeto
-  command = "npm ci && npm run build"
+  command = "npm install && npm run build"
   
   # Pasta onde o Netlify vai procurar os arquivos estáticos após o build
   publish = "dist"
@@ -8,6 +8,7 @@
 # Configuração do ambiente Node.js
 [build.environment]
   NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
 
 # Configurações de redirecionamento (SPA - Single Page Application)
 # O arquivo public/_redirects também é usado, mas esta configuração garante compatibilidade
