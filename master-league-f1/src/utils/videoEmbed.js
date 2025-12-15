@@ -7,10 +7,15 @@ export function getVideoEmbedUrl(url) {
     
     const cleanUrl = url.trim();
     
-    // YouTube
-    const ytMatch = cleanUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    // YouTube (incluindo Shorts)
+    // Suporta: youtube.com/watch?v=, youtube.com/embed/, youtube.com/v/, youtu.be/, youtube.com/shorts/
+    const ytMatch = cleanUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
     if (ytMatch) {
-        return `https://www.youtube.com/embed/${ytMatch[1]}`;
+        const videoId = ytMatch[1];
+        // Verificar se é um Short
+        const isShort = cleanUrl.includes('/shorts/');
+        // Para Shorts, usar o formato de embed padrão (funciona normalmente)
+        return `https://www.youtube.com/embed/${videoId}`;
     }
     
     // Vimeo

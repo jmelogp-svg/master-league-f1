@@ -149,3 +149,5 @@ Implementar sistema completo de autenticação 2FA onde:
 
 **Próximo passo recomendado:** Resolver erro do Z-API primeiro, depois implementar frontend 2FA.
 
+
+

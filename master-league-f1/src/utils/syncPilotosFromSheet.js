@@ -1,10 +1,80 @@
 import { supabase } from '../supabaseClient';
+import Papa from 'papaparse';
 
 // CADASTRO MLF1 (gid=1844400629)
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1844400629&single=true&output=csv';
+// Pilotos PR (gid=884534812) - Para buscar COD IDML
+const PILOTOS_PR_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=884534812&single=true&output=csv';
+
+/**
+ * Busca COD IDML da planilha "Pilotos PR" pelo nome do piloto
+ */
+async function buscarCodIdmlPorNome(nomePiloto) {
+    try {
+        const response = await fetch(PILOTOS_PR_CSV_URL);
+        if (!response.ok) {
+            console.warn('⚠️ Erro ao buscar planilha Pilotos PR:', response.status);
+            return null;
+        }
+        
+        const csvText = await response.text();
+        
+        return new Promise((resolve) => {
+            Papa.parse(csvText, {
+                header: false,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    const rows = results.data;
+                    if (rows.length < 2) {
+                        resolve(null);
+                        return;
+                    }
+                    
+                    // Normalizar nome para comparação
+                    const normalizarNome = (nome) => {
+                        return nome
+                            .normalize('NFD')
+                            .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+                            .trim()
+                            .toLowerCase()
+                            .replace(/\s+/g, ' '); // Normaliza espaços
+                    };
+                    
+                    const nomeNormalizado = normalizarNome(nomePiloto);
+                    
+                    // Buscar na planilha (Drivers = coluna A, COD IDML = coluna B)
+                    const match = rows.find((row, index) => {
+                        if (index === 0) return false; // Pular cabeçalho
+                        const driverName = normalizarNome(row[0] || '');
+                        // Busca exata ou parcial
+                        return driverName === nomeNormalizado || 
+                               driverName.includes(nomeNormalizado) || 
+                               nomeNormalizado.includes(driverName);
+                    });
+                    
+                    if (match && match[1]) {
+                        const codIdml = match[1].trim();
+                        console.log(`✅ COD IDML encontrado para ${nomePiloto}: ${codIdml}`);
+                        resolve(codIdml);
+                    } else {
+                        console.warn(`⚠️ COD IDML não encontrado para: ${nomePiloto}`);
+                        resolve(null);
+                    }
+                },
+                error: () => {
+                    resolve(null);
+                }
+            });
+        });
+    } catch (err) {
+        console.error('❌ Erro ao buscar COD IDML:', err);
+        return null;
+    }
+}
 
 /**
  * Sincroniza pilotos da planilha "CONTROLE ML1" (aba INSCRIÇÃO T20) com Supabase
+ * Agora também busca e inclui o COD IDML da planilha "Pilotos PR"
  */
 export async function syncPilotosFromSheet() {
     try {
@@ -56,6 +126,7 @@ export async function syncPilotosFromSheet() {
             // Coluna F (5) = Email (alternativo)
             // Coluna H (7) = E-mail Login (principal - usado para autenticação)
             // Coluna O (14) = Nome do Piloto
+            // Coluna P (15) = COD IDML (se disponível na planilha)
             const nome = (fields[14] || fields[0] || '').trim();
             const gamertag = (fields[1] || '').trim();
             const whatsapp = (fields[2] || '').trim();
@@ -63,6 +134,7 @@ export async function syncPilotosFromSheet() {
             const gridRaw = (fields[4] || '').trim();
             const emailColunaH = (fields[7] || '').trim().toLowerCase(); // Coluna H - E-mail Login (principal)
             const emailColunaF = (fields[5] || '').trim().toLowerCase(); // Coluna F - Email alternativo
+            const codIdmlColunaP = (fields[15] || '').trim(); // Coluna P - COD IDML (se disponível)
 
             // Usar email da coluna H (principal), se vazio, usar coluna F como fallback
             const email = emailColunaH || emailColunaF;
@@ -94,16 +166,25 @@ export async function syncPilotosFromSheet() {
                 plataforma = 'PC';
             }
 
+            // Buscar COD IDML: primeiro da coluna P (se disponível), senão da planilha Pilotos PR
+            let codIdml = codIdmlColunaP || null;
+            if (!codIdml) {
+                codIdml = await buscarCodIdmlPorNome(nome);
+            } else {
+                console.log(`✅ COD IDML encontrado na coluna P: ${codIdml}`);
+            }
+            
             pilotosParaInserir.push({
                 email: email, // Email da coluna H (E-mail Login)
                 nome,
                 whatsapp: whatsapp || null,
                 grid,
                 equipe: null,
-                is_steward: false
+                is_steward: false,
+                cod_idml: codIdml || null // COD IDML da coluna P ou da planilha Pilotos PR
             });
 
-            console.log(`✅ Piloto adicionado: ${nome} (${email}) - Grid: ${grid}`);
+            console.log(`✅ Piloto adicionado: ${nome} (${email}) - Grid: ${grid}${codIdml ? ` - COD IDML: ${codIdml}` : ''}`);
         }
 
         console.log(`📊 Total de pilotos para inserir: ${pilotosParaInserir.length}`);
@@ -254,6 +335,9 @@ export async function findAndSyncPilotoFromSheet(userEmail) {
         
         console.log('✅ Piloto encontrado na planilha. Inserindo no Supabase...');
         
+        // Buscar COD IDML da planilha Pilotos PR
+        const codIdml = await buscarCodIdmlPorNome(result.nome);
+        
         // Preparar dados para inserção no Supabase
         const pilotoData = {
             email: result.email.toLowerCase().trim(),
@@ -261,7 +345,8 @@ export async function findAndSyncPilotoFromSheet(userEmail) {
             whatsapp: result.whatsappEsperado || null,
             grid: result.grid,
             equipe: null,
-            is_steward: false
+            is_steward: false,
+            cod_idml: codIdml || null // COD IDML da planilha Pilotos PR
         };
         
         console.log('📋 Dados a inserir:', pilotoData);

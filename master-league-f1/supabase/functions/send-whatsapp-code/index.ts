@@ -44,7 +44,7 @@ function formatPhoneNumber(phone: string): string {
   return numbers;
 }
 
-async function sendViaZAPI(phone: string, code: string, nomePiloto: string): Promise<{success: boolean, error?: string}> {
+async function sendViaZAPI(phone: string, codeOrMessage: string, nomePiloto: string, isNotification: boolean = false): Promise<{success: boolean, error?: string}> {
   console.log(`🔍 [Z-API] Iniciando envio...`);
   console.log(`   ZAPI_INSTANCE: ${ZAPI_INSTANCE ? '✅ Configurado' : '❌ Não configurado'}`);
   console.log(`   ZAPI_TOKEN: ${ZAPI_TOKEN ? '✅ Configurado' : '❌ Não configurado'}`);
@@ -56,8 +56,9 @@ async function sendViaZAPI(phone: string, code: string, nomePiloto: string): Pro
     return { success: false, error };
   }
 
-  const phoneFormatted = formatPhoneNumber(phone);
-  const message = `🔐 CÓDIGO DE VERIFICAÇÃO - MASTER LEAGUE F1\n\nOlá ${nomePiloto || 'Piloto'}!\n\nSeu código de verificação é:\n\n${code}\n\nEste código expira em 10 minutos.`;
+    const phoneFormatted = formatPhoneNumber(phone);
+    // Se codeOrMessage for uma mensagem completa (notificação), usar diretamente. Senão, formatar como código.
+    const message = codeOrMessage.length > 10 ? codeOrMessage : `🔐 CÓDIGO DE VERIFICAÇÃO - MASTER LEAGUE F1\n\nOlá ${nomePiloto || 'Piloto'}!\n\nSeu código de verificação é:\n\n${codeOrMessage}\n\nEste código expira em 10 minutos.`;
 
   try {
     const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`;
@@ -144,7 +145,7 @@ async function sendViaZAPI(phone: string, code: string, nomePiloto: string): Pro
   }
 }
 
-async function sendViaTwilio(phone: string, code: string, nomePiloto: string): Promise<{success: boolean, error?: string}> {
+async function sendViaTwilio(phone: string, codeOrMessage: string, nomePiloto: string): Promise<{success: boolean, error?: string}> {
   console.log(`🔍 [Twilio] Iniciando envio...`);
   console.log(`   TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID ? '✅ Configurado' : '❌ Não configurado'}`);
   console.log(`   TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN ? '✅ Configurado' : '❌ Não configurado'}`);
@@ -159,7 +160,8 @@ async function sendViaTwilio(phone: string, code: string, nomePiloto: string): P
   const phoneFormatted = formatPhoneNumber(phone);
   // Twilio precisa do formato whatsapp:+5511999999999
   const twilioTo = `whatsapp:+${phoneFormatted}`;
-  const message = `🔐 CÓDIGO DE VERIFICAÇÃO - MASTER LEAGUE F1\n\nOlá ${nomePiloto || 'Piloto'}!\n\nSeu código de verificação é:\n\n${code}\n\nEste código expira em 10 minutos.`;
+  // Se code for uma mensagem completa (notificação), usar diretamente. Senão, formatar como código.
+  const message = code.length > 10 ? code : `🔐 CÓDIGO DE VERIFICAÇÃO - MASTER LEAGUE F1\n\nOlá ${nomePiloto || 'Piloto'}!\n\nSeu código de verificação é:\n\n${code}\n\nEste código expira em 10 minutos.`;
 
   try {
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
@@ -241,7 +243,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { email, whatsapp, nomePiloto } = await req.json();
+    const { email, whatsapp, nomePiloto, tipo, skipPilotoCheck, mensagemCustomizada } = await req.json();
 
     if (!email || !whatsapp) {
       return new Response(
@@ -250,17 +252,56 @@ serve(async (req) => {
       );
     }
 
-    const { data: piloto, error: pilotoError } = await supabase
-      .from('pilotos')
-      .select('*')
-      .eq('email', email.toLowerCase().trim())
-      .single();
+    // Se for notificação de aprovação, enviar mensagem diferente
+    if (tipo === 'notificacao_aprovacao') {
+      const whatsappFormatted = formatPhoneNumber(whatsapp);
+      const nome = nomePiloto || 'Piloto';
+      // Usar mensagem customizada se fornecida, senão usar mensagem padrão atualizada
+      const siteUrl = 'https://www.masterleaguef1.com.br';
+      const loginUrl = `${siteUrl}/ex-piloto/login`;
+      const mensagemPadrao = `✅ *ACESSO LIBERADO - MASTER LEAGUE F1*\n\nOlá ${nome},\n\nSeu acesso ao Painel do Piloto foi *APROVADO*!\n\n📋 *CADASTRE SUA SENHA E ACESSE:*\n\n🔗 Link direto: ${loginUrl}\n\n📝 *Passos:*\n\n1️⃣ Clique no link acima\n\n2️⃣ Digite seu e-mail:\n   ${email}\n\n3️⃣ Valide seu WhatsApp com o código que será enviado\n\n4️⃣ Crie sua senha de acesso\n\n5️⃣ Pronto! Você terá acesso ao seu painel histórico\n\n🏎️ Reveja a sua história na Master League F1`;
+      const mensagem = mensagemCustomizada || mensagemPadrao;
 
-    if (pilotoError || !piloto) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Piloto não encontrado" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
-      );
+      // Tentar enviar via Twilio primeiro, depois Z-API
+      let result = { success: false, error: '' };
+      
+      if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER) {
+        result = await sendViaTwilio(whatsappFormatted, mensagem, nome);
+      }
+      
+      if (!result.success && ZAPI_INSTANCE && ZAPI_TOKEN) {
+        result = await sendViaZAPI(whatsappFormatted, mensagem, nome, true);
+      }
+
+      if (result.success) {
+        return new Response(
+          JSON.stringify({ success: true, message: "Notificação enviada com sucesso" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      } else {
+        return new Response(
+          JSON.stringify({ success: false, error: result.error || "Erro ao enviar notificação" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+    }
+
+    // Verificar se o piloto existe no banco (pular se skipPilotoCheck = true, para cadastros novos)
+    let piloto = null;
+    if (!skipPilotoCheck) {
+      const { data: pilotoData, error: pilotoError } = await supabase
+        .from('pilotos')
+        .select('*')
+        .eq('email', email.toLowerCase().trim())
+        .single();
+
+      if (pilotoError || !pilotoData) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Piloto não encontrado" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        );
+      }
+      piloto = pilotoData;
     }
 
     const whatsappFormatted = formatPhoneNumber(whatsapp);
@@ -295,7 +336,7 @@ serve(async (req) => {
       );
     }
 
-    const nome = nomePiloto || piloto.nome || 'Piloto';
+    const nome = nomePiloto || piloto?.nome || 'Piloto';
     
     // Escolher qual API usar
     let useTwilio = false;
@@ -322,7 +363,7 @@ serve(async (req) => {
     
     const result = useTwilio 
       ? await sendViaTwilio(whatsappFormatted, code, nome)
-      : await sendViaZAPI(whatsappFormatted, code, nome);
+      : await sendViaZAPI(whatsappFormatted, code, nome, false);
 
     if (!result.success) {
       return new Response(
@@ -331,10 +372,13 @@ serve(async (req) => {
       );
     }
 
-    await supabase
-      .from('pilotos')
-      .update({ whatsapp: whatsappFormatted })
-      .eq('email', email.toLowerCase().trim());
+    // Atualizar WhatsApp do piloto apenas se o piloto existir no banco
+    if (piloto) {
+      await supabase
+        .from('pilotos')
+        .update({ whatsapp: whatsappFormatted })
+        .eq('email', email.toLowerCase().trim());
+    }
 
     return new Response(
       JSON.stringify({ success: true, message: "Código enviado com sucesso" }),

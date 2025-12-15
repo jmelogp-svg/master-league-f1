@@ -1,7 +1,9 @@
 # 🚀 Deploy da Edge Function send-whatsapp-code
 
 ## ❌ Problema Atual
-Erro HTTP 404 ao tentar enviar código via WhatsApp. Isso significa que a Edge Function não está deployada no Supabase.
+Erro HTTP 404 ao tentar enviar código via WhatsApp. Isso significa que:
+- A Edge Function não está deployada no Supabase, OU
+- A Edge Function precisa ser **redeployada** com as atualizações recentes (suporte a `skipPilotoCheck` para ex-pilotos)
 
 ## ✅ Solução: Deploy via Dashboard (Método Mais Simples)
 
@@ -9,7 +11,12 @@ Erro HTTP 404 ao tentar enviar código via WhatsApp. Isso significa que a Edge F
 1. Acesse: https://app.supabase.com/project/ueqfmjwdijaeawvxhdtp/functions
 2. Você verá a lista de Edge Functions existentes
 
-### Passo 2: Criar Nova Função
+### Passo 2: Criar ou Atualizar Função
+**Se a função JÁ EXISTE (para atualizar):**
+1. Clique na função `send-whatsapp-code` na lista de funções
+2. Vá direto para o **Passo 3** (copiar código)
+
+**Se a função NÃO EXISTE (criar nova):**
 1. Clique no botão **"Create a new function"** ou **"New Function"**
 2. Nome da função: `send-whatsapp-code` (exatamente assim, sem espaços, com hífen)
 3. Clique em **"Create function"** ou **"Deploy"**

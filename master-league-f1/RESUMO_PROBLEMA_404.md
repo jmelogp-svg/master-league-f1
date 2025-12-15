@@ -47,3 +47,5 @@ Após o deploy, teste novamente o login. O erro 404 não deve mais aparecer.
 - `DEPLOY_EDGE_FUNCTION.md` - Guia completo de deploy
 - `GUIA_SETUP_TWILIO.md` - Configuração do Twilio
 
+
+

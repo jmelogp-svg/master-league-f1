@@ -23,6 +23,11 @@ import FormularioAcusacao from './pages/FormularioAcusacao';
 import FormularioDefesa from './pages/FormularioDefesa';
 import PainelVeredito from './pages/PainelVeredito';
 import Minicup from './pages/Minicup';
+import PilotoAtivoOuEx from './pages/PilotoAtivoOuEx';
+import ExPilotoCadastro from './pages/ExPilotoCadastro';
+import ExPilotoLogin from './pages/ExPilotoLogin';
+import ExPilotoEscolha from './pages/ExPilotoEscolha';
+// import Narrador from './pages/Narrador'; // ADIADO - Sistema de narrador
 
 function App() {
     return (
@@ -35,8 +40,13 @@ function App() {
                 <Route path="/login-jurado" element={<LoginJurado />} />
                 <Route path="/login-jurado-teste" element={<LoginJuradoTeste />} />
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/dashboard/escolher-tipo" element={<PilotoAtivoOuEx />} />
+                <Route path="/ex-piloto/escolha" element={<ExPilotoEscolha />} />
+                <Route path="/ex-piloto/cadastro" element={<ExPilotoCadastro />} />
+                <Route path="/ex-piloto/login" element={<ExPilotoLogin />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/admin/sync" element={<AdminSync />} />
+                {/* <Route path="/narrador" element={<Narrador />} /> */} {/* ADIADO - Sistema de narrador */}
                 <Route path="/standings" element={<Standings />} />
                 <Route path="/powerranking" element={<PowerRanking />} />
                 <Route path="/halloffame" element={<HallOfFame />} />

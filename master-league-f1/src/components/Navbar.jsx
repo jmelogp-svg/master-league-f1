@@ -62,7 +62,7 @@ function Navbar() {
                 <Link to="/powerranking" className={`nav-link-btn ${getActiveRoute('/powerranking')}`} style={{color:'#FFD700'}} onClick={() => setIsMenuOpen(false)}>POWER RANKING</Link>
                 <Link to="/minicup" className={`nav-link-btn ${getActiveRoute('/minicup')}`} style={{color:'#FF8C00'}} onClick={() => setIsMenuOpen(false)}>🏆 MINICUP</Link>
                 
-                <Link to="/login" className="btn-login" onClick={() => setIsMenuOpen(false)}>Área do Piloto</Link>
+                <Link to="/dashboard/escolher-tipo" className="btn-login" onClick={() => setIsMenuOpen(false)}>Área do Piloto</Link>
             </div>
         </nav>
     );

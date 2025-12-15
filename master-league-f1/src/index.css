@@ -1776,6 +1776,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 .status-badge { font-size: 0.65rem; font-weight: 800; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; }
 .status-badge.active { background: rgba(16, 185, 129, 0.2); color: #10B981; border: 1px solid #10B981; }
 .status-badge.pending { background: rgba(251, 191, 36, 0.2); color: #FBBF24; border: 1px solid #FBBF24; }
+.status-badge.inactive { background: rgba(239, 68, 68, 0.2); color: #EF4444; border: 1px solid #EF4444; }
 
 /* Botões de Ação */
 .adm-row-actions { width: 180px; display: flex; justify-content: flex-end; gap: 10px; }

@@ -36,6 +36,12 @@ function Admin() {
     const [editingJurado, setEditingJurado] = useState(null); // { id, nome, email_google, whatsapp }
     const [savingJurado, setSavingJurado] = useState(false);
 
+    // Estados para Narradores
+    const [narradores, setNarradores] = useState([]);
+    const [loadingNarradores, setLoadingNarradores] = useState(false);
+    const [editingNarrador, setEditingNarrador] = useState(null); // { id, nome, email, whatsapp, senha }
+    const [savingNarrador, setSavingNarrador] = useState(false);
+
     // Estados para Edição de Usuários/Pilotos
     const [editingUser, setEditingUser] = useState(null); // { id, nome, email, grid, equipe, whatsapp, is_steward }
     const [savingUser, setSavingUser] = useState(false);
@@ -191,12 +197,19 @@ function Admin() {
         }
     }, [activeTab, isAuthenticated]);
 
+    // Carregar narradores quando mudar para aba narradores
+    useEffect(() => {
+        if (isAuthenticated && activeTab === 'narradores') {
+            fetchNarradores();
+        }
+    }, [activeTab, isAuthenticated]);
+
     const fetchAllUsers = async () => {
         // setLoading(true); // Comentado para não piscar a tela no refresh
-        // Buscar pilotos da tabela 'pilotos'
+        // Buscar pilotos da tabela 'pilotos' incluindo todos os campos necessários
         const { data, error } = await supabase
             .from('pilotos')
-            .select('*')
+            .select('id, nome, email, whatsapp, grid, equipe, is_steward, tipo_piloto, status, nome_piloto_historico, senha_hash, gamertag, cod_idml, created_at')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -352,6 +365,192 @@ function Admin() {
             fetchJurados();
         } catch (err) {
             console.error('Erro ao alterar status:', err);
+            alert('❌ Erro: ' + err.message);
+        }
+    };
+
+    // ===== FUNÇÕES DE NARRADORES =====
+    const fetchNarradores = async () => {
+        setLoadingNarradores(true);
+        try {
+            const { data, error } = await supabase
+                .from('narradores')
+                .select('*')
+                .order('nome', { ascending: true });
+
+            if (error) {
+                console.error('Erro ao buscar narradores:', error);
+            } else {
+                setNarradores(data || []);
+            }
+        } catch (err) {
+            console.error('Erro:', err);
+        } finally {
+            setLoadingNarradores(false);
+        }
+    };
+
+    const handleEditNarrador = (narrador) => {
+        setEditingNarrador({
+            id: narrador.id,
+            nome: narrador.nome || '',
+            email: narrador.email || '',
+            whatsapp: narrador.whatsapp || '',
+            senha: '', // Não mostrar senha atual
+            ativo: narrador.ativo !== false
+        });
+    };
+
+    const handleSaveNarrador = async () => {
+        if (!editingNarrador) return;
+
+        // Validações
+        if (!editingNarrador.nome.trim()) {
+            alert('⚠️ Informe o nome do narrador!');
+            return;
+        }
+        if (!editingNarrador.email.trim()) {
+            alert('⚠️ Informe o e-mail!');
+            return;
+        }
+        if (!editingNarrador.email.includes('@')) {
+            alert('⚠️ E-mail inválido!');
+            return;
+        }
+        if (!editingNarrador.whatsapp || editingNarrador.whatsapp.trim().length < 10) {
+            alert('⚠️ Informe um WhatsApp válido!');
+            return;
+        }
+
+        setSavingNarrador(true);
+        try {
+            const updateData = {
+                nome: editingNarrador.nome.trim(),
+                email: editingNarrador.email.trim().toLowerCase(),
+                whatsapp: editingNarrador.whatsapp.trim(),
+                ativo: editingNarrador.ativo,
+                updated_at: new Date().toISOString()
+            };
+
+            // Se foi informada uma nova senha, fazer hash SHA-256
+            if (editingNarrador.senha && editingNarrador.senha.length > 0) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(editingNarrador.senha);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                updateData.senha_hash = hashHex;
+                updateData.senha_definida = true;
+            }
+
+            const { error } = await supabase
+                .from('narradores')
+                .update(updateData)
+                .eq('id', editingNarrador.id);
+
+            if (error) throw error;
+
+            alert('✅ Narrador atualizado com sucesso!');
+            setEditingNarrador(null);
+            fetchNarradores();
+        } catch (err) {
+            console.error('Erro ao salvar narrador:', err);
+            alert('❌ Erro ao salvar: ' + err.message);
+        } finally {
+            setSavingNarrador(false);
+        }
+    };
+
+    const handleCreateNarrador = async () => {
+        const novoNarrador = {
+            nome: '',
+            email: '',
+            whatsapp: '',
+            ativo: true
+        };
+        setEditingNarrador(novoNarrador);
+    };
+
+    const handleSaveNewNarrador = async () => {
+        if (!editingNarrador) return;
+
+        // Validações
+        if (!editingNarrador.nome.trim()) {
+            alert('⚠️ Informe o nome do narrador!');
+            return;
+        }
+        if (!editingNarrador.email.trim()) {
+            alert('⚠️ Informe o e-mail!');
+            return;
+        }
+        if (!editingNarrador.email.includes('@')) {
+            alert('⚠️ E-mail inválido!');
+            return;
+        }
+        if (!editingNarrador.whatsapp || editingNarrador.whatsapp.trim().length < 10) {
+            alert('⚠️ Informe um WhatsApp válido!');
+            return;
+        }
+
+        setSavingNarrador(true);
+        try {
+            // Criar narrador sem senha - ele criará no primeiro acesso
+            const { error } = await supabase
+                .from('narradores')
+                .insert({
+                    nome: editingNarrador.nome.trim(),
+                    email: editingNarrador.email.trim().toLowerCase(),
+                    whatsapp: editingNarrador.whatsapp.trim(),
+                    senha_hash: null,
+                    senha_definida: false,
+                    ativo: editingNarrador.ativo !== false
+                });
+
+            if (error) throw error;
+
+            alert('✅ Narrador criado com sucesso! Ele receberá instruções para criar a senha no primeiro acesso.');
+            setEditingNarrador(null);
+            fetchNarradores();
+        } catch (err) {
+            console.error('Erro ao criar narrador:', err);
+            alert('❌ Erro ao criar: ' + err.message);
+        } finally {
+            setSavingNarrador(false);
+        }
+    };
+
+    const toggleNarradorAtivo = async (narrador) => {
+        try {
+            const { error } = await supabase
+                .from('narradores')
+                .update({ 
+                    ativo: !narrador.ativo,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', narrador.id);
+
+            if (error) throw error;
+            fetchNarradores();
+        } catch (err) {
+            console.error('Erro ao alterar status:', err);
+            alert('❌ Erro: ' + err.message);
+        }
+    };
+
+    const handleDeleteNarrador = async (narrador) => {
+        if (!confirm(`Tem certeza que deseja excluir o narrador "${narrador.nome}"?`)) return;
+        
+        try {
+            const { error } = await supabase
+                .from('narradores')
+                .delete()
+                .eq('id', narrador.id);
+
+            if (error) throw error;
+            alert('✅ Narrador excluído com sucesso!');
+            fetchNarradores();
+        } catch (err) {
+            console.error('Erro ao excluir narrador:', err);
             alert('❌ Erro: ' + err.message);
         }
     };
@@ -527,7 +726,116 @@ function Admin() {
         if (!error) { alert('Resetado!'); fetchAllUsers(); }
     };
 
+    // ===== FUNÇÕES PARA EX-PILOTOS =====
+    // Função auxiliar para enviar notificação WhatsApp
+    const enviarNotificacaoAprovacao = async (email, nome, whatsapp) => {
+        // URL do site
+        const siteUrl = 'https://www.masterleaguef1.com.br';
+        const loginUrl = `${siteUrl}/ex-piloto/login`;
+
+        // Enviar notificação WhatsApp com instruções completas
+        const mensagem = `✅ *ACESSO LIBERADO - MASTER LEAGUE F1*\n\nOlá ${nome},\n\nSeu acesso ao Painel do Piloto foi *APROVADO*!\n\n📋 *CADASTRE SUA SENHA E ACESSE:*\n\n🔗 Link direto: ${loginUrl}\n\n📝 *Passos:*\n\n1️⃣ Clique no link acima\n\n2️⃣ Digite seu e-mail:\n   ${email}\n\n3️⃣ Valide seu WhatsApp com o código que será enviado\n\n4️⃣ Crie sua senha de acesso\n\n5️⃣ Pronto! Você terá acesso ao seu painel histórico\n\n🏎️ Reveja a sua história na Master League F1`;
+        
+        // Usar a Edge Function para enviar WhatsApp
+        const whatsappLimpo = whatsapp.replace(/\D/g, '');
+        if (whatsappLimpo.length < 10) {
+            throw new Error('WhatsApp inválido');
+        }
+
+        const { data, error: whatsappError } = await supabase.functions.invoke('send-whatsapp-code', {
+            body: {
+                email: email,
+                whatsapp: whatsappLimpo,
+                nomePiloto: nome,
+                tipo: 'notificacao_aprovacao',
+                mensagemCustomizada: mensagem
+            }
+        });
+        
+        if (whatsappError) {
+            throw new Error(whatsappError.message || 'Erro ao enviar WhatsApp');
+        }
+        
+        return data;
+    };
+
+    // Aprovar ex-piloto e enviar notificação WhatsApp
+    const handleAprovarExPiloto = async (pilotoId, email, nome, whatsapp) => {
+        if (!window.confirm(`Aprovar acesso do ex-piloto ${nome}?\n\nUma notificação será enviada no WhatsApp com as instruções de login.`)) return;
+        
+        try {
+            // Atualizar status para 'ativo' (mantém tipo_piloto como 'ex-piloto')
+            const { error: updateError } = await supabase
+                .from('pilotos')
+                .update({ status: 'ativo' })
+                .eq('id', pilotoId);
+            
+            if (updateError) {
+                throw new Error(updateError.message);
+            }
+
+            // Enviar notificação
+            try {
+                await enviarNotificacaoAprovacao(email, nome, whatsapp);
+                alert('✅ Ex-piloto aprovado! Notificação WhatsApp enviada com sucesso.');
+            } catch (notifError) {
+                console.error('Erro ao enviar WhatsApp:', notifError);
+                alert('⚠️ Ex-piloto aprovado, mas houve erro ao enviar notificação WhatsApp: ' + notifError.message);
+            }
+
+            await fetchAllUsers();
+        } catch (err) {
+            console.error('Erro ao aprovar ex-piloto:', err);
+            alert('❌ Erro ao aprovar: ' + err.message);
+        }
+    };
+
+    // Reenviar notificação de aprovação (para ex-pilotos já aprovados)
+    const handleReenviarNotificacao = async (email, nome, whatsapp) => {
+        if (!window.confirm(`Reenviar notificação de aprovação para ${nome}?\n\nUma nova mensagem será enviada no WhatsApp.`)) return;
+        
+        try {
+            await enviarNotificacaoAprovacao(email, nome, whatsapp);
+            alert('✅ Notificação reenviada com sucesso!');
+        } catch (err) {
+            console.error('Erro ao reenviar notificação:', err);
+            alert('❌ Erro ao reenviar notificação: ' + err.message);
+        }
+    };
+
+    // Resetar senha de ex-piloto
+    const handleResetarSenhaExPiloto = async (pilotoId, email, nome) => {
+        if (!window.confirm(`ATENÇÃO: Resetar senha do ex-piloto ${nome}?\n\nO piloto precisará criar uma nova senha no próximo login.`)) return;
+        
+        try {
+            const { error } = await supabase
+                .from('pilotos')
+                .update({ senha_hash: null })
+                .eq('id', pilotoId);
+            
+            if (error) {
+                throw new Error(error.message);
+            }
+
+            alert('✅ Senha resetada! O piloto precisará criar uma nova senha no próximo login.');
+            await fetchAllUsers();
+        } catch (err) {
+            console.error('Erro ao resetar senha:', err);
+            alert('❌ Erro ao resetar senha: ' + err.message);
+        }
+    };
+
     // ===== FUNÇÕES DE EDIÇÃO DE USUÁRIOS =====
+    // Função para capitalizar apenas a primeira letra de cada palavra
+    const capitalizeWords = (str) => {
+        if (!str) return '';
+        return str
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
     const handleEditUser = (user) => {
         setEditingUser({
             id: user.id,
@@ -566,9 +874,11 @@ function Admin() {
 
         setSavingUser(true);
         try {
+            console.log('💾 Salvando usuário:', editingUser);
+            
             // Preparar dados para atualização na tabela 'pilotos'
             const dadosAtualizacao = {
-                nome: editingUser.nome.trim().toUpperCase(),
+                nome: capitalizeWords(editingUser.nome.trim()),
                 email: editingUser.email.trim().toLowerCase(),
                 grid: editingUser.grid,
                 equipe: editingUser.equipe || null,
@@ -577,63 +887,170 @@ function Admin() {
                 updated_at: new Date().toISOString()
             };
 
-            // Atualizar na tabela 'pilotos' usando ID (mais seguro) ou email original como fallback
-            let pilotosError = null;
+            console.log('📝 Dados para atualização:', dadosAtualizacao);
+
+            // Verificar se o registro existe antes de atualizar
+            let registroExiste = false;
+            let registroAtual = null;
+            
             if (editingUser.id) {
-                const { error } = await supabase
+                console.log('🔍 Verificando se registro existe por ID:', editingUser.id);
+                const { data: checkData, error: checkError } = await supabase
                     .from('pilotos')
-                    .update(dadosAtualizacao)
-                    .eq('id', editingUser.id);
-                pilotosError = error;
+                    .select('*')
+                    .eq('id', editingUser.id)
+                    .single();
+                
+                if (!checkError && checkData) {
+                    registroExiste = true;
+                    registroAtual = checkData;
+                    console.log('✅ Registro encontrado por ID:', registroAtual);
+                } else {
+                    console.warn('⚠️ Registro não encontrado por ID:', checkError);
+                }
             }
             
-            // Se não tem ID ou falhou, tentar por email original
-            if (pilotosError && editingUser.email_original) {
-                console.log('⚠️ Tentando atualizar por email original...');
-                const { error } = await supabase
+            // Se não encontrou por ID, tentar por email
+            if (!registroExiste) {
+                const emailParaBusca = editingUser.email_original || editingUser.email;
+                if (emailParaBusca) {
+                    console.log('🔍 Verificando se registro existe por email:', emailParaBusca);
+                    const { data: checkData, error: checkError } = await supabase
+                        .from('pilotos')
+                        .select('*')
+                        .eq('email', emailParaBusca.toLowerCase().trim())
+                        .single();
+                    
+                    if (!checkError && checkData) {
+                        registroExiste = true;
+                        registroAtual = checkData;
+                        console.log('✅ Registro encontrado por email:', registroAtual);
+                    } else {
+                        console.warn('⚠️ Registro não encontrado por email:', checkError);
+                    }
+                }
+            }
+            
+            // Se o registro não existe, criar um novo
+            if (!registroExiste) {
+                console.log('📝 Registro não encontrado. Criando novo registro na tabela pilotos...');
+                const { data: newData, error: insertError } = await supabase
+                    .from('pilotos')
+                    .insert(dadosAtualizacao)
+                    .select()
+                    .single();
+                
+                if (insertError) {
+                    console.error('❌ Erro ao criar novo registro:', insertError);
+                    throw new Error(`Erro ao criar novo registro: ${insertError.message}`);
+                } else {
+                    console.log('✅ Novo registro criado com sucesso:', newData);
+                    alert('✅ Novo piloto criado com sucesso no Supabase!');
+                    setEditingUser(null);
+                    await fetchAllUsers();
+                    return;
+                }
+            }
+            
+            // Atualizar na tabela 'pilotos' usando ID (se disponível) ou email
+            let pilotosError = null;
+            let pilotosSuccess = false;
+            
+            if (registroAtual?.id) {
+                console.log('🔍 Tentando atualizar pilotos por ID:', registroAtual.id);
+                const { data, error } = await supabase
                     .from('pilotos')
                     .update(dadosAtualizacao)
-                    .eq('email', editingUser.email_original.toLowerCase().trim());
+                    .eq('id', registroAtual.id)
+                    .select();
+                
                 pilotosError = error;
+                pilotosSuccess = !error && data && data.length > 0;
+                
+                if (pilotosError) {
+                    console.error('❌ Erro ao atualizar pilotos por ID:', pilotosError);
+                    // Se erro de RLS, mostrar mensagem mais clara
+                    if (pilotosError.code === 'PGRST301' || pilotosError.message?.includes('permission') || pilotosError.message?.includes('policy')) {
+                        throw new Error(`Erro de permissão (RLS): Você não tem permissão para atualizar este registro. Verifique as políticas de Row Level Security no Supabase.`);
+                    }
+                } else if (pilotosSuccess) {
+                    console.log('✅ Piloto atualizado na tabela pilotos por ID:', data);
+                } else {
+                    console.warn('⚠️ Nenhuma linha atualizada na tabela pilotos por ID');
+                }
+            }
+            
+            // Se não tem ID ou falhou, tentar por email
+            if (!pilotosSuccess && registroAtual?.email) {
+                console.log('🔍 Tentando atualizar pilotos por email:', registroAtual.email);
+                const { data, error } = await supabase
+                    .from('pilotos')
+                    .update(dadosAtualizacao)
+                    .eq('email', registroAtual.email.toLowerCase().trim())
+                    .select();
+                
+                pilotosError = error;
+                pilotosSuccess = !error && data && data.length > 0;
+                
+                if (pilotosError) {
+                    console.error('❌ Erro ao atualizar pilotos por email:', pilotosError);
+                    // Se erro de RLS, mostrar mensagem mais clara
+                    if (pilotosError.code === 'PGRST301' || pilotosError.message?.includes('permission') || pilotosError.message?.includes('policy')) {
+                        throw new Error(`Erro de permissão (RLS): Você não tem permissão para atualizar este registro. Verifique as políticas de Row Level Security no Supabase.`);
+                    }
+                } else if (pilotosSuccess) {
+                    console.log('✅ Piloto atualizado na tabela pilotos por email:', data);
+                } else {
+                    console.warn('⚠️ Nenhuma linha atualizada na tabela pilotos por email');
+                }
             }
 
-            // Também atualizar na tabela 'profiles' (se existir) usando ID
-            let profilesError = null;
-            if (editingUser.id) {
-                const { error } = await supabase
-                    .from('profiles')
-                    .update({
-                        nome_piloto: editingUser.nome.trim().toUpperCase(),
-                        nome_completo: editingUser.nome_completo || editingUser.nome.trim(),
-                        email: editingUser.email.trim().toLowerCase(),
-                        grid_preferencia: editingUser.grid,
-                        equipe: editingUser.equipe || null,
-                        whatsapp: editingUser.whatsapp || null,
-                        gamertag: editingUser.gamertag || null,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', editingUser.id);
-                profilesError = error;
+            // Verificar se a atualização na tabela pilotos funcionou
+            if (!pilotosSuccess) {
+                const errorMsg = pilotosError?.message || 'Nenhuma linha foi atualizada na tabela pilotos. Verifique se o usuário existe no banco de dados ou se há problemas de permissão (RLS).';
+                console.error('❌ Falha ao salvar na tabela pilotos:', { 
+                    pilotosError, 
+                    pilotosSuccess, 
+                    editingUser,
+                    dadosAtualizacao 
+                });
+                
+                // Tentar verificar se o registro existe
+                if (editingUser.id) {
+                    const { data: checkData, error: checkError } = await supabase
+                        .from('pilotos')
+                        .select('id, email, nome')
+                        .eq('id', editingUser.id)
+                        .single();
+                    
+                    if (checkError || !checkData) {
+                        console.error('❌ Registro não encontrado na tabela pilotos com ID:', editingUser.id);
+                        throw new Error(`Registro não encontrado na tabela pilotos. O piloto pode não existir ou ter sido removido.`);
+                    } else {
+                        console.log('✅ Registro encontrado:', checkData);
+                        throw new Error(`Não foi possível atualizar o registro. Verifique as permissões (RLS) ou se os dados estão corretos. Erro: ${errorMsg}`);
+                    }
+                } else {
+                    throw new Error(errorMsg);
+                }
             }
 
-            // Se ambas as tabelas falharem, mostrar erro
-            if (pilotosError && profilesError) {
-                throw new Error(profilesError.message || pilotosError.message || 'Erro ao atualizar piloto');
-            }
-
-            // Se pelo menos uma atualização funcionou, considerar sucesso
-            if (!pilotosError) {
-                console.log('✅ Piloto atualizado na tabela pilotos com sucesso!');
-            }
-            if (!profilesError) {
-                console.log('✅ Perfil atualizado na tabela profiles com sucesso!');
-            }
+            // Se a atualização funcionou, mostrar sucesso
+            console.log('✅ Piloto atualizado na tabela pilotos com sucesso!');
+            
+            // NOTA: Sincronização com Google Sheets
+            // Para atualizar a planilha Google Sheets, seria necessário:
+            // 1. Autenticação OAuth com Google Sheets API
+            // 2. Encontrar a linha correspondente na planilha pelo email
+            // 3. Atualizar os campos correspondentes
+            // Por enquanto, a atualização é feita apenas no Supabase
+            // A planilha pode ser sincronizada manualmente ou via script separado
 
             alert('✅ Usuário atualizado com sucesso no Supabase!');
             setEditingUser(null);
-            fetchAllUsers();
+            await fetchAllUsers();
         } catch (err) {
-            console.error('Erro ao salvar usuário:', err);
+            console.error('❌ Erro ao salvar usuário:', err);
             alert('❌ Erro ao salvar: ' + err.message);
         } finally {
             setSavingUser(false);
@@ -721,6 +1138,9 @@ function Admin() {
                     <button className={`adm-tab-btn ${activeTab === 'jurados' ? 'active' : ''}`} onClick={() => setActiveTab('jurados')}>
                         👨‍⚖️ JÚRI
                     </button>
+                    <button className={`adm-tab-btn ${activeTab === 'narradores' ? 'active' : ''}`} onClick={() => setActiveTab('narradores')}>
+                        🎙️ NARRADORES
+                    </button>
                 </div>
 
                 {activeTab === 'drivers' && (
@@ -745,8 +1165,12 @@ function Admin() {
                                     const equipe = user.equipe || '-';
                                     const whatsapp = user.whatsapp || '-';
                                     const isSteward = user.is_steward || false;
-                                    // Para 'profiles', verificar status; para 'pilotos', considerar sempre ativo
-                                    const isPending = user.status === 'pending' || (!user.status && user.nome_piloto);
+                                    const isExPiloto = user.tipo_piloto === 'ex-piloto';
+                                    // Para ex-pilotos, verificar se status é 'pendente'
+                                    // Para 'profiles', verificar status 'pending'; para 'pilotos', verificar status 'pendente'
+                                    const isPending = isExPiloto 
+                                        ? (user.status === 'pendente' || user.status === 'pending')
+                                        : (user.status === 'pending' || (!user.status && user.nome_piloto));
                                     
                                     return (
                                         <div key={user.id} className="adm-row">
@@ -754,22 +1178,58 @@ function Admin() {
                                                 <div style={{fontWeight:'800', color:'white', fontSize:'1rem'}}>{nome}</div>
                                                 <div style={{fontSize:'0.75rem', color:'#94A3B8'}}>{email}</div>
                                                 {isSteward && <div style={{fontSize:'0.7rem', color:'#FFD700', marginTop:'2px'}}>👨‍⚖️ STEWARD</div>}
+                                                {isExPiloto && <div style={{fontSize:'0.7rem', color:'#94A3B8', marginTop:'2px'}}>📜 EX-PILOTO</div>}
                                             </div>
                                             <div style={{flex:1, fontSize:'0.9rem', color:'#CBD5E1'}}>{equipe}</div>
                                             <div style={{flex:1, fontSize:'0.8rem', textTransform:'uppercase', fontWeight:'700', color:'var(--highlight-cyan)'}}>{grid}</div>
                                             
                                             <div style={{width:'100px', textAlign:'center'}}>
-                                                <span className={`status-badge ${isPending ? 'pending' : 'active'}`}>
-                                                    {isPending ? 'PENDENTE' : 'ATIVO'}
+                                                <span className={`status-badge ${
+                                                    isPending ? 'pending' : 
+                                                    (isExPiloto ? 'inactive' : 'active')
+                                                }`}>
+                                                    {isPending ? 'PENDENTE' : (isExPiloto ? 'INATIVO' : 'ATIVO')}
                                                 </span>
                                             </div>
 
                                             <div className="adm-row-actions">
                                                 <button onClick={() => handleEditUser(user)} className="btn-icon-edit" title="Editar" style={{background:'rgba(59, 130, 246, 0.2)', border:'1px solid #3B82F6', color:'#3B82F6'}}>✏️</button>
-                                                {isPending && (
+                                                {isPending && isExPiloto && (
+                                                    <button 
+                                                        onClick={() => handleAprovarExPiloto(user.id, email, nome, whatsapp)} 
+                                                        className="btn-icon-approve" 
+                                                        title="Aprovar Ex-Piloto"
+                                                        style={{background:'rgba(34, 197, 94, 0.2)', border:'1px solid #22C55E', color:'#22C55E'}}
+                                                    >
+                                                        ✅
+                                                    </button>
+                                                )}
+                                                {isExPiloto && !isPending && (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => handleReenviarNotificacao(email, nome, whatsapp)} 
+                                                            className="btn-icon-approve" 
+                                                            title="Reenviar Notificação"
+                                                            style={{background:'rgba(59, 130, 246, 0.2)', border:'1px solid #3B82F6', color:'#3B82F6', marginRight:'5px'}}
+                                                        >
+                                                            📨
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleResetarSenhaExPiloto(user.id, email, nome)} 
+                                                            className="btn-icon-reset" 
+                                                            title="Resetar Senha"
+                                                            style={{background:'rgba(245, 158, 11, 0.2)', border:'1px solid #F59E0B', color:'#F59E0B'}}
+                                                        >
+                                                            🔑
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {!isExPiloto && isPending && (
                                                     <button onClick={() => handleApprove(user.id, nome)} className="btn-icon-approve" title="Aprovar">✅</button>
                                                 )}
-                                                <button onClick={() => handleReset(user.id, nome)} className="btn-icon-reset" title="Resetar">🔄</button>
+                                                {!isExPiloto && (
+                                                    <button onClick={() => handleReset(user.id, nome)} className="btn-icon-reset" title="Resetar">🔄</button>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -1520,6 +1980,247 @@ function Admin() {
                                         )}
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ===== ABA NARRADORES ===== */}
+                {activeTab === 'narradores' && (
+                    <div className="adm-content">
+                        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ color: '#06B6D4', margin: 0 }}>🎙️ Cadastro de Narradores</h3>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button 
+                                    onClick={handleCreateNarrador}
+                                    style={{ 
+                                        padding: '8px 16px', 
+                                        background: '#06B6D4', 
+                                        color: '#0F172A', 
+                                        border: 'none', 
+                                        borderRadius: '6px', 
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    ➕ Novo Narrador
+                                </button>
+                                <button 
+                                    onClick={fetchNarradores} 
+                                    style={{ padding: '8px 16px', background: '#1E293B', color: '#94A3B8', border: '1px solid #475569', borderRadius: '6px', cursor: 'pointer' }}
+                                >
+                                    🔄 Atualizar
+                                </button>
+                            </div>
+                        </div>
+
+                        <p style={{ color: '#94A3B8', marginBottom: '25px', fontSize: '14px' }}>
+                            Configure os narradores que terão acesso somente leitura aos painéis dos pilotos durante as transmissões.
+                        </p>
+
+                        {/* Formulário de criação/edição */}
+                        {editingNarrador && !editingNarrador.id && (
+                            <div style={{
+                                background: '#1E293B',
+                                borderRadius: '10px',
+                                padding: '20px',
+                                marginBottom: '20px',
+                                border: '2px solid #06B6D4'
+                            }}>
+                                <h4 style={{ color: '#06B6D4', margin: '0 0 15px 0' }}>➕ Novo Narrador</h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                                    <div>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Nome *</label>
+                                        <input
+                                            type="text"
+                                            value={editingNarrador.nome}
+                                            onChange={(e) => setEditingNarrador({ ...editingNarrador, nome: e.target.value })}
+                                            placeholder="Ex: João Silva"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>E-mail *</label>
+                                        <input
+                                            type="email"
+                                            value={editingNarrador.email}
+                                            onChange={(e) => setEditingNarrador({ ...editingNarrador, email: e.target.value })}
+                                            placeholder="Ex: narrador@email.com"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>WhatsApp *</label>
+                                        <input
+                                            type="text"
+                                            value={editingNarrador.whatsapp || ''}
+                                            onChange={(e) => setEditingNarrador({ ...editingNarrador, whatsapp: e.target.value })}
+                                            placeholder="Ex: (11) 99999-9999"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC' }}
+                                        />
+                                        <small style={{ color: '#64748B', fontSize: '11px', display: 'block', marginTop: '5px' }}>
+                                            O narrador criará a senha no primeiro acesso via WhatsApp
+                                        </small>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                    <button
+                                        onClick={() => setEditingNarrador(null)}
+                                        style={{ padding: '10px 20px', background: 'transparent', color: '#94A3B8', border: '1px solid #475569', borderRadius: '6px', cursor: 'pointer' }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleSaveNewNarrador}
+                                        disabled={savingNarrador}
+                                        style={{ padding: '10px 20px', background: savingNarrador ? '#475569' : '#06B6D4', color: savingNarrador ? '#94A3B8' : '#0F172A', border: 'none', borderRadius: '6px', cursor: savingNarrador ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                                    >
+                                        {savingNarrador ? '⏳ Salvando...' : '💾 Criar'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {loadingNarradores ? (
+                            <div style={{ padding: '40px', textAlign: 'center', color: '#94A3B8' }}>⏳ Carregando narradores...</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                {narradores.length === 0 ? (
+                                    <div style={{ padding: '40px', textAlign: 'center', color: '#94A3B8' }}>Nenhum narrador cadastrado.</div>
+                                ) : (
+                                    narradores.map((narrador) => (
+                                        <div 
+                                            key={narrador.id}
+                                            style={{
+                                                background: '#1E293B',
+                                                borderRadius: '10px',
+                                                border: `1px solid ${narrador.ativo ? '#06B6D4' : '#475569'}`,
+                                                overflow: 'hidden'
+                                            }}
+                                        >
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: '15px 20px',
+                                                background: narrador.ativo ? 'rgba(6, 182, 212, 0.1)' : 'rgba(71, 85, 105, 0.2)',
+                                                borderBottom: '1px solid rgba(255,255,255,0.1)'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                    <span style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '16px' }}>
+                                                        {narrador.nome || '(Nome não definido)'}
+                                                    </span>
+                                                    <span style={{
+                                                        background: narrador.ativo ? '#06B6D4' : '#64748B',
+                                                        color: 'white',
+                                                        padding: '3px 10px',
+                                                        borderRadius: '20px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {narrador.ativo ? '✅ ATIVO' : '⏸️ INATIVO'}
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <button
+                                                        onClick={() => handleEditNarrador(narrador)}
+                                                        style={{ padding: '6px 14px', background: '#06B6D4', color: '#0F172A', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                                                    >
+                                                        ✏️ Editar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => toggleNarradorAtivo(narrador)}
+                                                        style={{ padding: '6px 14px', background: narrador.ativo ? '#EF4444' : '#22C55E', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '12px' }}
+                                                    >
+                                                        {narrador.ativo ? '⏸️ Desativar' : '▶️ Ativar'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteNarrador(narrador)}
+                                                        style={{ padding: '6px 14px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '12px' }}
+                                                    >
+                                                        🗑️ Excluir
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div style={{ padding: '15px 20px', display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+                                                <div>
+                                                    <span style={{ color: '#64748B', fontSize: '12px' }}>📧 E-mail:</span>
+                                                    <div style={{ color: '#F8FAFC', marginTop: '3px' }}>{narrador.email || '(não configurado)'}</div>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#64748B', fontSize: '12px' }}>📱 WhatsApp:</span>
+                                                    <div style={{ color: '#F8FAFC', marginTop: '3px' }}>{narrador.whatsapp || '(não configurado)'}</div>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#64748B', fontSize: '12px' }}>🔐 Senha:</span>
+                                                    <div style={{ color: narrador.senha_definida ? '#10B981' : '#EF4444', marginTop: '3px', fontWeight: 'bold' }}>
+                                                        {narrador.senha_definida ? '✅ Definida' : '❌ Não definida'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {editingNarrador && editingNarrador.id === narrador.id && (
+                                                <div style={{ padding: '20px', background: '#0F172A', borderTop: '1px solid #06B6D4' }}>
+                                                    <h4 style={{ color: '#06B6D4', margin: '0 0 15px 0', fontSize: '14px' }}>✏️ Editando {narrador.nome}</h4>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                                                        <div>
+                                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Nome *</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingNarrador.nome}
+                                                                onChange={(e) => setEditingNarrador({ ...editingNarrador, nome: e.target.value })}
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#1E293B', color: '#F8FAFC' }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>E-mail *</label>
+                                                            <input
+                                                                type="email"
+                                                                value={editingNarrador.email}
+                                                                onChange={(e) => setEditingNarrador({ ...editingNarrador, email: e.target.value })}
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#1E293B', color: '#F8FAFC' }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>WhatsApp *</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingNarrador.whatsapp || ''}
+                                                                onChange={(e) => setEditingNarrador({ ...editingNarrador, whatsapp: e.target.value })}
+                                                                placeholder="Ex: (11) 99999-9999"
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#1E293B', color: '#F8FAFC' }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Nova Senha (deixe vazio para manter)</label>
+                                                            <input
+                                                                type="password"
+                                                                value={editingNarrador.senha}
+                                                                onChange={(e) => setEditingNarrador({ ...editingNarrador, senha: e.target.value })}
+                                                                placeholder="Deixe vazio para manter a senha atual"
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#1E293B', color: '#F8FAFC' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            onClick={() => setEditingNarrador(null)}
+                                                            style={{ padding: '10px 20px', background: 'transparent', color: '#94A3B8', border: '1px solid #475569', borderRadius: '6px', cursor: 'pointer' }}
+                                                        >
+                                                            Cancelar
+                                                        </button>
+                                                        <button
+                                                            onClick={handleSaveNarrador}
+                                                            disabled={savingNarrador}
+                                                            style={{ padding: '10px 20px', background: savingNarrador ? '#475569' : '#06B6D4', color: savingNarrador ? '#94A3B8' : '#0F172A', border: 'none', borderRadius: '6px', cursor: savingNarrador ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                                                        >
+                                                            {savingNarrador ? '⏳ Salvando...' : '💾 Salvar'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         )}
                     </div>

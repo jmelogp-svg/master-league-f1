@@ -33,3 +33,5 @@ CREATE POLICY verification_codes_update ON whatsapp_verification_codes
   );
 
 
+
+

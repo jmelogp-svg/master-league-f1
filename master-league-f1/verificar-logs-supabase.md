@@ -45,3 +45,5 @@ npx supabase functions deploy send-whatsapp-code
 
 **Copie e cole os logs aqui para eu analisar!**
 
+
+

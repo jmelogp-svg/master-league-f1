@@ -1,93 +1,74 @@
-# CHANGELOG - Master League F1
+# 📝 Changelog - Master League F1
 
-## Controle de Versões e Backups
+## [2025-12-15] - Sistema de Narradores, Hero Banner Personalizado e YouTube Shorts
 
-Este arquivo documenta as versões do projeto e suas alterações.
+### ✨ Novas Funcionalidades
+
+#### Sistema de Narradores
+- ✅ Criada tabela `narradores` no Supabase
+- ✅ Página `/narrador` para acesso dos narradores
+- ✅ Login com email e senha (hash SHA-256)
+- ✅ Visualização somente leitura dos painéis dos pilotos
+- ✅ Filtros por nome, equipe e grid
+- ✅ Página de cadastro no admin (`/admin` - aba Narradores)
+- ✅ Gerenciamento completo (criar, editar, ativar/desativar, excluir)
+- ✅ Link na Home abaixo do link do Admin
+
+#### Hero Banner Personalizado
+- ✅ Hero banner personalizado por equipe do piloto
+- ✅ Mapeamento de equipes para wallpapers de F1
+- ✅ Suporte a todas as equipes da F1 (Red Bull, Ferrari, Mercedes, McLaren, etc.)
+- ✅ Wallpaper padrão para pilotos sem equipe
+- ✅ Gradiente dinâmico baseado na cor da equipe
+- ✅ Efeito parallax com `backgroundAttachment: 'fixed'`
+- ✅ Pasta `public/wallpapers/` criada para armazenar imagens
+
+#### Suporte a YouTube Shorts
+- ✅ Detecção automática de YouTube Shorts
+- ✅ Layout otimizado para formato vertical (9:16)
+- ✅ Altura ajustada para 600px para Shorts
+- ✅ Container centralizado com largura máxima de 400px
+- ✅ Vídeos normais mantêm formato 16:9 padrão
+
+### 🔧 Melhorias
+- ✅ Dashboard agora aceita props `isReadOnly` e `pilotoEmail` para modo narrador
+- ✅ Função `getTeamWallpaper()` adicionada ao Dashboard
+- ✅ Regex de YouTube atualizado para detectar `/shorts/`
+- ✅ Componente `VideoEmbed` com layout adaptativo
+
+### 📁 Arquivos Criados
+- `src/pages/Narrador.jsx` - Página do narrador
+- `supabase-schema-narradores.sql` - Schema SQL para narradores
+- `public/wallpapers/README.md` - Instruções para wallpapers
+
+### 📝 Arquivos Modificados
+- `src/pages/Dashboard.jsx` - Hero banner personalizado e suporte a modo narrador
+- `src/pages/Admin.jsx` - Aba Narradores adicionada
+- `src/pages/Home.jsx` - Link para área do narrador
+- `src/App.jsx` - Rota `/narrador` adicionada
+- `src/utils/videoEmbed.js` - Suporte a YouTube Shorts
+- `src/components/VideoEmbed.jsx` - Layout adaptativo para Shorts
+- `ESTADO_ATUAL_PROJETO.md` - Documentação atualizada
 
 ---
 
-## v1.1.0 - 2025-01-13 (VERSÃO ATUAL)
-**Backup:** Commit `262280c` - "feat: Implementação completa de 2FA com persistência via localStorage"
+## [2025-01-13] - Sistema de Autenticação 2FA via WhatsApp
 
-### Funcionalidades Implementadas:
+### ✨ Novas Funcionalidades
 - ✅ Sistema completo de autenticação 2FA via WhatsApp
-- ✅ Persistência de validação 2FA usando localStorage (ml_pilot_2fa_ok:email)
-- ✅ Sincronização automática de pilotos da planilha Google Sheets para Supabase
-- ✅ Validação de WhatsApp com até 3 tentativas antes de forçar reenvio de inscrição
-- ✅ Suporte a Twilio (padrão) e Z-API (fallback) com auto-detecção
-- ✅ Correção de RLS policies para validação de códigos WhatsApp
-- ✅ Fluxo completo: Login → Verificação Email → WhatsApp → Código → Dashboard
-- ✅ Limpeza de localStorage apenas no logout explícito
-- ✅ Proteção de rota no Dashboard com verificação de 2FA
+- ✅ Persistência via localStorage
+- ✅ Sincronização automática de pilotos da planilha
+- ✅ Sistema de ex-pilotos com fluxo completo
 
-### Melhorias Técnicas:
-- ✅ Tratamento robusto de erros (respostas não-JSON)
-- ✅ Uso de `supabase.functions.invoke()` para garantir URL correta
-- ✅ Correção de OAuth flow (PKCE e hash antigo)
-- ✅ Sincronização on-demand de pilotos durante login
-- ✅ Validação de WhatsApp sempre requerida (campo não pré-preenchido)
-
-### Status:
-- Sistema 2FA totalmente funcional
-- Twilio configurado e enviando mensagens
-- Validação de código funcionando
-- Persistência entre sessões funcionando
+### 🔧 Melhorias
+- ✅ Edge Function `send-whatsapp-code` com suporte a Twilio e Z-API
+- ✅ RLS policies corrigidas para WhatsApp codes
+- ✅ Fluxo de login otimizado
 
 ---
 
-## v1.0.0 - 2025-12-10 (VERSÃO ESTÁVEL)
-**Backup:** `master-league-f1-BACKUP-v1.0.0-2025-12-10`
-
-### Funcionalidades Incluídas:
-- ✅ Home com Hero, próxima corrida, carrossel de pilotos
-- ✅ Grid Minicup na Home (carrossel verde)
-- ✅ Grid Carreira T19/T20 na Home
-- ✅ Top 3 Carreira e Light
-- ✅ Página Minicup com tema verde
-- ✅ Página Classificação (Pilotos, Equipes, Resultados)
-- ✅ Página Calendário
-- ✅ Página Análises (sistema de julgamento)
-- ✅ Página Mercado
-- ✅ Página Telemetria
-- ✅ Página Regulamento
-- ✅ Página Hall da Fama
-- ✅ Página Power Ranking
-- ✅ Área do Piloto (Dashboard com login)
-- ✅ Sistema de Jurados
-- ✅ Integração Supabase
-- ✅ Integração Google Sheets
-
-### Status:
-- Site funcionando igual ao Netlify (masterleaguef1.com.br)
-- Pronto para novas implementações
-
----
-
-## Backups Antigos (para referência):
-- `master-league-f1 -BACKUP-10-12-25-OK` - Backup original do Netlify
-- `master-league-f1-BACKUP-ATUAL-10-12-25-1219` - Backup intermediário
-- `master-league-f1-BACKUP-ATUAL-10-12-25-1220` - Backup intermediário
-
----
-
-## Como criar novo backup:
-
-```powershell
-cd "C:\Users\Usuario\Documents\Master League F1\Projetos_React"
-$version = "v1.1.0"  # Alterar versão
-$date = Get-Date -Format "yyyy-MM-dd"
-Copy-Item -Recurse "master-league-f1" "master-league-f1-BACKUP-$version-$date"
-```
-
-## Convenção de Versões:
-- **v1.x.x** - Versão maior (mudanças grandes)
-- **vx.1.x** - Novas funcionalidades
-- **vx.x.1** - Correções de bugs
-
----
-
-## Próximas Implementações Planejadas:
-- [ ] Melhorias no login de pilotos
-- [ ] Novas estatísticas no Hall da Fama
-- [ ] Sistema de notificações
-- [ ] Melhorias de performance
+## Histórico Anterior
+- Sistema de análises (acusações, defesas, vereditos)
+- Sistema de cache Supabase
+- Painel administrativo
+- Integração com Google Sheets

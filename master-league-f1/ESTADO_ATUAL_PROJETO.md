@@ -1,7 +1,7 @@
 # 📋 Estado Atual do Projeto - Master League F1
 
-**Data:** 13/01/2025  
-**Última Atualização:** Sistema de autenticação 2FA via WhatsApp totalmente funcional com persistência via localStorage
+**Data:** 15/12/2025  
+**Última Atualização:** Sistema de narradores, hero banner personalizado por equipe, suporte a YouTube Shorts
 
 ---
 
@@ -131,11 +131,47 @@
 - ✅ Logout limpa localStorage corretamente
 - ✅ Sincronização automática de pilotos funcionando
 
-### 5. Funcionalidades Principais
+### 5. Sistema de Ex-Pilotos (CONCLUÍDO)
+- ✅ Fluxo completo de cadastro e login para ex-pilotos
+- ✅ Tabela `pilotos` com campo `tipo_piloto` ('ativo' ou 'ex-piloto')
+- ✅ Status 'pendente' para aprovação pelo admin
+- ✅ Dashboard somente leitura para ex-pilotos
+- ✅ Sistema de aprovação via admin com notificação WhatsApp
+- ✅ Criação de senha após aprovação
+- ✅ Biografia e histórico do piloto no dashboard
+- ✅ Exibição de status ATIVO/INATIVO baseado na planilha "Pilotos PR"
+
+### 6. Sistema de Narradores (CONCLUÍDO)
+- ✅ Tabela `narradores` criada no Supabase
+- ✅ Página `/narrador` para acesso dos narradores
+- ✅ Login com email e senha (hash SHA-256)
+- ✅ Visualização somente leitura dos painéis dos pilotos
+- ✅ Filtros por nome, equipe e grid
+- ✅ Página de cadastro no admin (`/admin` - aba Narradores)
+- ✅ Gerenciamento completo (criar, editar, ativar/desativar, excluir)
+- ✅ Link na Home abaixo do link do Admin
+
+### 7. Hero Banner Personalizado (CONCLUÍDO)
+- ✅ Hero banner personalizado por equipe do piloto
+- ✅ Mapeamento de equipes para wallpapers de F1
+- ✅ Suporte a todas as equipes da F1 (Red Bull, Ferrari, Mercedes, McLaren, etc.)
+- ✅ Wallpaper padrão para pilotos sem equipe
+- ✅ Gradiente dinâmico baseado na cor da equipe
+- ✅ Efeito parallax com `backgroundAttachment: 'fixed'`
+- ✅ Pasta `public/wallpapers/` criada para armazenar imagens
+
+### 8. Suporte a YouTube Shorts (CONCLUÍDO)
+- ✅ Detecção automática de YouTube Shorts
+- ✅ Layout otimizado para formato vertical (9:16)
+- ✅ Altura ajustada para 600px para Shorts
+- ✅ Container centralizado com largura máxima de 400px
+- ✅ Vídeos normais mantêm formato 16:9 padrão
+
+### 9. Funcionalidades Principais
 - ✅ Sistema de login com Google OAuth
 - ✅ Painel do piloto (`/dashboard`)
 - ✅ Custom Alert/Confirm dialogs
-- ✅ Suporte a múltiplas plataformas de vídeo
+- ✅ Suporte a múltiplas plataformas de vídeo (incluindo YouTube Shorts)
 
 ---
 
@@ -206,10 +242,15 @@
 - `src/pages/Minicup.jsx` - Tabela Minicup (usa Supabase)
 - `src/pages/Standings.jsx` - Classificação (AINDA usa Google Sheets direto)
 - `src/pages/PowerRanking.jsx` - Power Ranking (usa Supabase via `usePowerRankingCache`)
-- `src/pages/Admin.jsx` - Painel administrativo
+- `src/pages/Admin.jsx` - Painel administrativo (com abas: Drivers, Stewards, Jurados, Narradores)
 - `src/pages/AdminSync.jsx` - Dashboard de sincronização (criado, não integrado)
 - `src/pages/Login.jsx` - Login com 2FA completo ✅
-- `src/pages/Dashboard.jsx` - Painel do piloto com proteção 2FA ✅
+- `src/pages/Dashboard.jsx` - Painel do piloto com proteção 2FA e hero banner personalizado ✅
+- `src/pages/PilotoAtivoOuEx.jsx` - Escolha entre piloto ativo e ex-piloto
+- `src/pages/ExPilotoCadastro.jsx` - Cadastro de ex-pilotos
+- `src/pages/ExPilotoLogin.jsx` - Login de ex-pilotos
+- `src/pages/ExPilotoEscolha.jsx` - Escolha entre login e cadastro para ex-pilotos
+- `src/pages/Narrador.jsx` - Painel do narrador (visualização somente leitura) ✅
 
 ### Edge Functions
 - `supabase/functions/sync-google-sheets/index.ts` - Sincroniza Google Sheets → Supabase
@@ -223,7 +264,7 @@
 - `src/utils/syncPilotosFromSheet.js` - Sincronização de pilotos da planilha ✅
 
 ### Componentes
-- `src/components/VideoEmbed.jsx` - Embed de vídeos de múltiplas plataformas
+- `src/components/VideoEmbed.jsx` - Embed de vídeos de múltiplas plataformas (incluindo YouTube Shorts) ✅
 - `src/components/CustomAlert.jsx` - Alert/Confirm customizados
 - `src/components/DisableAutoScroll.jsx` - Previne scroll automático
 
@@ -231,6 +272,11 @@
 - `supabase-schema.sql` - Schema principal (pilotos, lances, acusacoes, defesas, verdicts, etc.)
 - `supabase-schema-auth.sql` - Schema de autenticação (whatsapp_verification_codes) ✅
 - `supabase-schema-auth-fix-rls.sql` - Correção de RLS policies ✅
+- `supabase-schema-ex-pilotos.sql` - Schema para ex-pilotos ✅
+- `supabase-schema-add-gamertag.sql` - Adição de campo gamertag ✅
+- `supabase-schema-add-cod-idml.sql` - Adição de campo cod_idml ✅
+- `supabase-schema-fix-pilotos-rls-ex-pilotos-insert.sql` - RLS para ex-pilotos ✅
+- `supabase-schema-narradores.sql` - Schema para narradores ✅
 
 ### Scripts de Teste
 - `teste-whatsapp-curl.bat` - Teste da Edge Function via cURL (Windows)
@@ -263,6 +309,12 @@
   - RLS habilitado e corrigido
   - Índices otimizados
   - Policies usando `auth.jwt() ->> 'email'` para validação
+
+### Tabelas de Usuários Especiais
+- `narradores` - Cadastro de narradores ✅
+  - Campos: `id`, `nome`, `email`, `senha_hash`, `ativo`, `created_at`, `updated_at`
+  - RLS habilitado
+  - Senhas com hash SHA-256
 
 ### Edge Functions
 - `SERVICE_ROLE_KEY` configurada como secret
@@ -405,4 +457,37 @@
 
 ---
 
-**Última modificação:** 13/01/2025 - Sistema de autenticação 2FA via WhatsApp totalmente funcional com persistência via localStorage
+**Última modificação:** 15/12/2025 - Sistema de narradores, hero banner personalizado por equipe, suporte a YouTube Shorts
+
+---
+
+## 🆕 NOVAS FUNCIONALIDADES (Última Atualização)
+
+### Sistema de Narradores
+- **Acesso:** `/narrador`
+- **Funcionalidades:**
+  - Login com email e senha
+  - Visualização somente leitura dos painéis dos pilotos
+  - Filtros por nome, equipe e grid
+  - Seleção de piloto para visualização
+- **Gerenciamento:** Aba "NARRADORES" no painel admin (`/admin`)
+- **Arquivos:**
+  - `src/pages/Narrador.jsx` - Página principal do narrador
+  - `supabase-schema-narradores.sql` - Schema SQL
+
+### Hero Banner Personalizado
+- **Funcionalidade:** Banner do dashboard personalizado por equipe
+- **Equipes suportadas:** Red Bull, Ferrari, Mercedes, McLaren, Aston Martin, Alpine, Haas, Williams, Sauber, VCARB
+- **Localização:** `public/wallpapers/`
+- **Formato:** JPG/PNG, resolução recomendada 1920x1080 ou superior
+- **Fallback:** `/banner-masterleague.png` para pilotos sem equipe
+- **Arquivos modificados:**
+  - `src/pages/Dashboard.jsx` - Função `getTeamWallpaper()` adicionada
+
+### Suporte a YouTube Shorts
+- **Funcionalidade:** Detecção e renderização otimizada de YouTube Shorts
+- **Layout:** Formato vertical (9:16) com altura de 600px
+- **Container:** Largura máxima de 400px, centralizado
+- **Arquivos modificados:**
+  - `src/utils/videoEmbed.js` - Regex atualizado para detectar `/shorts/`
+  - `src/components/VideoEmbed.jsx` - Layout adaptativo para Shorts

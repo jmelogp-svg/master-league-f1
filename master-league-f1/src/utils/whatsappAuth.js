@@ -10,11 +10,12 @@ import { supabase } from '../supabaseClient';
  * @param {string} email - Email do piloto
  * @param {string} whatsapp - Número do WhatsApp (formato: (11) 99999-9999 ou 11999999999)
  * @param {string} nomePiloto - Nome do piloto (opcional)
+ * @param {boolean} skipPilotoCheck - Se true, não verifica se o piloto existe no banco (para cadastros novos)
  * @returns {Promise<{success: boolean, error?: string, code_id?: string}>}
  */
-export async function requestVerificationCode(email, whatsapp, nomePiloto = null) {
+export async function requestVerificationCode(email, whatsapp, nomePiloto = null, skipPilotoCheck = false) {
     try {
-        console.log('📱 Solicitando código de verificação...', { email, whatsapp });
+        console.log('📱 Solicitando código de verificação...', { email, whatsapp, skipPilotoCheck });
 
         // Chamar Edge Function via supabase-js (evita depender de VITE_SUPABASE_URL/.env)
         const { data, error } = await supabase.functions.invoke('send-whatsapp-code', {
@@ -22,6 +23,7 @@ export async function requestVerificationCode(email, whatsapp, nomePiloto = null
                 email: email.toLowerCase().trim(),
                 whatsapp,
                 nomePiloto,
+                skipPilotoCheck, // Para ex-pilotos em cadastro, não verificar se existe no banco
             },
         });
 
@@ -69,18 +71,29 @@ export async function verifyCode(email, code) {
         console.log('🔍 Validando código...', { email, code: code.replace(/\d/g, '•') });
 
         // Buscar código ativo no banco
+        // Usar .maybeSingle() ao invés de .single() para evitar erro 406 quando não encontrar
         const { data: codeRecord, error: codeError } = await supabase
             .from('whatsapp_verification_codes')
             .select('*')
             .eq('email', email.toLowerCase().trim())
             .eq('code', code.trim())
             .eq('used', false)
+            .gt('expires_at', new Date().toISOString()) // Apenas códigos não expirados
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle(); // Usa maybeSingle() ao invés de single() para evitar erro 406
 
-        if (codeError || !codeRecord) {
-            console.error('❌ Código não encontrado:', codeError);
+        if (codeError) {
+            console.error('❌ Erro ao buscar código:', codeError);
+            return {
+                success: false,
+                valid: false,
+                error: 'Erro ao validar código. Tente novamente.',
+            };
+        }
+
+        if (!codeRecord) {
+            console.error('❌ Código não encontrado ou inválido');
             return {
                 success: false,
                 valid: false,
@@ -161,9 +174,10 @@ export async function incrementCodeAttempts(email, code) {
             .eq('email', email.toLowerCase().trim())
             .eq('code', code.trim())
             .eq('used', false)
+            .gt('expires_at', new Date().toISOString()) // Apenas códigos não expirados
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle(); // Usa maybeSingle() ao invés de single()
 
         if (codeRecord) {
             await supabase

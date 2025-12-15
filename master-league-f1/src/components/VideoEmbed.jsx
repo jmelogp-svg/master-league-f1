@@ -14,11 +14,22 @@ function VideoEmbed({ videoLink, title = "Vídeo", borderColor = 'rgba(255,255,2
 
     const embedUrl = getVideoEmbedUrl(videoLink);
     
+    // Verificar se é um YouTube Short
+    const isYouTubeShort = videoLink.includes('/shorts/');
+    
     if (embedUrl) {
+        // Para YouTube Shorts, usar altura maior (formato vertical 9:16)
+        // Para vídeos normais, manter altura padrão (formato 16:9)
+        const iframeHeight = isYouTubeShort ? '600px' : '300px';
+        const containerMaxWidth = isYouTubeShort ? '400px' : '100%';
+        const containerMargin = isYouTubeShort ? '0 auto' : '0';
+        
         return (
             <div 
                 style={{
                     width: '100%',
+                    maxWidth: containerMaxWidth,
+                    margin: containerMargin,
                     background: '#000',
                     borderRadius: '8px',
                     overflow: 'hidden',
@@ -30,13 +41,14 @@ function VideoEmbed({ videoLink, title = "Vídeo", borderColor = 'rgba(255,255,2
                     src={embedUrl}
                     title={title}
                     frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                     loading="lazy"
                     style={{
                         width: '100%',
-                        height: '300px',
-                        border: 'none'
+                        height: iframeHeight,
+                        border: 'none',
+                        display: 'block'
                     }}
                 />
             </div>

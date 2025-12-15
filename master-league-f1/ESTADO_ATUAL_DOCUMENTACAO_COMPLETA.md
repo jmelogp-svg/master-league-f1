@@ -446,3 +446,5 @@ curl -X POST "https://ueqfmjwdijaeawvxhdtp.supabase.co/functions/v1/send-whatsap
 **Documentação gerada automaticamente em:** 2025-01-13  
 **Última sessão de desenvolvimento:** Implementação completa de autenticação 2FA
 
+
+

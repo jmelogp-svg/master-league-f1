@@ -815,6 +815,7 @@ function Home() {
             {selectedDriver && <DriverModal driver={selectedDriver} gridType={selectedDriver.gridType || gridType} season={selectedSeason} onClose={() => setSelectedDriver(null)} teamColor={getTeamColor(selectedDriver.team)} teamLogo={getTeamLogo(selectedDriver.team)} />}
             <footer><div className="nav-logo" style={{display:'flex', justifyContent:'center', marginBottom:'20px'}}>MASTER <span>LEAGUE</span></div><p style={{color:'#94A3B8'}}>© 2025. Acelere para a glória.</p>
             <Link to="/admin" style={{fontSize: '0.7rem', color: '#334155', textDecoration: 'none', marginTop: '20px', display: 'block'}}>Área Administrativa</Link>
+            <Link to="/narrador" style={{fontSize: '0.7rem', color: '#334155', textDecoration: 'none', marginTop: '10px', display: 'block'}}>Área do Narrador</Link>
             </footer>
         </div>
     );
