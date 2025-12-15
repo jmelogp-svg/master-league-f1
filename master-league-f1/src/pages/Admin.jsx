@@ -715,29 +715,50 @@ function Admin() {
     };
 
     const handleApprove = async (userId, nome) => {
-        // Buscar dados completos do usuário para obter email e WhatsApp
-        const { data: userData, error: fetchError } = await supabase
-            .from('profiles')
-            .select('email, whatsapp, nome_piloto')
+        // Buscar dados completos do usuário - tentar primeiro 'pilotos', depois 'profiles'
+        let userData = null;
+        let tableName = 'pilotos';
+        
+        const { data: pilotosData, error: pilotosError } = await supabase
+            .from('pilotos')
+            .select('email, whatsapp, nome, status')
             .eq('id', userId)
             .single();
         
-        if (fetchError || !userData) {
-            alert('❌ Erro ao buscar dados do usuário: ' + (fetchError?.message || 'Usuário não encontrado'));
+        if (!pilotosError && pilotosData) {
+            userData = pilotosData;
+            tableName = 'pilotos';
+        } else {
+            // Fallback para 'profiles'
+            const { data: profilesData, error: profilesError } = await supabase
+                .from('profiles')
+                .select('email, whatsapp, nome_piloto, status')
+                .eq('id', userId)
+                .single();
+            
+            if (!profilesError && profilesData) {
+                userData = profilesData;
+                tableName = 'profiles';
+            }
+        }
+        
+        if (!userData) {
+            alert('❌ Erro ao buscar dados do usuário. Tente novamente.');
             return;
         }
         
         const email = userData.email;
         const whatsapp = userData.whatsapp;
-        const nomePiloto = userData.nome_piloto || nome;
+        const nomePiloto = userData.nome || userData.nome_piloto || nome;
         
         if (!window.confirm(`Aprovar acesso de ${nomePiloto}?\n\nUma notificação será enviada no WhatsApp com as instruções de login.`)) return;
         
         try {
-            // Atualizar status para 'active'
+            // Atualizar status para 'ativo' (pilotos) ou 'active' (profiles)
+            const statusValue = tableName === 'pilotos' ? 'ativo' : 'active';
             const { error } = await supabase
-                .from('profiles')
-                .update({ status: 'active' })
+                .from(tableName)
+                .update({ status: statusValue })
                 .eq('id', userId);
             
             if (error) {
@@ -747,7 +768,7 @@ function Admin() {
             // Enviar notificação WhatsApp se tiver WhatsApp cadastrado
             if (whatsapp && whatsapp !== '-') {
                 try {
-                    await enviarNotificacaoAprovacao(email, nomePiloto, whatsapp);
+                    await enviarNotificacaoAprovacao(email, nomePiloto, whatsapp, false);
                     alert('✅ Piloto aprovado! Notificação WhatsApp enviada com sucesso.');
                 } catch (notifError) {
                     console.error('Erro ao enviar WhatsApp:', notifError);
