@@ -178,6 +178,28 @@ function Login() {
         }
     };
 
+    // 2.1. Login com Microsoft/Hotmail
+    const handleMicrosoftLogin = async () => {
+        setLoading(true);
+        setErrorMsg('');
+
+        // Sempre voltar para /login após o OAuth
+        const redirectUrl = `${window.location.origin}/login`;
+
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'azure',
+            options: {
+                redirectTo: redirectUrl,
+                skipBrowserRedirect: false
+            }
+        });
+        
+        if (error) {
+            setErrorMsg('Erro ao conectar com Microsoft: ' + error.message);
+            setLoading(false);
+        }
+    };
+
     // Logout e tentar novamente
     const handleLogout = async () => {
         try {
@@ -283,6 +305,19 @@ function Login() {
 
             // PASSO 1: Piloto encontrado no Supabase
             console.log('✅ [PASSO 1] Piloto encontrado no Supabase:', piloto);
+            
+            // VERIFICAR STATUS: Se estiver pendente, bloquear acesso
+            const status = piloto.status?.toLowerCase() || '';
+            if (status === 'pendente' || status === 'pending') {
+                console.log('⚠️ Piloto encontrado mas está com status PENDENTE');
+                setErrorMsg(`⏳ Seu cadastro está aguardando aprovação da administração.\n\nVocê receberá uma notificação no WhatsApp quando seu acesso for liberado.\n\nPor favor, aguarde a aprovação antes de tentar fazer login novamente.`);
+                setStep('login');
+                // Fazer logout para limpar a sessão
+                await supabase.auth.signOut();
+                setUser(null);
+                return;
+            }
+            
             setPilotoData(piloto);
             
             // Buscar dados da planilha também para validação de WhatsApp
@@ -701,36 +736,68 @@ function Login() {
                     </div>
                 )}
 
-                {/* STEP: Login com Google */}
+                {/* STEP: Login com Google ou Microsoft */}
                 {step === 'login' && (
                     <div>
                         <p style={{ color: '#94A3B8', marginBottom: '25px', fontSize: '0.95rem' }}>
                             Faça login com o <strong style={{ color: '#06B6D4' }}>e-mail cadastrado</strong> na inscrição da liga.
                         </p>
-                        <button
-                            onClick={handleGoogleLogin}
-                            disabled={loading}
-                            style={{
-                                width: '100%',
-                                padding: '16px',
-                                background: 'white',
-                                color: '#0F172A',
-                                border: 'none',
-                                borderRadius: '10px',
-                                fontWeight: 'bold',
-                                fontSize: '1.05rem',
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '12px',
-                                transition: 'all 0.3s',
-                                opacity: loading ? 0.7 : 1
-                            }}
-                        >
-                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" style={{ width: '24px' }} />
-                            {loading ? 'Conectando...' : 'Entrar com Google'}
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <button
+                                onClick={handleGoogleLogin}
+                                disabled={loading}
+                                style={{
+                                    width: '100%',
+                                    padding: '16px',
+                                    background: 'white',
+                                    color: '#0F172A',
+                                    border: 'none',
+                                    borderRadius: '10px',
+                                    fontWeight: 'bold',
+                                    fontSize: '1.05rem',
+                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '12px',
+                                    transition: 'all 0.3s',
+                                    opacity: loading ? 0.7 : 1
+                                }}
+                            >
+                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" style={{ width: '24px' }} />
+                                {loading ? 'Conectando...' : 'Entrar com Google'}
+                            </button>
+                            
+                            <button
+                                onClick={handleMicrosoftLogin}
+                                disabled={loading}
+                                style={{
+                                    width: '100%',
+                                    padding: '16px',
+                                    background: '#0078D4',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '10px',
+                                    fontWeight: 'bold',
+                                    fontSize: '1.05rem',
+                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '12px',
+                                    transition: 'all 0.3s',
+                                    opacity: loading ? 0.7 : 1
+                                }}
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M11.4 11H22V22H11.4V11Z" fill="#F25022"/>
+                                    <path d="M11.4 0H22V11H11.4V0Z" fill="#7FBA00"/>
+                                    <path d="M0 11H11.4V22H0V11Z" fill="#00A4EF"/>
+                                    <path d="M0 0H11.4V11H0V0Z" fill="#FFB900"/>
+                                </svg>
+                                {loading ? 'Conectando...' : 'Entrar com Microsoft'}
+                            </button>
+                        </div>
                     </div>
                 )}
 
