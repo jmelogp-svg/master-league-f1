@@ -46,8 +46,33 @@ const getCountryAbbreviation = (gpName) => {
 
 const fetchWithProxy = async (url) => {
     const proxyUrl = "https://corsproxy.io/?";
-    const response = await fetch(proxyUrl + encodeURIComponent(url));
-    return response.text();
+    try {
+        const response = await fetch(proxyUrl + encodeURIComponent(url));
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const text = await response.text();
+        if (!text || text.trim().length === 0) {
+            throw new Error('Resposta vazia do proxy');
+        }
+        // Verificar se não é HTML (erro de proxy)
+        if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+            throw new Error('Proxy retornou HTML ao invés de CSV');
+        }
+        return text;
+    } catch (error) {
+        console.error('❌ Erro ao buscar planilha via proxy:', error);
+        // Tentar buscar direto (pode funcionar se não houver CORS)
+        try {
+            const directResponse = await fetch(url);
+            if (directResponse.ok) {
+                return await directResponse.text();
+            }
+        } catch (directError) {
+            console.error('❌ Erro ao buscar planilha direto:', directError);
+        }
+        throw error;
+    }
 };
 
 // --- HELPERS VISUAIS ---
@@ -195,33 +220,102 @@ const Onboarding = ({ session, onComplete }) => {
         setValidating(true); setErrorMsg('');
 
         try {
+            console.log('🔍 Iniciando validação...');
+            console.log('📧 Email do usuário:', session.user.email);
+            console.log('📱 WhatsApp digitado:', whatsappInput, '→ Limpo:', clean);
+            
             const csvText = await fetchWithProxy(LINK_CONTROLE);
+            console.log('✅ Planilha carregada, tamanho:', csvText.length, 'caracteres');
+            
             Papa.parse(csvText, {
                 header: false, skipEmptyLines: true,
                 complete: async (results) => {
                     const rows = results.data.slice(1);
+                    console.log('📋 Total de linhas na planilha:', rows.length);
+                    
                     const myEmail = session.user.email.toLowerCase().trim();
+                    console.log('🔍 Procurando por email:', myEmail);
+                    
                     // NOVA ESTRUTURA - CADASTRO MLF1
                     // Coluna H (índice 7) = E-mail Login
                     // Coluna C (índice 2) = WhatsApp
                     // Coluna O (índice 14) = Nome Piloto
-                    const match = rows.find(row => {
-                        const sheetPhone = cleanPhone(row[2]); // Coluna C
+                    
+                    // Debug: mostrar primeiras linhas
+                    if (rows.length > 0) {
+                        console.log('📋 Primeira linha da planilha:', rows[0]);
+                        console.log('📋 Coluna C (WhatsApp) primeira linha:', rows[0][2]);
+                        console.log('📋 Coluna H (Email) primeira linha:', rows[0][7]);
+                        console.log('📋 Coluna O (Nome Piloto) primeira linha:', rows[0][14]);
+                    }
+                    
+                    let foundByEmail = false;
+                    let foundByPhone = false;
+                    
+                    const match = rows.find((row, index) => {
+                        const sheetPhone = cleanPhone(row[2] || ''); // Coluna C
                         const sheetEmail = (row[7] || '').toLowerCase().trim(); // Coluna H - E-mail Login
-                        return sheetEmail === myEmail && sheetPhone.includes(clean);
+                        
+                        // Debug para primeiras 5 linhas
+                        if (index < 5) {
+                            console.log(`📋 Linha ${index + 1}:`, {
+                                email: sheetEmail,
+                                phone: sheetPhone,
+                                emailMatch: sheetEmail === myEmail,
+                                phoneMatch: sheetPhone.includes(clean) || clean.includes(sheetPhone)
+                            });
+                        }
+                        
+                        if (sheetEmail === myEmail) {
+                            foundByEmail = true;
+                            console.log('✅ Email encontrado na linha', index + 1, 'WhatsApp da planilha:', sheetPhone);
+                        }
+                        
+                        if (sheetPhone && (sheetPhone.includes(clean) || clean.includes(sheetPhone))) {
+                            foundByPhone = true;
+                            console.log('✅ WhatsApp encontrado na linha', index + 1, 'Email da planilha:', sheetEmail);
+                        }
+                        
+                        // Comparação mais flexível: email deve bater exatamente, WhatsApp pode bater parcialmente
+                        const emailMatch = sheetEmail === myEmail;
+                        const phoneMatch = sheetPhone && (sheetPhone.includes(clean) || clean.includes(sheetPhone));
+                        
+                        return emailMatch && phoneMatch;
                     });
 
                     if (match) {
+                        console.log('✅ Match encontrado!', match);
                         const nomeOficial = match[14] || match[0]; // Coluna O (Nome Piloto) ou Coluna A (Nome Cadastrado)
-                        if (!nomeOficial) { setErrorMsg("Nome de Piloto vazio na planilha."); setValidating(false); return; }
+                        if (!nomeOficial) { 
+                            setErrorMsg("Nome de Piloto vazio na planilha."); 
+                            setValidating(false); 
+                            return; 
+                        }
                         await saveProfile({ nome_piloto: nomeOficial, whatsapp: match[2], status: 'active' }, true);
                     } else {
-                        setErrorMsg(`Inscrição não encontrada para ${myEmail}.`);
+                        console.log('❌ Match não encontrado');
+                        console.log('📊 Estatísticas:', {
+                            totalLinhas: rows.length,
+                            encontradoPorEmail: foundByEmail,
+                            encontradoPorPhone: foundByPhone,
+                            emailProcurado: myEmail,
+                            phoneProcurado: clean
+                        });
+                        setErrorMsg(`Inscrição não encontrada para ${myEmail}. Verifique se o email e WhatsApp estão corretos na planilha.`);
                     }
+                    setValidating(false);
+                },
+                error: (error) => {
+                    console.error('❌ Erro ao parsear CSV:', error);
+                    setErrorMsg("Erro ao processar planilha. Tente novamente.");
                     setValidating(false);
                 }
             });
-        } catch (err) { console.error(err); setErrorMsg("Erro de conexão."); setValidating(false); }
+        } catch (err) { 
+            console.error('❌ Erro na validação:', err); 
+            setErrorMsg(`Erro de conexão: ${err.message}. Tente novamente.`); 
+            setValidating(false); 
+        }
     };
 
     const handleManualSubmit = async () => {
