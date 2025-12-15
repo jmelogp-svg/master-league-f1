@@ -216,7 +216,10 @@ const Onboarding = ({ session, onComplete }) => {
                         if (!nomeOficial) { setErrorMsg("Nome de Piloto vazio na planilha."); setValidating(false); return; }
                         await saveProfile({ nome_piloto: nomeOficial, whatsapp: match[2], status: 'active' }, true);
                     } else {
-                        setErrorMsg(`Inscrição não encontrada para ${myEmail}.`);
+                        // Se não encontrou na planilha, oferecer cadastro manual automaticamente
+                        // Mudar automaticamente para o modo manual (mensagem será exibida no modo manual)
+                        setMode('manual');
+                        setErrorMsg(`Inscrição não encontrada na planilha para ${myEmail}. Preencha os dados abaixo para fazer seu cadastro.`);
                     }
                     setValidating(false);
                 }
@@ -269,11 +272,11 @@ const Onboarding = ({ session, onComplete }) => {
             {errorMsg && <div style={{background:'rgba(220,38,38,0.2)', color:'#FECACA', padding:'10px', borderRadius:'8px', marginBottom:'20px', fontSize:'0.9rem'}}>{errorMsg}</div>}
             {mode === 'validate' && (
                 <>
-                    <p style={{color:'#94A3B8', marginBottom:'30px'}}>Confirme seus dados para liberar o acesso.</p>
+                    <p style={{color:'#94A3B8', marginBottom:'30px'}}>Confirme seus dados para liberar o acesso. Se não encontrar sua inscrição, você pode fazer um cadastro manual.</p>
                     <div style={{textAlign:'left', marginBottom:'20px'}}><label style={labelStyle}>E-MAIL</label><input type="text" value={session.user.email} disabled style={inputDisabledStyle} /></div>
                     <div style={{textAlign:'left', marginBottom:'30px'}}><label style={labelStyle}>WHATSAPP</label><input type="text" value={whatsappInput} onChange={handlePhoneChange} placeholder="(00) 00000-0000" style={inputStyle} /></div>
                     <button onClick={handleValidate} disabled={validating} className="btn-primary" style={{width:'100%', marginBottom:'20px'}}>{validating ? 'VERIFICANDO...' : 'VALIDAR'}</button>
-                    <button onClick={() => { setMode('manual'); setErrorMsg(''); }} style={{background:'transparent', border:'1px solid #64748B', color:'white', padding:'8px 16px', borderRadius:'6px', cursor:'pointer', fontSize:'0.8rem'}}>REENVIAR INSCRIÇÃO</button>
+                    <button onClick={() => { setMode('manual'); setErrorMsg(''); }} style={{background:'transparent', border:'1px solid #64748B', color:'white', padding:'8px 16px', borderRadius:'6px', cursor:'pointer', fontSize:'0.8rem', width:'100%'}}>CADASTRO MANUAL</button>
                 </>
             )}
             {mode === 'manual' && (
