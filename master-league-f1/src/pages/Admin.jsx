@@ -791,15 +791,17 @@ function Admin() {
         if (!error) { alert('Resetado!'); fetchAllUsers(); }
     };
 
-    // ===== FUNÇÕES PARA EX-PILOTOS =====
+    // ===== FUNÇÕES PARA EX-PILOTOS E APROVAÇÕES =====
     // Função auxiliar para enviar notificação WhatsApp
-    const enviarNotificacaoAprovacao = async (email, nome, whatsapp) => {
+    const enviarNotificacaoAprovacao = async (email, nome, whatsapp, isExPiloto = false) => {
         // URL do site
         const siteUrl = 'https://www.masterleaguef1.com.br';
-        const loginUrl = `${siteUrl}/ex-piloto/login`;
+        const loginUrl = isExPiloto ? `${siteUrl}/ex-piloto/login` : `${siteUrl}/login`;
 
-        // Enviar notificação WhatsApp com instruções completas
-        const mensagem = `✅ *ACESSO LIBERADO - MASTER LEAGUE F1*\n\nOlá ${nome},\n\nSeu acesso ao Painel do Piloto foi *APROVADO*!\n\n📋 *CADASTRE SUA SENHA E ACESSE:*\n\n🔗 Link direto: ${loginUrl}\n\n📝 *Passos:*\n\n1️⃣ Clique no link acima\n\n2️⃣ Digite seu e-mail:\n   ${email}\n\n3️⃣ Valide seu WhatsApp com o código que será enviado\n\n4️⃣ Crie sua senha de acesso\n\n5️⃣ Pronto! Você terá acesso ao seu painel histórico\n\n🏎️ Reveja a sua história na Master League F1`;
+        // Mensagem diferente para pilotos ativos vs ex-pilotos
+        const mensagem = isExPiloto 
+            ? `✅ *ACESSO LIBERADO - MASTER LEAGUE F1*\n\nOlá ${nome},\n\nSeu acesso ao Painel do Piloto foi *APROVADO*!\n\n📋 *CADASTRE SUA SENHA E ACESSE:*\n\n🔗 Link direto: ${loginUrl}\n\n📝 *Passos:*\n\n1️⃣ Clique no link acima\n\n2️⃣ Digite seu e-mail:\n   ${email}\n\n3️⃣ Valide seu WhatsApp com o código que será enviado\n\n4️⃣ Crie sua senha de acesso\n\n5️⃣ Pronto! Você terá acesso ao seu painel histórico\n\n🏎️ Reveja a sua história na Master League F1`
+            : `✅ *ACESSO APROVADO - MASTER LEAGUE F1*\n\nOlá ${nome},\n\nSeu cadastro foi *APROVADO* pela administração!\n\n🎉 *AGORA VOCÊ PODE ACESSAR SEU PAINEL:*\n\n🔗 Link direto: ${loginUrl}\n\n📝 *Como fazer login:*\n\n1️⃣ Clique no link acima\n\n2️⃣ Escolha:\n   • Entrar com Google\n   • Entrar com Microsoft (Hotmail/Outlook)\n\n3️⃣ Use seu e-mail:\n   ${email}\n\n4️⃣ Valide seu WhatsApp com o código que será enviado\n\n5️⃣ Pronto! Você terá acesso ao seu painel\n\n🏎️ Bem-vindo à Master League F1!`;
         
         // Usar a Edge Function para enviar WhatsApp
         const whatsappLimpo = whatsapp.replace(/\D/g, '');
