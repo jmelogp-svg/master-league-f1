@@ -715,9 +715,53 @@ function Admin() {
     };
 
     const handleApprove = async (userId, nome) => {
-        if (!window.confirm(`Confirmar ativação de ${nome}?`)) return;
-        const { error } = await supabase.from('profiles').update({ status: 'active' }).eq('id', userId);
-        if (!error) { alert('Ativado!'); fetchAllUsers(); }
+        // Buscar dados completos do usuário para obter email e WhatsApp
+        const { data: userData, error: fetchError } = await supabase
+            .from('profiles')
+            .select('email, whatsapp, nome_piloto')
+            .eq('id', userId)
+            .single();
+        
+        if (fetchError || !userData) {
+            alert('❌ Erro ao buscar dados do usuário: ' + (fetchError?.message || 'Usuário não encontrado'));
+            return;
+        }
+        
+        const email = userData.email;
+        const whatsapp = userData.whatsapp;
+        const nomePiloto = userData.nome_piloto || nome;
+        
+        if (!window.confirm(`Aprovar acesso de ${nomePiloto}?\n\nUma notificação será enviada no WhatsApp com as instruções de login.`)) return;
+        
+        try {
+            // Atualizar status para 'active'
+            const { error } = await supabase
+                .from('profiles')
+                .update({ status: 'active' })
+                .eq('id', userId);
+            
+            if (error) {
+                throw new Error(error.message);
+            }
+            
+            // Enviar notificação WhatsApp se tiver WhatsApp cadastrado
+            if (whatsapp && whatsapp !== '-') {
+                try {
+                    await enviarNotificacaoAprovacao(email, nomePiloto, whatsapp);
+                    alert('✅ Piloto aprovado! Notificação WhatsApp enviada com sucesso.');
+                } catch (notifError) {
+                    console.error('Erro ao enviar WhatsApp:', notifError);
+                    alert('⚠️ Piloto aprovado, mas houve erro ao enviar notificação WhatsApp: ' + notifError.message);
+                }
+            } else {
+                alert('✅ Piloto aprovado! (WhatsApp não cadastrado, notificação não enviada)');
+            }
+            
+            await fetchAllUsers();
+        } catch (err) {
+            console.error('Erro ao aprovar piloto:', err);
+            alert('❌ Erro ao aprovar: ' + err.message);
+        }
     };
 
     const handleReset = async (userId, nome) => {
@@ -776,7 +820,7 @@ function Admin() {
 
             // Enviar notificação
             try {
-                await enviarNotificacaoAprovacao(email, nome, whatsapp);
+                await enviarNotificacaoAprovacao(email, nome, whatsapp, true);
                 alert('✅ Ex-piloto aprovado! Notificação WhatsApp enviada com sucesso.');
             } catch (notifError) {
                 console.error('Erro ao enviar WhatsApp:', notifError);
@@ -791,11 +835,11 @@ function Admin() {
     };
 
     // Reenviar notificação de aprovação (para ex-pilotos já aprovados)
-    const handleReenviarNotificacao = async (email, nome, whatsapp) => {
+    const handleReenviarNotificacao = async (email, nome, whatsapp, isExPiloto = true) => {
         if (!window.confirm(`Reenviar notificação de aprovação para ${nome}?\n\nUma nova mensagem será enviada no WhatsApp.`)) return;
         
         try {
-            await enviarNotificacaoAprovacao(email, nome, whatsapp);
+            await enviarNotificacaoAprovacao(email, nome, whatsapp, isExPiloto);
             alert('✅ Notificação reenviada com sucesso!');
         } catch (err) {
             console.error('Erro ao reenviar notificação:', err);
