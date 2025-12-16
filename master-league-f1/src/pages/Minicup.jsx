@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import { useSupabaseCache } from '../hooks/useSupabaseCache';
+import { supabase } from '../supabaseClient';
 import '../index.css';
 
 // URL do CSV do Minicup
@@ -178,13 +179,27 @@ function Minicup() {
         let raceStartCol = 4; // Primeira coluna de corrida (após: coluna 0=vazio, 1=piloto, 2=equipe, 3=vazio)
         
         // Detectar todas as colunas de corridas disponíveis
+        // Continuar até encontrar uma coluna completamente vazia OU até o final do header
         for (let i = raceStartCol; i < header.length; i++) {
             const raceName = header[i]?.trim();
             if (raceName && raceName.length > 0) {
                 raceNames.push(raceName);
             } else {
-                // Se encontrar coluna vazia, para de adicionar (mas continua processando se houver mais dados)
-                break;
+                // Verificar se as próximas colunas também estão vazias
+                // Se sim, provavelmente chegamos ao fim das corridas
+                let nextColsEmpty = true;
+                for (let j = i; j < Math.min(i + 2, header.length); j++) {
+                    if (header[j]?.trim() && header[j].trim().length > 0) {
+                        nextColsEmpty = false;
+                        break;
+                    }
+                }
+                if (nextColsEmpty) {
+                    // Se as próximas 2 colunas também estão vazias, para aqui
+                    break;
+                }
+                // Se não, adiciona coluna vazia (pode ser uma corrida sem nome ainda)
+                raceNames.push('');
             }
         }
         
@@ -214,11 +229,15 @@ function Minicup() {
                 const position = row[colIndex]?.trim();
                 if (position && !isNaN(parseInt(position))) {
                     const pos = parseInt(position);
-                    const pts = getPoints(pos);
-                    raceResults.push({ position: pos, points: pts });
-                    totalPoints += pts;
-                    racesParticipated++;
-                    if (pos === 1) wins++;
+                    if (pos >= 1 && pos <= 20) { // Validar posição entre 1 e 20
+                        const pts = getPoints(pos);
+                        raceResults.push({ position: pos, points: pts });
+                        totalPoints += pts;
+                        racesParticipated++;
+                        if (pos === 1) wins++;
+                    } else {
+                        raceResults.push({ position: null, points: 0 });
+                    }
                 } else {
                     raceResults.push({ position: null, points: 0 });
                 }
@@ -366,23 +385,79 @@ function Minicup() {
 
             {/* TABELA DE CLASSIFICAÇÃO */}
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
-                <h2 
-                    className="minicup-title"
-                    style={{ 
-                        fontSize: '1.1rem', 
-                        fontWeight: '800', 
-                        color: '#10B981', 
-                        marginBottom: '25px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '10px',
-                        letterSpacing: '2px'
-                    }}
-                >
-                    <span className="title-full">🏁 CLASSIFICAÇÃO MINICUP ML1 🏁</span>
-                    <span className="title-mobile" style={{display: 'none'}}>🏁 CLASSIFICAÇÃO MINICUP ML1 🏁</span>
-                </h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
+                    <h2 
+                        className="minicup-title"
+                        style={{ 
+                            fontSize: '1.1rem', 
+                            fontWeight: '800', 
+                            color: '#10B981', 
+                            margin: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            letterSpacing: '2px'
+                        }}
+                    >
+                        <span className="title-full">🏁 CLASSIFICAÇÃO MINICUP ML1 🏁</span>
+                        <span className="title-mobile" style={{display: 'none'}}>🏁 CLASSIFICAÇÃO MINICUP ML1 🏁</span>
+                    </h2>
+                    <button
+                        onClick={async () => {
+                            if (window.confirm('Atualizar dados da Minicup?\n\nIsso forçará uma nova sincronização com a planilha.')) {
+                                try {
+                                    // Limpar cache local
+                                    Object.keys(localStorage).forEach(key => {
+                                        if (key.startsWith('cache_minicup_cache')) {
+                                            localStorage.removeItem(key);
+                                        }
+                                    });
+                                    
+                                    // Chamar Edge Function para forçar sincronização
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    if (session) {
+                                        const response = await fetch(`${supabase.supabaseUrl}/functions/v1/sync-google-sheets`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${supabase.supabaseKey}`
+                                            },
+                                            body: JSON.stringify({ sheetType: 'minicup', force: true })
+                                        });
+                                        
+                                        if (response.ok) {
+                                            alert('✅ Sincronização iniciada! A página será recarregada em 3 segundos...');
+                                            setTimeout(() => window.location.reload(), 3000);
+                                        } else {
+                                            alert('⚠️ Erro ao sincronizar. Tente novamente ou aguarde a sincronização automática.');
+                                        }
+                                    } else {
+                                        // Se não estiver logado, apenas recarregar a página
+                                        alert('🔄 Recarregando página para buscar dados atualizados...');
+                                        window.location.reload();
+                                    }
+                                } catch (err) {
+                                    console.error('Erro ao forçar sincronização:', err);
+                                    alert('⚠️ Erro ao sincronizar. Recarregando página...');
+                                    window.location.reload();
+                                }
+                            }
+                        }}
+                        style={{
+                            padding: '10px 20px',
+                            background: 'rgba(16, 185, 129, 0.2)',
+                            border: '1px solid #10B981',
+                            borderRadius: '8px',
+                            color: '#10B981',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        🔄 Atualizar Dados
+                    </button>
+                </div>
 
                 {/* Header da tabela */}
                 <div 
