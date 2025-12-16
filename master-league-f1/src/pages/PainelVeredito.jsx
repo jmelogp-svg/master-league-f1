@@ -931,24 +931,28 @@ function PainelVeredito() {
                     </div>
                 </div>
 
-                {/* Lista de quem votou */}
+                {/* Painel informativo de votos (sem revelar resultado) */}
                 <div style={{ marginBottom: '15px' }}>
-                    <div style={{ color: '#94A3B8', fontSize: '11px', marginBottom: '8px' }}>VOTOS REGISTRADOS:</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {votos.map((v, i) => (
-                            <span key={i} style={{
-                                padding: '4px 10px',
-                                borderRadius: '15px',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                background: v.culpado ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-                                color: v.culpado ? '#EF4444' : '#22C55E',
-                                border: `1px solid ${v.culpado ? '#EF4444' : '#22C55E'}`
-                            }}>
-                                {v.jurado}: {v.culpado ? '❌' : '✅'}
-                            </span>
-                        ))}
-                        {votos.length === 0 && <span style={{ color: '#64748B', fontSize: '12px' }}>Nenhum voto registrado ainda</span>}
+                    <div style={{ 
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        borderRadius: '8px',
+                        padding: '12px 15px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px'
+                    }}>
+                        <span style={{ fontSize: '20px' }}>🗳️</span>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ color: '#94A3B8', fontSize: '11px', marginBottom: '4px' }}>VOTOS REGISTRADOS</div>
+                            <div style={{ color: '#F8FAFC', fontSize: '16px', fontWeight: 'bold' }}>
+                                {votos.length === 0 ? (
+                                    <span style={{ color: '#64748B' }}>Nenhum voto registrado ainda</span>
+                                ) : (
+                                    <span>{votos.length} {votos.length === 1 ? 'voto' : 'votos'} já {votos.length === 1 ? 'foi' : 'foram'} dado{votos.length === 1 ? '' : 's'}</span>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -962,7 +966,7 @@ function PainelVeredito() {
                         marginBottom: '15px'
                     }}>
                         <div style={{ color: resultado.culpado ? '#EF4444' : '#22C55E', fontWeight: 'bold', fontSize: '16px', marginBottom: '8px' }}>
-                            {resultado.decisao} ({resultado.placar})
+                            {resultado.decisao}
                         </div>
                         {resultado.culpado && (
                             <div style={{ color: '#F8FAFC', fontSize: '13px' }}>
@@ -1256,7 +1260,9 @@ function PainelVeredito() {
                                         ) : jaVotouNesteLance ? (
                                             <span style={{ background: '#22C55E', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>✅ VOCÊ JÁ VOTOU</span>
                                         ) : (
-                                            <span style={{ background: '#8B5CF6', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>🗳️ {votosCulpado}❌ x {votosInocente}✅</span>
+                                            <span style={{ background: '#8B5CF6', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
+                                                🗳️ {votos.length} {votos.length === 1 ? 'voto' : 'votos'}
+                                            </span>
                                         )}
                                         <span style={{ color: '#475569' }}>|</span>
                                         <span style={{ color: '#F8FAFC', fontSize: '13px', fontWeight: '500' }}>{acusador.nome || '-'} <span style={{ color: '#64748B' }}>vs</span> {acusado.nome || '-'}</span>
