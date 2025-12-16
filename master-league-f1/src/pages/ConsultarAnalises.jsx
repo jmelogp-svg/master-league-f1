@@ -142,7 +142,8 @@ function ConsultarAnalises() {
                                 e.target.style.boxShadow = '0 4px 15px rgba(239, 68, 68, 0.3)';
                             }}
                         >
-                            📝 Enviar Análise
+                            <span className="btn-text-desktop">📝 Enviar Análise</span>
+                            <span className="btn-text-mobile" style={{ display: 'none' }}>📝 ENVIAR</span>
                         </button>
 
                         {/* Botão Tribunal do Júri (para jurados) */}
@@ -177,7 +178,8 @@ function ConsultarAnalises() {
                                 e.target.style.boxShadow = '0 4px 15px rgba(139, 92, 246, 0.3)';
                             }}
                         >
-                            👨‍⚖️ Tribunal do Júri
+                            <span className="btn-text-desktop">👨‍⚖️ Tribunal do Júri</span>
+                            <span className="btn-text-mobile" style={{ display: 'none' }}>👨‍⚖️ TRIBUNAL</span>
                         </button>
                     </div>
                 </div>
@@ -429,18 +431,32 @@ function ConsultarAnalises() {
                                         flexWrap: 'wrap',
                                         gap: '15px'
                                     }}>
-                                        {/* Código do Lance */}
-                                        <span style={{
-                                            background: '#E5E7EB',
-                                            color: '#1F2937',
-                                            padding: '8px 16px',
-                                            borderRadius: '8px',
-                                            fontSize: '16px',
-                                            fontWeight: 'bold',
-                                            fontFamily: 'monospace'
-                                        }}>
-                                            🔖 {codigoLance}
-                                        </span>
+                                        {/* Código do Lance e Grid Badge na mesma linha */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                            <span style={{
+                                                background: '#E5E7EB',
+                                                color: '#1F2937',
+                                                padding: '8px 16px',
+                                                borderRadius: '8px',
+                                                fontSize: '16px',
+                                                fontWeight: 'bold',
+                                                fontFamily: 'monospace'
+                                            }}>
+                                                🔖 {codigoLance}
+                                            </span>
+
+                                            {/* Grid Badge - na mesma linha do código */}
+                                            <span className="grid-badge-inline" style={{
+                                                background: (etapa.grid || dados.grid) === 'carreira' ? '#8B5CF6' : '#06B6D4',
+                                                color: 'white',
+                                                padding: '4px 12px',
+                                                borderRadius: '20px',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {(etapa.grid || dados.grid) === 'carreira' ? '🏆 CARREIRA' : '💡 LIGHT'}
+                                            </span>
+                                        </div>
 
                                         {/* Etapa */}
                                         <span style={{ color: '#F8FAFC', fontSize: '16px', fontWeight: 'bold' }}>
@@ -451,23 +467,10 @@ function ConsultarAnalises() {
                                         <span style={{ color: '#94A3B8', fontSize: '14px' }}>
                                             📅 {etapa.date || '-'}
                                         </span>
-
-                                        {/* Grid Badge */}
-                                        <span style={{
-                                            background: (etapa.grid || dados.grid) === 'carreira' ? '#8B5CF6' : '#06B6D4',
-                                            color: 'white',
-                                            padding: '4px 12px',
-                                            borderRadius: '20px',
-                                            fontSize: '12px',
-                                            fontWeight: 'bold',
-                                            marginLeft: 'auto'
-                                        }}>
-                                            {(etapa.grid || dados.grid) === 'carreira' ? '🏆 CARREIRA' : '💡 LIGHT'}
-                                        </span>
                                     </div>
 
                                     {/* Pilotos envolvidos */}
-                                    <div style={{
+                                    <div className="pilotos-envolvidos-container" style={{
                                         padding: '15px 25px',
                                         background: '#0F172A',
                                         display: 'flex',

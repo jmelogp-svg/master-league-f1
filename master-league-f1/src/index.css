@@ -2278,6 +2278,40 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         grid-template-columns: 1fr !important;
     }
     
+    /* Botões com texto menor no mobile */
+    .btn-text-desktop { display: none !important; }
+    .btn-text-mobile { display: inline !important; }
+    
+    /* Ajustar largura dos botões no mobile */
+    button[onclick*="dashboard"],
+    button[onclick*="veredito"] {
+        width: auto !important;
+        min-width: 100px !important;
+        padding: 10px 15px !important;
+        font-size: 0.7rem !important;
+    }
+    
+    /* Pilotos envolvidos - lado a lado no mobile com texto menor */
+    .pilotos-envolvidos-container {
+        gap: 15px !important;
+        padding: 12px 15px !important;
+    }
+    .pilotos-envolvidos-container > div:first-child,
+    .pilotos-envolvidos-container > div:last-child {
+        font-size: 0.85rem !important;
+    }
+    .pilotos-envolvidos-container span {
+        font-size: 10px !important;
+    }
+    .pilotos-envolvidos-container > div:nth-child(2) {
+        font-size: 18px !important;
+    }
+    
+    /* Grid badge inline - na mesma linha do código */
+    .grid-badge-inline {
+        display: inline-block !important;
+    }
+    
     .analises-action-buttons button,
     .analises-action-buttons a {
         width: 44px !important;
