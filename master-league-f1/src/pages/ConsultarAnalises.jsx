@@ -142,7 +142,7 @@ function ConsultarAnalises() {
                                 e.target.style.boxShadow = '0 4px 15px rgba(239, 68, 68, 0.3)';
                             }}
                         >
-                            📝 Acessar Análises
+                            📝 Enviar Análise
                         </button>
 
                         {/* Botão Tribunal do Júri (para jurados) */}
