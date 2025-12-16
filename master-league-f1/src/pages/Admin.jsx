@@ -45,6 +45,19 @@ function Admin() {
     // Estados para Edição de Usuários/Pilotos
     const [editingUser, setEditingUser] = useState(null); // { id, nome, email, grid, equipe, whatsapp, is_steward }
     const [savingUser, setSavingUser] = useState(false);
+    
+    // Estados para Cadastro de Novo Piloto
+    const [showCadastroPiloto, setShowCadastroPiloto] = useState(false);
+    const [novoPiloto, setNovoPiloto] = useState({
+        tipo_piloto: 'ativo', // 'ativo' ou 'ex-piloto'
+        nome: '',
+        email: '',
+        whatsapp: '',
+        grid: 'light', // 'carreira' ou 'light'
+        equipe: '',
+        gamertag: ''
+    });
+    const [salvandoPiloto, setSalvandoPiloto] = useState(false);
 
     // Toggle para expandir/colapsar gaveta + marcar como lida automaticamente
     // Ao abrir uma gaveta, fecha todas as outras
@@ -870,6 +883,75 @@ function Admin() {
         }
     };
 
+    // Cadastrar novo piloto
+    const handleCadastrarPiloto = async () => {
+        // Validações
+        if (!novoPiloto.nome.trim()) {
+            alert('❌ Por favor, preencha o nome do piloto.');
+            return;
+        }
+        if (!novoPiloto.email.trim()) {
+            alert('❌ Por favor, preencha o email do piloto.');
+            return;
+        }
+        if (!novoPiloto.email.includes('@')) {
+            alert('❌ Por favor, insira um email válido.');
+            return;
+        }
+
+        setSalvandoPiloto(true);
+        try {
+            const dadosPiloto = {
+                nome: novoPiloto.nome.trim().toUpperCase(),
+                email: novoPiloto.email.trim().toLowerCase(),
+                whatsapp: novoPiloto.whatsapp.trim() || null,
+                grid: novoPiloto.grid,
+                equipe: novoPiloto.equipe.trim() || null,
+                gamertag: novoPiloto.gamertag.trim() || null,
+                tipo_piloto: novoPiloto.tipo_piloto === 'ex-piloto' ? 'ex-piloto' : null,
+                status: novoPiloto.tipo_piloto === 'ex-piloto' ? 'pendente' : 'ativo',
+                is_steward: false
+            };
+
+            const { data, error } = await supabase
+                .from('pilotos')
+                .insert(dadosPiloto)
+                .select()
+                .single();
+
+            if (error) {
+                if (error.code === '23505') { // Violação de constraint única
+                    alert('❌ Este email já está cadastrado no sistema.');
+                } else {
+                    throw error;
+                }
+                return;
+            }
+
+            alert(`✅ Piloto cadastrado com sucesso!\n\n${novoPiloto.tipo_piloto === 'ex-piloto' ? 'Status: PENDENTE (aguardando aprovação)' : 'Status: ATIVO'}`);
+            
+            // Limpar formulário e fechar modal
+            setNovoPiloto({
+                tipo_piloto: 'ativo',
+                nome: '',
+                email: '',
+                whatsapp: '',
+                grid: 'light',
+                equipe: '',
+                gamertag: ''
+            });
+            setShowCadastroPiloto(false);
+            
+            // Atualizar lista
+            await fetchAllUsers();
+        } catch (err) {
+            console.error('Erro ao cadastrar piloto:', err);
+            alert('❌ Erro ao cadastrar: ' + (err.message || 'Erro desconhecido'));
+        } finally {
+            setSalvandoPiloto(false);
+        }
+    };
+
     // Resetar senha de ex-piloto
     const handleResetarSenhaExPiloto = async (pilotoId, email, nome) => {
         if (!window.confirm(`ATENÇÃO: Resetar senha do ex-piloto ${nome}?\n\nO piloto precisará criar uma nova senha no próximo login.`)) return;
@@ -1212,6 +1294,39 @@ function Admin() {
 
                 {activeTab === 'drivers' && (
                     <div className="adm-content">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ margin: 0, color: '#F8FAFC' }}>👥 Pilotos Cadastrados</h3>
+                            <button 
+                                onClick={() => {
+                                    setNovoPiloto({
+                                        tipo_piloto: 'ativo',
+                                        nome: '',
+                                        email: '',
+                                        whatsapp: '',
+                                        grid: 'light',
+                                        equipe: '',
+                                        gamertag: ''
+                                    });
+                                    setShowCadastroPiloto(true);
+                                }}
+                                style={{
+                                    padding: '10px 20px',
+                                    background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)'
+                                }}
+                            >
+                                ➕ Cadastrar Piloto
+                            </button>
+                        </div>
                         <div className="adm-list-header">
                             <div style={{flex:2}}>PILOTO / NOME</div>
                             <div style={{flex:1}}>EQUIPE</div>
@@ -2518,6 +2633,296 @@ function Admin() {
                                         }}
                                     >
                                         {savingUser ? '⏳ Salvando...' : '💾 Salvar'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Modal de Cadastro de Novo Piloto */}
+                {showCadastroPiloto && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000,
+                        padding: '20px'
+                    }}>
+                        <div style={{
+                            background: '#1E293B',
+                            borderRadius: '12px',
+                            padding: '30px',
+                            maxWidth: '500px',
+                            width: '100%',
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h2 style={{ margin: 0, color: '#F8FAFC', fontSize: '1.5rem' }}>➕ Cadastrar Novo Piloto</h2>
+                                <button
+                                    onClick={() => setShowCadastroPiloto(false)}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#94A3B8',
+                                        fontSize: '24px',
+                                        cursor: 'pointer',
+                                        padding: '0',
+                                        width: '30px',
+                                        height: '30px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                {/* Tipo de Piloto */}
+                                <div>
+                                    <label style={{ color: '#F8FAFC', fontSize: '14px', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                                        Tipo de Piloto *
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '15px' }}>
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '12px 20px',
+                                            background: novoPiloto.tipo_piloto === 'ativo' ? 'rgba(34, 197, 94, 0.2)' : '#0F172A',
+                                            border: `2px solid ${novoPiloto.tipo_piloto === 'ativo' ? '#22C55E' : '#475569'}`,
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            color: '#F8FAFC',
+                                            flex: 1,
+                                            transition: 'all 0.2s'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="tipo_piloto"
+                                                value="ativo"
+                                                checked={novoPiloto.tipo_piloto === 'ativo'}
+                                                onChange={(e) => setNovoPiloto({ ...novoPiloto, tipo_piloto: e.target.value })}
+                                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                            />
+                                            <span style={{ fontWeight: '600' }}>🏎️ Piloto Ativo</span>
+                                        </label>
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '12px 20px',
+                                            background: novoPiloto.tipo_piloto === 'ex-piloto' ? 'rgba(148, 163, 184, 0.2)' : '#0F172A',
+                                            border: `2px solid ${novoPiloto.tipo_piloto === 'ex-piloto' ? '#94A3B8' : '#475569'}`,
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            color: '#F8FAFC',
+                                            flex: 1,
+                                            transition: 'all 0.2s'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="tipo_piloto"
+                                                value="ex-piloto"
+                                                checked={novoPiloto.tipo_piloto === 'ex-piloto'}
+                                                onChange={(e) => setNovoPiloto({ ...novoPiloto, tipo_piloto: e.target.value })}
+                                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                            />
+                                            <span style={{ fontWeight: '600' }}>📜 Ex-Piloto</span>
+                                        </label>
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '5px' }}>
+                                        {novoPiloto.tipo_piloto === 'ex-piloto' 
+                                            ? '⚠️ Ex-pilotos ficam com status PENDENTE e precisam ser aprovados pelo admin.'
+                                            : '✅ Pilotos ativos são cadastrados com status ATIVO automaticamente.'}
+                                    </div>
+                                </div>
+
+                                {/* Nome */}
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Nome Completo *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={novoPiloto.nome}
+                                        onChange={(e) => setNovoPiloto({ ...novoPiloto, nome: e.target.value })}
+                                        placeholder="Ex: JOÃO SILVA"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Email */}
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Email *
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={novoPiloto.email}
+                                        onChange={(e) => setNovoPiloto({ ...novoPiloto, email: e.target.value })}
+                                        placeholder="Ex: joao@example.com"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* WhatsApp */}
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        WhatsApp (opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={novoPiloto.whatsapp}
+                                        onChange={(e) => setNovoPiloto({ ...novoPiloto, whatsapp: e.target.value })}
+                                        placeholder="Ex: (83) 99152-6615"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Grid */}
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Grid *
+                                    </label>
+                                    <select
+                                        value={novoPiloto.grid}
+                                        onChange={(e) => setNovoPiloto({ ...novoPiloto, grid: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <option value="light">Light</option>
+                                        <option value="carreira">Carreira</option>
+                                    </select>
+                                </div>
+
+                                {/* Equipe */}
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Equipe (opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={novoPiloto.equipe}
+                                        onChange={(e) => setNovoPiloto({ ...novoPiloto, equipe: e.target.value })}
+                                        placeholder="Ex: McLaren"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Gamertag */}
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Gamertag (opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={novoPiloto.gamertag}
+                                        onChange={(e) => setNovoPiloto({ ...novoPiloto, gamertag: e.target.value })}
+                                        placeholder="Ex: Piloto123"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Botões */}
+                                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                                    <button
+                                        onClick={() => {
+                                            setShowCadastroPiloto(false);
+                                            setNovoPiloto({
+                                                tipo_piloto: 'ativo',
+                                                nome: '',
+                                                email: '',
+                                                whatsapp: '',
+                                                grid: 'light',
+                                                equipe: '',
+                                                gamertag: ''
+                                            });
+                                        }}
+                                        style={{
+                                            padding: '10px 20px',
+                                            background: '#475569',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleCadastrarPiloto}
+                                        disabled={salvandoPiloto}
+                                        style={{
+                                            padding: '10px 20px',
+                                            background: salvandoPiloto ? '#475569' : '#22C55E',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: salvandoPiloto ? 'not-allowed' : 'pointer',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        {salvandoPiloto ? '⏳ Cadastrando...' : '💾 Cadastrar'}
                                     </button>
                                 </div>
                             </div>
