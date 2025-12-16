@@ -18,9 +18,9 @@ function VideoEmbed({ videoLink, title = "Vídeo", borderColor = 'rgba(255,255,2
     const isYouTubeShort = videoLink.includes('/shorts/');
     
     if (embedUrl) {
-        // Para YouTube Shorts, usar altura maior (formato vertical 9:16)
-        // Para vídeos normais, manter altura padrão (formato 16:9)
-        const iframeHeight = isYouTubeShort ? '600px' : '300px';
+        // Para YouTube Shorts, usar formato vertical 9:16
+        // Para vídeos normais, usar formato 16:9 (1920x1080p)
+        const aspectRatio = isYouTubeShort ? '9 / 16' : '16 / 9';
         const containerMaxWidth = isYouTubeShort ? '400px' : '100%';
         const containerMargin = isYouTubeShort ? '0 auto' : '0';
         
@@ -34,7 +34,8 @@ function VideoEmbed({ videoLink, title = "Vídeo", borderColor = 'rgba(255,255,2
                     borderRadius: '8px',
                     overflow: 'hidden',
                     border: `2px solid ${borderColor}`,
-                    position: 'relative'
+                    position: 'relative',
+                    aspectRatio: aspectRatio
                 }}
             >
                 <iframe
@@ -46,9 +47,12 @@ function VideoEmbed({ videoLink, title = "Vídeo", borderColor = 'rgba(255,255,2
                     loading="lazy"
                     style={{
                         width: '100%',
-                        height: iframeHeight,
+                        height: '100%',
                         border: 'none',
-                        display: 'block'
+                        display: 'block',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0
                     }}
                 />
             </div>
