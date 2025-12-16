@@ -804,6 +804,42 @@ function Admin() {
         if (!error) { alert('Resetado!'); fetchAllUsers(); }
     };
 
+    // Remover piloto completamente do cadastro
+    const handleDeletePiloto = async (userId, nome, tableName) => {
+        if (!window.confirm(`⚠️ ATENÇÃO: Remover piloto ${nome} permanentemente?\n\nEsta ação não pode ser desfeita. O piloto será removido do sistema.`)) return;
+        
+        try {
+            // Remover da tabela principal (pilotos ou profiles)
+            const { error: mainError } = await supabase
+                .from(tableName)
+                .delete()
+                .eq('id', userId);
+            
+            if (mainError) {
+                throw new Error(mainError.message);
+            }
+
+            // Se removeu de 'pilotos', também tentar remover de 'profiles' se existir
+            if (tableName === 'pilotos') {
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .delete()
+                    .eq('id', userId);
+                
+                // Não tratar erro de profiles como crítico (pode não existir)
+                if (profileError) {
+                    console.warn('Aviso: Não foi possível remover de profiles:', profileError);
+                }
+            }
+
+            alert(`✅ Piloto ${nome} removido com sucesso!`);
+            await fetchAllUsers();
+        } catch (err) {
+            console.error('Erro ao remover piloto:', err);
+            alert('❌ Erro ao remover piloto: ' + err.message);
+        }
+    };
+
     // ===== FUNÇÕES PARA EX-PILOTOS E APROVAÇÕES =====
     // Função auxiliar para enviar notificação WhatsApp
     const enviarNotificacaoAprovacao = async (email, nome, whatsapp, isExPiloto = false) => {
@@ -901,8 +937,11 @@ function Admin() {
 
         setSalvandoPiloto(true);
         try {
+            // Formatar nome: primeira letra de cada palavra maiúscula, demais minúsculas
+            const nomeFormatado = capitalizeWords(novoPiloto.nome.trim());
+            
             const dadosPiloto = {
-                nome: novoPiloto.nome.trim().toUpperCase(),
+                nome: nomeFormatado,
                 email: novoPiloto.email.trim().toLowerCase(),
                 whatsapp: novoPiloto.whatsapp.trim() || null,
                 grid: novoPiloto.grid,
@@ -1412,6 +1451,24 @@ function Admin() {
                                                 {!isExPiloto && (
                                                     <button onClick={() => handleReset(user.id, nome)} className="btn-icon-reset" title="Resetar">🔄</button>
                                                 )}
+                                                {/* Botão de remover - disponível para todos */}
+                                                <button 
+                                                    onClick={() => {
+                                                        // Determinar tabela: se tem tipo_piloto ou grid, é da tabela 'pilotos'
+                                                        const tableName = (user.tipo_piloto !== undefined || user.grid) ? 'pilotos' : 'profiles';
+                                                        handleDeletePiloto(user.id, nome, tableName);
+                                                    }} 
+                                                    className="btn-icon-delete" 
+                                                    title="Remover Piloto"
+                                                    style={{
+                                                        background:'rgba(239, 68, 68, 0.2)', 
+                                                        border:'1px solid #EF4444', 
+                                                        color:'#EF4444',
+                                                        marginLeft: '5px'
+                                                    }}
+                                                >
+                                                    🗑️
+                                                </button>
                                             </div>
                                         </div>
                                     );
