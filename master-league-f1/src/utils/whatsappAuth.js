@@ -68,15 +68,44 @@ export async function requestVerificationCode(email, whatsapp, nomePiloto = null
  */
 export async function verifyCode(email, code) {
     try {
-        console.log('🔍 Validando código...', { email, code: code.replace(/\d/g, '•') });
+        const emailNormalized = email.toLowerCase().trim();
+        const codeNormalized = code.trim().replace(/\D/g, ''); // Remove tudo que não é dígito
+        
+        console.log('🔍 Validando código...', { 
+            email: emailNormalized, 
+            codeInput: codeNormalized,
+            codeLength: codeNormalized.length
+        });
+
+        // Primeiro, buscar todos os códigos ativos para este email (para debug)
+        const { data: allCodes, error: debugError } = await supabase
+            .from('whatsapp_verification_codes')
+            .select('*')
+            .eq('email', emailNormalized)
+            .eq('used', false)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false });
+
+        if (debugError) {
+            console.error('❌ Erro ao buscar códigos (debug):', debugError);
+        } else {
+            console.log(`📋 Códigos ativos encontrados para ${emailNormalized}:`, allCodes?.length || 0);
+            if (allCodes && allCodes.length > 0) {
+                console.log('📋 Códigos ativos:', allCodes.map(c => ({ 
+                    code: c.code, 
+                    created: c.created_at,
+                    expires: c.expires_at 
+                })));
+            }
+        }
 
         // Buscar código ativo no banco
         // Usar .maybeSingle() ao invés de .single() para evitar erro 406 quando não encontrar
         const { data: codeRecord, error: codeError } = await supabase
             .from('whatsapp_verification_codes')
             .select('*')
-            .eq('email', email.toLowerCase().trim())
-            .eq('code', code.trim())
+            .eq('email', emailNormalized)
+            .eq('code', codeNormalized)
             .eq('used', false)
             .gt('expires_at', new Date().toISOString()) // Apenas códigos não expirados
             .order('created_at', { ascending: false })
@@ -93,20 +122,35 @@ export async function verifyCode(email, code) {
         }
 
         if (!codeRecord) {
-            console.error('❌ Código não encontrado ou inválido');
+            console.error('❌ Código não encontrado ou inválido', {
+                emailBuscado: emailNormalized,
+                codigoBuscado: codeNormalized,
+                codigoLength: codeNormalized.length
+            });
             return {
                 success: false,
                 valid: false,
-                error: 'Código inválido ou não encontrado',
+                error: 'Código inválido ou não encontrado. Verifique se digitou corretamente.',
             };
         }
+
+        console.log('✅ Código encontrado no banco:', {
+            codeId: codeRecord.id,
+            codeStored: codeRecord.code,
+            codeInput: codeNormalized,
+            match: codeRecord.code === codeNormalized
+        });
 
         // Verificar se expirou
         const expiresAt = new Date(codeRecord.expires_at);
         const now = new Date();
 
         if (now > expiresAt) {
-            console.error('❌ Código expirado');
+            console.error('❌ Código expirado', {
+                expiresAt: expiresAt.toISOString(),
+                now: now.toISOString(),
+                diffMinutes: (now - expiresAt) / 1000 / 60
+            });
             // Marcar como usado mesmo que tenha expirado
             await supabase
                 .from('whatsapp_verification_codes')
@@ -122,7 +166,7 @@ export async function verifyCode(email, code) {
 
         // Verificar tentativas (máximo 5 tentativas)
         if (codeRecord.attempts >= 5) {
-            console.error('❌ Muitas tentativas inválidas');
+            console.error('❌ Muitas tentativas inválidas', { attempts: codeRecord.attempts });
             await supabase
                 .from('whatsapp_verification_codes')
                 .update({ used: true })
@@ -145,7 +189,10 @@ export async function verifyCode(email, code) {
             })
             .eq('id', codeRecord.id);
 
-        console.log('✅ Código validado com sucesso');
+        console.log('✅ Código validado com sucesso', {
+            codeId: codeRecord.id,
+            email: emailNormalized
+        });
         return {
             success: true,
             valid: true,

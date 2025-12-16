@@ -305,22 +305,32 @@ serve(async (req) => {
     }
 
     const whatsappFormatted = formatPhoneNumber(whatsapp);
+    const emailNormalized = email.toLowerCase().trim();
     const code = generateCode();
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
+    console.log(`🔐 Gerando código de verificação:`, {
+      email: emailNormalized,
+      whatsapp: whatsappFormatted,
+      code: code,
+      codeLength: code.length,
+      expiresAt: expiresAt.toISOString()
+    });
+
+    // Invalidar códigos anteriores para este email
     await supabase
       .from('whatsapp_verification_codes')
       .update({ used: true })
-      .eq('email', email.toLowerCase().trim())
+      .eq('email', emailNormalized)
       .eq('used', false);
 
     const { data: codeRecord, error: codeError } = await supabase
       .from('whatsapp_verification_codes')
       .insert({
-        email: email.toLowerCase().trim(),
+        email: emailNormalized,
         whatsapp: whatsappFormatted,
-        code: code,
+        code: code, // Código como string de 6 dígitos
         expires_at: expiresAt.toISOString(),
         used: false,
         attempts: 0,
@@ -329,12 +339,20 @@ serve(async (req) => {
       .single();
 
     if (codeError || !codeRecord) {
-      console.error("Erro ao salvar código:", codeError);
+      console.error("❌ Erro ao salvar código:", codeError);
       return new Response(
         JSON.stringify({ success: false, error: "Erro ao gerar código" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
+
+    console.log(`✅ Código salvo no banco:`, {
+      codeId: codeRecord.id,
+      email: codeRecord.email,
+      code: codeRecord.code,
+      codeLength: codeRecord.code?.length,
+      expiresAt: codeRecord.expires_at
+    });
 
     const nome = nomePiloto || piloto?.nome || 'Piloto';
     
