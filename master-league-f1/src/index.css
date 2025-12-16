@@ -2222,7 +2222,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
    ANÁLISES MOBILE - Botões Quadrados
    ========================================= */
 @media (max-width: 768px) {
-    .analises-page { padding: 70px 10px 20px !important; }
+    .analises-page { padding: 70px 10px 20px !important; font-size: 16px !important; }
     .analises-header h1 { font-size: 1.8rem !important; }
     
     .analises-tabs { 
