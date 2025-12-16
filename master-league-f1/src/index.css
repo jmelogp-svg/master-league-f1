@@ -1870,6 +1870,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     
     /* Cards de Piloto Mobile */
     .driver-card-hub { min-width: 140px; width: 140px; height: 200px; }
+    .dch-photo-wrapper { bottom: 45px !important; } /* Manter mesma posição do desktop */
     .dch-name { font-size: 0.8rem; }
     .dch-team { font-size: 0.65rem; }
     .dch-photo { width: 90px; height: 90px; }
@@ -1914,6 +1915,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .hero-title { font-size: 3rem; }
     .next-race-widget { width: 260px; }
     .driver-card-hub { min-width: 150px; width: 150px; height: 210px; }
+    .dch-photo-wrapper { bottom: 45px !important; } /* Manter mesma posição do desktop */
     .hub-split-section { gap: 20px; }
 }
 
