@@ -309,10 +309,33 @@ function Home() {
             console.log('📋 Total de linhas no CSV:', rows.length);
             const drivers = [];
             
+            if (rows.length < 2) {
+                console.warn('⚠️ Dados da Minicup insuficientes');
+                setMinicupDrivers([]);
+                setMinicupLoading(false);
+                return;
+            }
+            
+            const header = rows[0];
+            
+            // Detectar dinamicamente as colunas de corridas (começando da coluna 4)
+            const raceStartCol = 4;
+            const raceColumns = [];
+            for (let i = raceStartCol; i < header.length; i++) {
+                const raceName = header[i]?.trim();
+                if (raceName && raceName.length > 0) {
+                    raceColumns.push(i);
+                } else {
+                    // Se encontrar coluna vazia, para de adicionar
+                    break;
+                }
+            }
+            
+            console.log(`📊 Colunas de corridas detectadas: ${raceColumns.length} (colunas ${raceColumns.join(', ')})`);
+            
             // Nova estrutura do CSV:
             // Coluna 0: #, Coluna 1: PILOTO, Coluna 2: EQUIPE, Coluna 3: #NUM
-            // Colunas 4-9: Posições nas corridas (ÁUSTRIA, AUSTRÁLIA, JAPÃO, MÔNACO, GRÃ-BRETANHA, ÍMOLA)
-            // Coluna 11: POSIÇÃO, Coluna 12: PTS
+            // Colunas 4+: Posições nas corridas (dinâmico)
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
                 const piloto = row[1]?.trim(); // Coluna PILOTO
@@ -320,11 +343,11 @@ function Home() {
                 
                 if (!piloto) continue;
 
-                // SEMPRE calcular pontos baseado nas posições das corridas (colunas 4-9)
+                // Calcular pontos baseado nas posições das corridas (dinâmico)
                 // Isso garante consistência com a página Minicup
                 let totalPoints = 0;
-                for (let j = 4; j <= 9; j++) { // Colunas 4 a 9 (inclusive)
-                    const position = row[j]?.trim();
+                for (const colIndex of raceColumns) {
+                    const position = row[colIndex]?.trim();
                     if (position && !isNaN(parseInt(position))) {
                         const pos = parseInt(position);
                         if (pos >= 1 && pos <= 20) {

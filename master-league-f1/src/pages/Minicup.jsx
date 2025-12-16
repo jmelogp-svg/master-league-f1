@@ -173,13 +173,24 @@ function Minicup() {
 
         const header = rows[0];
         
-        // Extrair nomes das corridas (colunas 4-9)
+        // Extrair nomes das corridas dinamicamente (começando da coluna 4 até encontrar coluna vazia)
         const raceNames = [];
-        for (let i = 4; i <= 9; i++) {
-            if (header[i] && header[i].trim()) {
-                raceNames.push(header[i].trim());
+        let raceStartCol = 4; // Primeira coluna de corrida (após: coluna 0=vazio, 1=piloto, 2=equipe, 3=vazio)
+        
+        // Detectar todas as colunas de corridas disponíveis
+        for (let i = raceStartCol; i < header.length; i++) {
+            const raceName = header[i]?.trim();
+            if (raceName && raceName.length > 0) {
+                raceNames.push(raceName);
+            } else {
+                // Se encontrar coluna vazia, para de adicionar (mas continua processando se houver mais dados)
+                break;
             }
         }
+        
+        console.log(`📊 Colunas de corridas detectadas: ${raceNames.length} (colunas ${raceStartCol} a ${raceStartCol + raceNames.length - 1})`);
+        console.log(`🏁 Corridas: ${raceNames.join(', ')}`);
+        
         setRaces(raceNames);
 
         // Processar dados dos pilotos
@@ -197,8 +208,10 @@ function Minicup() {
             let racesParticipated = 0;
             let wins = 0;
 
-            for (let j = 4; j <= 9; j++) {
-                const position = row[j]?.trim();
+            // Processar resultados para todas as corridas detectadas
+            for (let j = 0; j < raceNames.length; j++) {
+                const colIndex = raceStartCol + j;
+                const position = row[colIndex]?.trim();
                 if (position && !isNaN(parseInt(position))) {
                     const pos = parseInt(position);
                     const pts = getPoints(pos);
