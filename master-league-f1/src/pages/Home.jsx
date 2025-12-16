@@ -318,24 +318,22 @@ function Home() {
             
             const header = rows[0];
             
-            // Detectar dinamicamente as colunas de corridas (começando da coluna 4)
-            const raceStartCol = 4;
+            // Processar APENAS colunas E a J (índices 4 a 9) - máximo de 6 corridas
+            // Colunas L e M são apenas referências (POSIÇÃO e PTS), não são corridas
+            const raceStartCol = 4; // Coluna E (índice 4)
+            const raceEndCol = 9;   // Coluna J (índice 9)
             const raceColumns = [];
-            for (let i = raceStartCol; i < header.length; i++) {
-                const raceName = header[i]?.trim();
-                if (raceName && raceName.length > 0) {
-                    raceColumns.push(i);
-                } else {
-                    // Se encontrar coluna vazia, para de adicionar
-                    break;
-                }
+            
+            for (let i = raceStartCol; i <= raceEndCol; i++) {
+                raceColumns.push(i);
             }
             
-            console.log(`📊 Colunas de corridas detectadas: ${raceColumns.length} (colunas ${raceColumns.join(', ')})`);
+            console.log(`📊 Colunas de corridas processadas: ${raceColumns.length} (colunas E-J, índices ${raceColumns.join(', ')})`);
             
             // Nova estrutura do CSV:
             // Coluna 0: #, Coluna 1: PILOTO, Coluna 2: EQUIPE, Coluna 3: #NUM
-            // Colunas 4+: Posições nas corridas (dinâmico)
+            // Colunas 4-9 (E-J): Posições nas corridas (6 corridas máximo)
+            // Colunas 11-12 (L-M): POSIÇÃO e PTS (apenas referências, ignorar)
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
                 const piloto = row[1]?.trim(); // Coluna PILOTO
@@ -343,10 +341,13 @@ function Home() {
                 
                 if (!piloto) continue;
 
-                // Calcular pontos baseado nas posições das corridas (dinâmico)
+                // Calcular pontos baseado nas posições das corridas (apenas colunas E-J)
                 // Isso garante consistência com a página Minicup
                 let totalPoints = 0;
                 for (const colIndex of raceColumns) {
+                    // Garantir que não processamos além da coluna J
+                    if (colIndex > raceEndCol) break;
+                    
                     const position = row[colIndex]?.trim();
                     if (position && !isNaN(parseInt(position))) {
                         const pos = parseInt(position);

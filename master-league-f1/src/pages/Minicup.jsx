@@ -174,39 +174,31 @@ function Minicup() {
 
         const header = rows[0];
         
-        // Extrair nomes das corridas dinamicamente (começando da coluna 4 até encontrar coluna vazia)
+        // Extrair nomes das corridas - APENAS colunas E a J (índices 4 a 9)
+        // Colunas L e M são apenas referências (POSIÇÃO e PTS), não são corridas
         const raceNames = [];
-        let raceStartCol = 4; // Primeira coluna de corrida (após: coluna 0=vazio, 1=piloto, 2=equipe, 3=vazio)
+        const raceStartCol = 4; // Coluna E (índice 4)
+        const raceEndCol = 9;   // Coluna J (índice 9) - máximo de 6 corridas
         
-        // Detectar todas as colunas de corridas disponíveis
-        // Continuar até encontrar uma coluna completamente vazia OU até o final do header
-        for (let i = raceStartCol; i < header.length; i++) {
+        // Processar apenas as colunas E (4) até J (9)
+        for (let i = raceStartCol; i <= raceEndCol; i++) {
             const raceName = header[i]?.trim();
             if (raceName && raceName.length > 0) {
                 raceNames.push(raceName);
             } else {
-                // Verificar se as próximas colunas também estão vazias
-                // Se sim, provavelmente chegamos ao fim das corridas
-                let nextColsEmpty = true;
-                for (let j = i; j < Math.min(i + 2, header.length); j++) {
-                    if (header[j]?.trim() && header[j].trim().length > 0) {
-                        nextColsEmpty = false;
-                        break;
-                    }
-                }
-                if (nextColsEmpty) {
-                    // Se as próximas 2 colunas também estão vazias, para aqui
-                    break;
-                }
-                // Se não, adiciona coluna vazia (pode ser uma corrida sem nome ainda)
+                // Mesmo se vazio, adiciona para manter o índice correto
+                // (pode ser uma corrida ainda não realizada)
                 raceNames.push('');
             }
         }
         
-        console.log(`📊 Colunas de corridas detectadas: ${raceNames.length} (colunas ${raceStartCol} a ${raceStartCol + raceNames.length - 1})`);
-        console.log(`🏁 Corridas: ${raceNames.join(', ')}`);
+        // Filtrar apenas corridas com nome para exibição
+        const racesWithNames = raceNames.filter(r => r && r.length > 0);
         
-        setRaces(raceNames);
+        console.log(`📊 Colunas de corridas processadas: ${racesWithNames.length} (colunas E-J, índices ${raceStartCol} a ${raceEndCol})`);
+        console.log(`🏁 Corridas: ${racesWithNames.join(', ') || 'Nenhuma corrida com nome ainda'}`);
+        
+        setRaces(racesWithNames);
 
         // Processar dados dos pilotos
         const driversData = [];
