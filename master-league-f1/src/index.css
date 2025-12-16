@@ -938,9 +938,371 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 /* =========================================
    10. MEDIA QUERIES (MOBILE) - UNIFICADO
    ========================================= */
+/* =========================================
+   POWER RANKING - MOBILE DESIGN (STITCH)
+   ========================================= */
+.pr-mobile-wrapper {
+    background-color: #0e0e12;
+    min-height: 100vh;
+    padding-bottom: 80px;
+}
+
+/* Header Mobile */
+.pr-mobile-header {
+    padding: 32px 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.pr-mobile-title {
+    font-size: 1.875rem;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    font-style: italic;
+}
+
+.pr-title-white {
+    color: white;
+}
+
+.pr-title-accent {
+    color: #FF9900;
+    margin-left: 4px;
+}
+
+.pr-mobile-subtitle {
+    color: #9ca3af;
+    font-size: 0.75rem;
+    margin-top: 4px;
+    margin-bottom: 24px;
+    max-width: 250px;
+    line-height: 1.5;
+}
+
+.pr-mobile-season-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.pr-mobile-season-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 32px 8px 24px;
+    border: 1px solid #FF9900;
+    border-radius: 9999px;
+    background: transparent;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    outline: none;
+}
+
+.pr-mobile-season-select:active,
+.pr-mobile-season-select:focus {
+    background-color: rgba(255, 153, 0, 0.1);
+}
+
+.pr-mobile-season-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    pointer-events: none;
+    color: white;
+}
+
+/* Main Content */
+.pr-mobile-main {
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Hero Card (Rank 1) */
+.pr-mobile-hero-card {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #FF9900;
+    box-shadow: 0 0 20px rgba(255, 153, 0, 0.25);
+    background: linear-gradient(105deg, #FF9900 40%, #1f1f1f 40.1%);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px;
+}
+
+.pr-hero-rank {
+    position: absolute;
+    top: 40px;
+    left: 16px;
+    z-index: 10;
+}
+
+.pr-hero-rank-number {
+    display: block;
+    color: black;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 6rem;
+    line-height: 1;
+    margin-left: -4px;
+}
+
+.pr-hero-rank-label {
+    display: block;
+    color: black;
+    font-weight: 700;
+    font-size: 0.875rem;
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+    margin-left: 4px;
+}
+
+.pr-hero-photo-container {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.pr-hero-photo {
+    height: 110%;
+    width: auto;
+    object-fit: cover;
+    object-position: top;
+    margin-right: -40px;
+    margin-bottom: -10px;
+    mix-blend-mode: normal;
+}
+
+.pr-hero-gradient-overlay {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 50%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+}
+
+.pr-hero-info {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-end;
+    text-align: right;
+    padding-bottom: 8px;
+}
+
+.pr-hero-name {
+    font-size: 1.875rem;
+    font-weight: 700;
+    font-style: italic;
+    color: white;
+    line-height: 1;
+    text-transform: uppercase;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    margin-bottom: 4px;
+}
+
+.pr-hero-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+}
+
+.pr-hero-team-name {
+    color: #d1d5db;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.pr-hero-team i {
+    color: #9ca3af;
+    font-size: 0.75rem;
+}
+
+.pr-hero-points-badge {
+    background: rgba(255, 153, 0, 0.2);
+    border: 1px solid rgba(255, 153, 0, 0.5);
+    backdrop-filter: blur(4px);
+    padding: 4px 12px;
+    border-radius: 8px;
+}
+
+.pr-hero-points {
+    color: #FF9900;
+    font-weight: 700;
+    font-size: 0.875rem;
+}
+
+/* Leaderboard List (Ranks 2-5) */
+.pr-mobile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 32px;
+}
+
+.pr-mobile-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background-color: #1a1b20;
+    border-radius: 12px;
+    padding: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.pr-card-color-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+}
+
+.pr-mobile-rank-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    margin-left: 8px;
+    flex-shrink: 0;
+    border: 2px solid;
+}
+
+.pr-mobile-rank-number {
+    color: white;
+    font-weight: 700;
+    font-size: 1.125rem;
+    font-style: italic;
+}
+
+.pr-mobile-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 9999px;
+    border: 2px solid;
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-right: 12px;
+}
+
+.pr-mobile-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    mix-blend-mode: normal;
+}
+
+.pr-mobile-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pr-mobile-driver-name {
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pr-mobile-team-info {
+    display: flex;
+    align-items: center;
+    color: #6b7280;
+    font-size: 0.75rem;
+    margin-top: 2px;
+}
+
+.pr-mobile-team-info i {
+    margin-right: 6px;
+    font-size: 10px;
+}
+
+.pr-mobile-team-name {
+    font-weight: 500;
+    letter-spacing: 0.05em;
+}
+
+.pr-mobile-points {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.pr-mobile-points-value {
+    font-weight: 700;
+    font-size: 1.125rem;
+    line-height: 1;
+    display: inline-block;
+}
+
+.pr-mobile-points-label {
+    color: #6b7280;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.pr-mobile-empty {
+    text-align: center;
+    padding: 40px;
+    color: #94A3B8;
+}
+
+/* Desktop - manter design original */
+.pr-desktop-wrapper {
+    display: none;
+}
+
+@media (min-width: 769px) {
+    .pr-mobile-wrapper {
+        display: none !important;
+    }
+    
+    .pr-desktop-wrapper {
+        display: block;
+    }
+}
+
 @media (max-width: 768px) {
     .show-mobile-only { display: block !important; }
     .hide-mobile { display: none !important; }
+    
+    /* Esconder versão desktop do Power Ranking */
+    .pr-desktop-wrapper {
+        display: none !important;
+    }
     .mobile-menu-icon { display: block !important; background: none; border: none; font-size: 2rem; color: white; cursor: pointer; }
     .navbar { padding: 0 15px; height: 60px; }
     .nav-links { position: absolute; top: 60px; left: 0; width: 100%; background: rgba(2, 6, 23, 0.98); flex-direction: column; align-items: center; padding: 30px; gap: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: none; }
@@ -1010,32 +1372,271 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .pr-header { padding-top: 100px; }
     .pr-title { font-size: 2.5rem; }
-    .pr-leader-card { flex-direction: column; height: auto; padding-bottom: 20px; text-align: center; }
-    .pr-leader-pos { width: 100%; height: 50px; clip-path: none; position: relative; font-size: 3rem; }
-    .pr-leader-photo { margin: 0; height: 180px; width: auto; margin-top: -20px; }
-    .pr-leader-info { align-items: center; }
-    .pr-leader-score { margin: 0; }
-    .pr-list { grid-template-columns: 1fr; gap: 15px; }
-    .pr-card { padding: 14px 16px; height: 120px; gap: 15px; }
-    .pr-left-section { min-width: 80px; gap: 8px; }
-    .pr-center-section { gap: 8px; }
-    .pr-rank-badge { width: 45px; height: 45px; }
-    .pr-rank-number { font-size: 1.5rem; }
-    .pr-photo-wrapper { width: 75px; height: 75px; }
-    .pr-name { font-size: 0.85rem; max-width: 120px; white-space: normal; -webkit-line-clamp: 2; line-clamp: 2; }
-    .pr-score-val { font-size: 1.5rem; }
-    .pr-score-container { min-width: auto; }
-    .pr-right-section { min-width: 80px; align-self: flex-start; }
-    .pr-team-logo-card { height: 35px; }
-    .pr-team-name { font-size: 0.7rem; max-width: 80px; }
-    .pr-team-logo-card { height: 40px; }
-    .pr-score-val { font-size: 1.7rem; }
-    .pr-right-section { min-width: 70px; }
-    .pr-team-watermark { width: 110px; height: 110px; right: 10px; opacity: 0.1; }
+    /* Removido - usando regras mais específicas abaixo */
+    .pr-container {
+        padding: 0 10px !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .pr-header {
+        padding: 0 10px !important;
+        max-width: 100% !important;
+    }
+    .pr-title {
+        font-size: 2rem !important;
+        word-wrap: break-word !important;
+    }
+    .pr-subtitle {
+        font-size: 0.9rem !important;
+        word-wrap: break-word !important;
+    }
+    .pr-list { 
+        grid-template-columns: 1fr !important; 
+        gap: 15px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+    .pr-card { 
+        padding: 12px 10px !important; 
+        height: auto !important;
+        min-height: 100px !important;
+        gap: 10px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        align-items: center !important;
+    }
+    /* Badge de posição à esquerda */
+    .pr-rank-badge { 
+        width: 40px !important; 
+        height: 40px !important;
+        flex-shrink: 0 !important;
+        margin-right: 0 !important;
+        border-radius: 8px !important;
+    }
+    .pr-rank-number { 
+        font-size: 1.3rem !important;
+        font-weight: 900 !important;
+    }
+    .pr-rank-medal {
+        font-size: 1rem !important;
+    }
+    /* Foto do piloto ao lado do badge */
+    .pr-photo-wrapper { 
+        width: 60px !important; 
+        height: 60px !important;
+        flex-shrink: 0 !important;
+        margin-left: 8px !important;
+        margin-right: 0 !important;
+    }
+    .pr-photo-frame {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 8px !important;
+        border-width: 2px !important;
+    }
+    .pr-card-photo {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+    /* Informações do piloto no centro */
+    .pr-info {
+        flex: 1 !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+        margin-left: 8px !important;
+        padding-left: 0 !important;
+    }
+    .pr-card .pr-info {
+        min-width: 0 !important;
+        padding-left: 0 !important;
+    }
+    .pr-name { 
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        max-width: 100% !important; 
+        white-space: normal !important; 
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.3 !important;
+        margin-bottom: 6px !important;
+        text-transform: capitalize !important;
+    }
+    .pr-team-row {
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+        align-items: center !important;
+    }
+    .pr-team-name { 
+        font-size: 0.75rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    .pr-team-logo-small {
+        width: 20px !important;
+        height: 20px !important;
+        flex-shrink: 0 !important;
+    }
+    /* Score à direita */
+    .pr-score-container { 
+        min-width: 50px !important;
+        flex-shrink: 0 !important;
+        text-align: right !important;
+        margin-left: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-end !important;
+    }
+    .pr-score-val { 
+        font-size: 1.4rem !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+    }
+    .pr-score-label {
+        font-size: 0.65rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        margin-top: 2px !important;
+    }
+    .pr-leader-card {
+        padding: 20px 16px !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        min-height: auto !important;
+        gap: 15px !important;
+    }
+    .pr-leader-pos {
+        width: 100% !important;
+        height: 60px !important;
+        position: relative !important;
+        clip-path: none !important;
+        border-radius: 12px 12px 0 0 !important;
+        font-size: 3.5rem !important;
+        margin: -20px -16px 0 -16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    .pr-leader-photo { 
+        width: 180px !important;
+        height: 200px !important;
+        margin: 0 !important;
+        object-fit: contain !important;
+        filter: drop-shadow(0 4px 15px rgba(0,0,0,0.5)) !important;
+    }
+    .pr-leader-info { 
+        align-items: center !important;
+        flex: 1 !important;
+        min-width: 0 !important;
+        padding: 10px 0 !important;
+        width: 100% !important;
+    }
+    .pr-leader-name {
+        font-size: 1.3rem !important;
+        font-weight: 800 !important;
+        word-wrap: break-word !important;
+        text-align: center !important;
+        margin-bottom: 8px !important;
+        text-transform: uppercase !important;
+    }
+    .pr-leader-team-group {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+    }
+    .pr-leader-team {
+        font-size: 0.9rem !important;
+        word-wrap: break-word !important;
+        text-align: center !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+    }
+    .pr-team-logo-large {
+        height: 30px !important;
+        width: auto !important;
+    }
+    .pr-leader-score {
+        width: 100% !important;
+        text-align: center !important;
+        margin-top: 10px !important;
+        padding-top: 10px !important;
+        border-top: 1px solid rgba(255,255,255,0.1) !important;
+    }
+    .score-val {
+        font-size: 2rem !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+    }
+    .score-label {
+        font-size: 0.75rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        margin-top: 4px !important;
+        display: block !important;
+    }
+    .pr-team-watermark { 
+        display: none !important;
+    }
 
     .hof-hero { padding: 80px 20px 40px; }
     .hof-stats-bar { flex-direction: column; gap: 10px; padding: 20px; border-radius: 20px; width: 100%; }
     .hof-stat-divider { width: 100%; height: 1px; }
+    .hof-stat-item {
+        text-align: center !important;
+        padding: 0 !important;
+    }
+    .hs-label {
+        text-align: center !important;
+        font-size: 0.65rem !important;
+    }
+    .hs-value {
+        font-size: 0.9rem !important;
+        text-align: center !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        display: block;
+    }
+    .hs-value small {
+        font-size: 0.65rem !important;
+    }
+    .hof-stat-item {
+        width: 100%;
+        max-width: 100%;
+    }
+    /* Menu tabs - textos diferentes no mobile */
+    .hof-tab-text-desktop {
+        display: inline;
+    }
+    .hof-tab-text-mobile {
+        display: none;
+    }
+    .hof-tabs-container {
+        top: 60px !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        margin-bottom: 20px !important;
+    }
+    .hub-container {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
     .hof-controls-wrapper { flex-direction: column; align-items: stretch; }
     .view-toggles { justify-content: center; width: 100%; }
     .vt-btn { flex: 1; justify-content: center; }
@@ -1044,6 +1645,17 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .hof-champion-circle img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
     .hof-champion-image-container { height: 130px !important; }
     .hof-champion-title { display: block !important; }
+    /* Menu tabs mobile */
+    .hof-tab-text-desktop {
+        display: none !important;
+    }
+    .hof-tab-text-mobile {
+        display: inline !important;
+    }
+    .hof-tabs-container button {
+        padding: 10px 12px !important;
+        font-size: 0.8rem !important;
+    }
 }
 /* --- GRID DA TEMPORADA (Estilo F1 - 30% Menor) --- */
 .drivers-grid-hub {
@@ -2218,6 +2830,21 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .minicup-points-legend > div > div { padding: 3px 6px !important; font-size: 0.65rem !important; }
 }
 
+/* Nomes dos pilotos com 2 linhas obrigatórias - nome em cima, sobrenome embaixo */
+.piloto-nome-2linhas {
+    display: flex !important;
+    flex-direction: column !important;
+    line-height: 1.3 !important;
+    min-height: calc(1.3em * 2) !important;
+    word-break: break-word !important;
+}
+.piloto-nome-2linhas > div {
+    line-height: 1.3 !important;
+}
+.piloto-nome-2linhas > div:first-child {
+    margin-bottom: 2px !important;
+}
+
 /* =========================================
    ANÁLISES MOBILE - Botões Quadrados
    ========================================= */
@@ -2282,13 +2909,50 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .btn-text-desktop { display: none !important; }
     .btn-text-mobile { display: inline !important; }
     
-    /* Ajustar largura dos botões no mobile */
+    /* Ajustar largura dos botões no mobile para seguir a mesma margem dos cards */
+    .analises-page > div:first-of-type {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+    .analises-header {
+        padding: 0 10px !important;
+    }
+    .analises-header-inner {
+        padding: 0 10px !important;
+        flex-direction: column !important;
+    }
+    .analises-header-inner > div:first-child {
+        width: 100% !important;
+    }
+    .btn-enviar-analise,
+    .btn-tribunal,
     button[onclick*="dashboard"],
     button[onclick*="veredito"] {
-        width: auto !important;
-        min-width: 100px !important;
-        padding: 10px 15px !important;
+        flex: 1 !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        padding: 10px 8px !important;
         font-size: 0.7rem !important;
+        height: auto !important;
+    }
+    
+    /* Garantir que os botões no header sigam as regras mobile */
+    .analises-header-inner > div:last-child {
+        display: flex !important;
+        gap: 8px !important;
+        width: 100% !important;
+        margin-top: 10px !important;
+    }
+    .analises-header-inner .btn-enviar-analise,
+    .analises-header-inner .btn-tribunal,
+    .analises-header .btn-enviar-analise,
+    .analises-header .btn-tribunal {
+        flex: 1 !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        padding: 10px 8px !important;
+        font-size: 0.7rem !important;
+        height: auto !important;
     }
     
     /* Pilotos envolvidos - lado a lado no mobile com texto menor */
@@ -2309,6 +2973,21 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .pilotos-envolvidos-container > div:nth-child(2) {
         font-size: 18px !important;
         flex: 0 0 auto !important;
+    }
+    
+    /* Nomes dos pilotos com 2 linhas obrigatórias no mobile - nome em cima, sobrenome embaixo */
+    .piloto-nome-2linhas {
+        display: flex !important;
+        flex-direction: column !important;
+        line-height: 1.3 !important;
+        min-height: calc(1.3em * 2) !important;
+        word-break: break-word !important;
+    }
+    .piloto-nome-2linhas > div {
+        line-height: 1.3 !important;
+    }
+    .piloto-nome-2linhas > div:first-child {
+        margin-bottom: 2px !important;
     }
     
     /* Grid badge inline - na mesma linha do código */
@@ -2403,7 +3082,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     max-width: 100%;
     margin-left: auto;
     margin-right: auto;
-    white-space: nowrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 /* Toggle Switch - Infográfico/PDF */
@@ -4206,80 +4886,633 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 @media (max-width: 768px) {
     .regulamento-page {
-        padding: 70px 16px 50px;
+        padding: 70px 12px 50px;
+        font-size: 16px;
+    }
+    .regulamento-header {
+        margin-bottom: 30px;
+        padding: 0 5px;
+    }
+    .reg-pill-row {
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+        margin-bottom: 15px;
+    }
+    .reg-pill-spacer {
+        display: none;
+    }
+    .reg-header-actions {
+        position: static;
+        order: -1;
+        width: 100%;
+        justify-content: center;
+        margin-bottom: 10px;
+    }
+    .reg-action-btn-icon {
+        width: 36px;
+        height: 36px;
+    }
+    .regulamento-header-pill {
+        font-size: 0.7rem;
+        padding: 8px 16px;
+        width: 100%;
+        text-align: center;
     }
     .regulamento-header h1 {
-        font-size: 1.8rem;
+        font-size: 1.6rem;
+        line-height: 1.2;
+        margin-top: 10px;
+    }
+    .regulamento-header p {
+        font-size: 0.85rem;
+        line-height: 1.6;
+        padding: 0 5px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
     }
     .reg-hero-grid {
         grid-template-columns: 1fr;
+        gap: 15px;
+        margin-bottom: 40px;
+    }
+    .reg-hero-card {
+        padding: 18px 16px;
+        overflow: visible;
+    }
+    .reg-hero-card h3 {
+        font-size: 0.95rem;
+        line-height: 1.3;
+    }
+    .reg-hero-card p {
+        font-size: 0.8rem;
+        line-height: 1.5;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
     .regulamento-grid {
         grid-template-columns: 1fr;
+        gap: 18px;
+    }
+    .reg-card {
+        padding: 20px 16px;
+        min-height: auto;
+        overflow: visible;
+    }
+    .reg-card h3 {
+        font-size: 1rem;
+        line-height: 1.3;
+        word-wrap: break-word;
+    }
+    .reg-card p {
+        font-size: 0.85rem;
+        line-height: 1.6;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
     .reg-highlight-grid {
         grid-template-columns: 1fr;
+        gap: 18px;
     }
     .reg-calendar-grid {
         grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    .reg-calendar-card {
+        padding: 20px 18px;
+    }
+    .reg-calendar-card h3 {
+        font-size: 1.2rem;
+    }
+    .reg-calendar-sub {
+        font-size: 0.85rem;
+        margin: 6px 0 10px;
+    }
+    .reg-calendar-card p {
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+    .reg-calendar-table-wrapper {
+        padding: 18px 16px;
+    }
+    .reg-calendar-table-title {
+        font-size: 0.95rem;
+        margin-bottom: 12px;
     }
     .reg-calendar-tables {
         grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    .reg-calendar-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 16px 12px;
     }
     .reg-calendar-table {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
+        width: 100%;
+        min-width: 100%;
+        table-layout: auto;
+        display: table;
+        margin-bottom: 15px;
     }
     .reg-calendar-table th,
     .reg-calendar-table td {
-        padding: 10px 6px;
+        padding: 8px 4px;
+        font-size: 0.65rem;
+    }
+    .reg-calendar-table th {
+        font-size: 0.65rem;
+        padding: 6px 4px;
+        white-space: normal;
+    }
+    .reg-calendar-table th:nth-child(1) {
+        width: auto;
+        min-width: 80px;
+    }
+    .reg-calendar-table th:nth-child(2) {
+        width: auto;
+        min-width: 70px;
+    }
+    .reg-calendar-table th:nth-child(3) {
+        width: auto;
+        min-width: 120px;
+    }
+    .reg-calendar-table td {
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    .reg-calendar-table .circuit-etapa-name {
+        font-size: 0.7rem;
+        display: inline;
+        margin-right: 4px;
+    }
+    .reg-calendar-table .circuit-name {
+        font-size: 0.65rem;
+        white-space: normal;
+        word-wrap: break-word;
+        display: inline-block;
+        max-width: 100%;
+    }
+    .reg-calendar-table .circuit-info-cell {
+        white-space: normal;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .reg-calendar-table .flag-img {
+        width: 18px;
+        height: 12px;
+        flex-shrink: 0;
+    }
+    .reg-calendar-table .sprint-asterisk,
+    .reg-calendar-table .qualy-asterisk {
+        font-size: 0.8rem;
+        margin-left: 2px;
+    }
+    .reg-calendar-tables {
+        overflow-x: visible;
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    .reg-calendar-grid {
+        overflow-x: visible;
+    }
+    .reg-calendar-legenda {
+        padding: 10px 12px;
+        margin-top: 12px;
+        font-size: 0.75rem;
+    }
+    .legenda-notes {
+        font-size: 0.7rem;
+        line-height: 1.4;
+        word-wrap: break-word;
+    }
+    .reg-calendar-table-title {
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+    }
+    .reg-scoring-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
     }
     .reg-session-grid {
         grid-template-columns: 1fr;
+        gap: 18px;
     }
     .reg-lobby-steps {
         grid-template-columns: 1fr;
+        gap: 12px;
     }
     .reg-section-technical .reg-tech-grid {
         grid-template-columns: 1fr;
+        gap: 18px;
     }
     .draft-grid {
         grid-template-columns: 1fr;
+        gap: 18px;
     }
     .analysis-steps {
         grid-template-columns: 1fr;
+        gap: 15px;
     }
     .penalties-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
+        gap: 15px;
     }
     .info-card {
         grid-column: span 1;
         flex-direction: column;
         text-align: center;
+        padding: 18px 16px;
+        gap: 12px;
+        overflow: visible;
+    }
+    .info-card strong {
+        font-size: 0.95rem;
+        line-height: 1.3;
+    }
+    .info-card p {
+        font-size: 0.85rem;
+        line-height: 1.6;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
     .reg-section-title {
         flex-direction: column;
         gap: 12px;
+        align-items: flex-start;
+        padding-bottom: 15px;
+    }
+    .reg-section-title h2 {
+        font-size: 1.5rem;
+        line-height: 1.3;
+        word-wrap: break-word;
+    }
+    .reg-section-title p {
+        font-size: 0.85rem;
+        line-height: 1.6;
+        max-width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        margin-top: 6px;
     }
     .reg-mini-pill {
         align-self: flex-start;
-    }
-    .reg-card h3 {
-        font-size: 1.3rem;
+        font-size: 0.65rem;
+        padding: 6px 14px;
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+        letter-spacing: 0.5px;
+        max-width: 100%;
     }
     .conduct-panel {
-        padding: 20px;
+        padding: 20px 16px;
+    }
+    .conduct-header h2 {
+        font-size: 1.5rem;
+    }
+    .conduct-item {
+        padding: 12px 14px;
+        gap: 12px;
+    }
+    .conduct-item span {
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+    .pr-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    .pr-card {
+        padding: 12px 14px;
+        height: auto;
+        min-height: 100px;
+        gap: 12px;
+        overflow: visible;
+    }
+    .pr-left-section {
+        min-width: 60px;
+        gap: 6px;
+    }
+    .pr-rank-badge {
+        width: 40px;
+        height: 40px;
+    }
+    .pr-rank-number {
+        font-size: 1.3rem;
+    }
+    .pr-photo-wrapper {
+        width: 60px;
+        height: 60px;
+        margin-left: 10px;
+        margin-bottom: -10px;
+    }
+    .pr-name {
+        font-size: 0.8rem;
+        max-width: 100%;
+        white-space: normal;
+        line-height: 1.3;
+        margin-bottom: 4px;
+    }
+    .pr-team-name {
+        font-size: 0.7rem;
+        white-space: normal;
+        word-break: break-word;
+    }
+    .pr-score-val {
+        font-size: 1.4rem;
+    }
+    .pr-score-label {
+        font-size: 0.65rem;
+    }
+    .pr-score-container {
+        min-width: 60px;
+    }
+    .pr-hero-card {
+        padding: 20px 16px;
+    }
+    .pr-hero-card h3 {
+        font-size: 0.9rem;
+    }
+    .pr-hero-card p {
+        font-size: 0.8rem;
+        line-height: 1.5;
+    }
+    .reg-text-index ul {
+        grid-template-columns: 1fr;
+    }
+    .reg-text-index li button {
+        padding: 14px 16px;
+        font-size: 0.9rem;
+        word-break: break-word;
+        text-align: left;
+    }
+    .reg-tabs-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 20px;
+    }
+    .regulamento-tabs {
+        flex-wrap: nowrap;
+        min-width: max-content;
+        padding-bottom: 10px;
+    }
+    .regulamento-tabs button {
+        white-space: nowrap;
+        font-size: 0.85rem;
+        padding: 10px 16px;
+    }
+    /* Melhorar quebra de texto em todos os elementos */
+    .reg-card p,
+    .info-card p,
+    .conduct-item span,
+    .reg-hero-card p,
+    .pr-hero-card p {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
+    /* Ajustar largura máxima de textos */
+    .reg-text-container {
+        max-width: 100%;
+        padding: 0 10px;
+    }
+    .reg-text-container p,
+    .reg-text-container li {
+        line-height: 1.7;
+        font-size: 0.95rem;
+    }
+    /* Garantir que containers não cortem conteúdo */
+    .regulamento-content {
+        overflow: visible;
+    }
+    .regulamento-grid {
+        overflow: visible;
+    }
+    .reg-highlight-grid {
+        overflow: visible;
+    }
+    .reg-calendar-grid {
+        overflow: visible;
+    }
+    .reg-session-grid {
+        overflow: visible;
+    }
+    .reg-section-technical .reg-tech-grid {
+        overflow: visible;
+    }
+    .pr-grid {
+        overflow: visible;
+    }
+    .reg-scoring-grid {
+        overflow: visible;
     }
 }
 
 @media (max-width: 480px) {
-    .penalties-grid {
-        grid-template-columns: 1fr;
+    .regulamento-page {
+        padding: 70px 8px 40px;
+        font-size: 14px;
     }
-    .reg-section-title h2 {
-        font-size: 1.4rem;
+    .regulamento-header {
+        padding: 0;
+    }
+    .reg-pill-row {
+        gap: 8px;
+    }
+    .reg-header-actions {
+        gap: 6px;
+    }
+    .reg-action-btn-icon {
+        width: 32px;
+        height: 32px;
     }
     .regulamento-header-pill {
+        font-size: 0.65rem;
+        padding: 6px 12px;
+    }
+    .regulamento-header h1 {
+        font-size: 1.4rem;
+        margin-top: 8px;
+    }
+    .regulamento-header p {
+        font-size: 0.8rem;
+        padding: 0;
+        line-height: 1.5;
+    }
+    .reg-section-title p {
+        font-size: 0.8rem;
+    }
+    .reg-mini-pill {
         font-size: 0.6rem;
-        padding: 6px 14px;
+        padding: 5px 12px;
+    }
+    .reg-calendar-card {
+        padding: 16px 14px;
+    }
+    .reg-calendar-card h3 {
+        font-size: 1.1rem;
+    }
+    .reg-calendar-card p {
+        font-size: 0.8rem;
+    }
+    .reg-calendar-table-wrapper {
+        padding: 14px 12px;
+    }
+    .reg-calendar-table-title {
+        font-size: 0.85rem;
+    }
+    .reg-hero-card {
+        padding: 16px 14px;
+    }
+    .reg-hero-card h3 {
+        font-size: 0.9rem;
+    }
+    .reg-hero-card p {
+        font-size: 0.75rem;
+    }
+    .reg-card {
+        padding: 18px 14px;
+    }
+    .reg-card h3 {
+        font-size: 0.95rem;
+    }
+    .reg-card p {
+        font-size: 0.8rem;
+    }
+    .pr-card {
+        padding: 10px 12px;
+        gap: 10px;
+    }
+    .pr-name {
+        font-size: 0.75rem;
+    }
+    .pr-team-name {
+        font-size: 0.65rem;
+    }
+    .pr-score-val {
+        font-size: 1.2rem;
+    }
+    .pr-rank-badge {
+        width: 35px;
+        height: 35px;
+    }
+    .pr-rank-number {
+        font-size: 1.1rem;
+    }
+    .pr-photo-wrapper {
+        width: 50px;
+        height: 50px;
+    }
+    .penalties-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .reg-section-title h2 {
+        font-size: 1.3rem;
+    }
+    .reg-calendar-table-wrapper {
+        padding: 12px 10px;
+    }
+    .reg-calendar-table {
+        font-size: 0.65rem;
+    }
+    .reg-calendar-table th,
+    .reg-calendar-table td {
+        padding: 6px 3px;
+        font-size: 0.6rem;
+    }
+    .reg-calendar-table th {
+        font-size: 0.6rem;
+        padding: 5px 3px;
+    }
+    .reg-calendar-table th:nth-child(1) {
+        min-width: 70px;
+    }
+    .reg-calendar-table th:nth-child(2) {
+        min-width: 60px;
+    }
+    .reg-calendar-table th:nth-child(3) {
+        min-width: 100px;
+    }
+    .reg-calendar-table .circuit-etapa-name {
+        font-size: 0.65rem;
+        margin-right: 3px;
+    }
+    .reg-calendar-table .circuit-name {
+        font-size: 0.6rem;
+    }
+    .reg-calendar-table .flag-img {
+        width: 16px;
+        height: 11px;
+    }
+    .reg-calendar-table .sprint-asterisk,
+    .reg-calendar-table .qualy-asterisk {
+        font-size: 0.7rem;
+    }
+    .reg-calendar-legenda {
+        padding: 8px 10px;
+        font-size: 0.7rem;
+    }
+    .legenda-notes {
+        font-size: 0.65rem;
+        line-height: 1.3;
+    }
+    .reg-calendar-table-title {
+        font-size: 0.8rem;
+        margin-bottom: 8px;
+    }
+    .reg-calendar-table .circuit-etapa-name {
+        font-size: 0.8rem;
+    }
+    .reg-calendar-table .circuit-name {
+        font-size: 0.75rem;
+    }
+    .reg-scoring-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .conduct-panel {
+        padding: 18px 14px;
+    }
+    .conduct-header h2 {
+        font-size: 1.3rem;
+    }
+    .conduct-item {
+        padding: 10px 12px;
+    }
+    .conduct-item span {
+        font-size: 0.85rem;
+    }
+    .info-card {
+        padding: 16px 14px;
+    }
+    .info-card strong {
+        font-size: 0.9rem;
+    }
+    .info-card p {
+        font-size: 0.8rem;
+    }
+    .reg-text-index li button {
+        padding: 12px 14px;
+        font-size: 0.85rem;
+        word-break: break-word;
+        text-align: left;
+    }
+    .regulamento-tabs button {
+        font-size: 0.8rem;
+        padding: 8px 14px;
+    }
+    .reg-text-container {
+        padding: 0 8px;
+    }
+    .reg-text-container p,
+    .reg-text-container li {
+        line-height: 1.6;
+        font-size: 0.9rem;
     }
 }
