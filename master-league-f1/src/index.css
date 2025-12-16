@@ -1869,15 +1869,16 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .hub-countdown { font-size: 1rem; }
     
     /* Cards de Piloto Mobile */
-    .driver-card-hub { min-width: 140px; width: 140px; height: 200px; }
+    .driver-card-hub { min-width: 160px; width: 160px; height: 220px; }
     .dch-photo-wrapper { bottom: 60px !important; } /* Ajustado para ficar mais acima no mobile */
     .dch-name { font-size: 0.8rem; }
     .dch-team { font-size: 0.65rem; }
-    .dch-photo { width: 90px; height: 90px; }
+    .dch-photo { width: 130px; height: 130px; } /* Fotos maiores no mobile */
     
     /* Seções */
     .section-header-hub h2 { font-size: 1.1rem; padding-left: 10px; }
-    .hub-container { padding: 0 10px; }
+    .hub-container { padding: 0 5px; } /* Margens laterais reduzidas */
+    .drivers-grid-hub { padding-left: 5px; padding-right: 5px; } /* Reduzir padding do carrossel */
     
     /* Quick Links Mobile */
     .ql-card { padding: 12px; }
