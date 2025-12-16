@@ -2293,18 +2293,22 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     
     /* Pilotos envolvidos - lado a lado no mobile com texto menor */
     .pilotos-envolvidos-container {
-        gap: 15px !important;
+        gap: 10px !important;
         padding: 12px 15px !important;
+        flex-wrap: nowrap !important;
     }
     .pilotos-envolvidos-container > div:first-child,
     .pilotos-envolvidos-container > div:last-child {
         font-size: 0.85rem !important;
+        flex: 1 !important;
+        min-width: 0 !important;
     }
     .pilotos-envolvidos-container span {
         font-size: 10px !important;
     }
     .pilotos-envolvidos-container > div:nth-child(2) {
         font-size: 18px !important;
+        flex: 0 0 auto !important;
     }
     
     /* Grid badge inline - na mesma linha do código */
