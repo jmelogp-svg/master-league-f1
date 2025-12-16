@@ -2272,6 +2272,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         width: 100%;
         margin-top: 10px;
     }
+    
+    /* Vídeos em coluna no mobile (um acima do outro) */
+    .videos-grid-analises {
+        grid-template-columns: 1fr !important;
+    }
+    
     .analises-action-buttons button,
     .analises-action-buttons a {
         width: 44px !important;

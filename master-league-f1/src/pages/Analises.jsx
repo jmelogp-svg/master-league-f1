@@ -1419,7 +1419,7 @@ function Analises() {
                                                 </div>
 
                                                 {/* Vídeos lado a lado */}
-                                                <div style={{ display: 'grid', gridTemplateColumns: defesa ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '25px' }}>
+                                                <div className="videos-grid-analises" style={{ display: 'grid', gridTemplateColumns: defesa ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '25px' }}>
                                                     <div>
                                                         <div style={{ color: '#EF4444', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase' }}>
                                                             👤 Visão do Acusador

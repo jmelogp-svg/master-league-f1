@@ -487,7 +487,7 @@ function ConsultarAnalises() {
                                     </div>
 
                                     {/* Vídeos lado a lado */}
-                                    <div style={{
+                                    <div className="videos-grid-analises" style={{
                                         padding: '25px',
                                         display: 'grid',
                                         gridTemplateColumns: defesa ? '1fr 1fr' : '1fr',
