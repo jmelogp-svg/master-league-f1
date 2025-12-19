@@ -59,21 +59,21 @@ const MinicupDriverImage = ({ name, className, style }) => {
 const getTeamLogo = (teamName) => {
     if (!teamName || teamName.trim() === "") return null;
     const t = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos-f1team/redbull.png';
-    if (t.includes('ferrari')) return '/logos-f1team/ferrari.png';
-    if (t.includes('mercedes')) return '/logos-f1team/mercedes.png';
-    if (t.includes('renault')) return '/logos-f1team/renault.png';
-    if (t.includes('mclaren')) return '/logos-f1team/mclaren.png';
-    if (t.includes('aston')) return '/logos-f1team/astonmartin.png';
-    if (t.includes('alpine')) return '/logos-f1team/alpine.png';
-    if (t.includes('alfaromeo') || t.includes('alfa romeo') || (t.includes('alfa') && !t.includes('tauri'))) return '/logos-f1team/alfaromeo.png';
-    if (t.includes('alphatauri') || t.includes('alpha tauri')) return '/logos-f1team/alphatauri.png';
-    if (t.includes('tororosso') || t.includes('toro rosso') || t.includes('toro')) return '/logos-f1team/tororosso.png';
-    if (t.includes('williams')) return '/logos-f1team/williams.png';
-    if (t.includes('haas')) return '/logos-f1team/haas.png';
-    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos-f1team/sauber.png';
-    if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/logos-f1team/racingpoint.png';
-    if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/logos-f1team/racingbulls.png';
+    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos/redbull.png';
+    if (t.includes('ferrari')) return '/logos/ferrari.png';
+    if (t.includes('mercedes')) return '/logos/mercedes.png';
+    if (t.includes('renault')) return '/logos/renault.png';
+    if (t.includes('mclaren')) return '/logos/mclaren.png';
+    if (t.includes('aston')) return '/logos/astonmartin.png';
+    if (t.includes('alpine')) return '/logos/alpine.png';
+    if (t.includes('alfaromeo') || t.includes('alfa romeo') || (t.includes('alfa') && !t.includes('tauri'))) return '/logos/alfaromeo.png';
+    if (t.includes('alphatauri') || t.includes('alpha tauri')) return '/logos/alphatauri.png';
+    if (t.includes('tororosso') || t.includes('toro rosso') || t.includes('toro')) return '/logos/tororosso.png';
+    if (t.includes('williams')) return '/logos/williams.png';
+    if (t.includes('haas')) return '/logos/haas.png';
+    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos/sauber.png';
+    if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/logos/racingpoint.png';
+    if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/logos/racingbulls.png';
     return null;
 };
 
