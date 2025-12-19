@@ -196,21 +196,21 @@ function Standings() {
     const getTeamLogo = (teamName) => {
         if(!teamName) return null;
         const t = teamName.toLowerCase().replace(/\s/g, ''); 
-        if(t.includes("ferrari")) return "/logos-f1team/ferrari.png"; 
-        if(t.includes("mercedes")) return "/logos-f1team/mercedes.png"; 
-        if(t.includes("renault")) return "/logos-f1team/renault.png";
-        if(t.includes("alpine")) return "/logos-f1team/alpine.png"; 
-        if(t.includes("racingpoint") || (t.includes("racing") && t.includes("point"))) return "/logos-f1team/racingpoint.png";
-        if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls"))) return "/logos-f1team/racingbulls.png"; 
-        if(t.includes("redbull") || t.includes("oracle") || t.includes("red bull")) return "/logos-f1team/redbull.png"; 
-        if(t.includes("mclaren")) return "/logos-f1team/mclaren.png"; 
-        if(t.includes("aston")) return "/logos-f1team/astonmartin.png"; 
-        if(t.includes("haas")) return "/logos-f1team/haas.png"; 
-        if(t.includes("alfaromeo") || t.includes("alfa romeo") || (t.includes("alfa") && !t.includes("tauri"))) return "/logos-f1team/alfaromeo.png"; 
-        if(t.includes("alphatauri") || t.includes("alpha tauri")) return "/logos-f1team/alphatauri.png"; 
-        if(t.includes("tororosso") || t.includes("toro rosso") || t.includes("toro")) return "/logos-f1team/tororosso.png";
-        if(t.includes("williams")) return "/logos-f1team/williams.png"; 
-        if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/logos-f1team/sauber.png";
+        if(t.includes("ferrari")) return "/logos/ferrari.png"; 
+        if(t.includes("mercedes")) return "/logos/mercedes.png"; 
+        if(t.includes("renault")) return "/logos/renault.png";
+        if(t.includes("alpine")) return "/logos/alpine.png"; 
+        if(t.includes("racingpoint") || (t.includes("racing") && t.includes("point"))) return "/logos/racingpoint.png";
+        if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls"))) return "/logos/racingbulls.png"; 
+        if(t.includes("redbull") || t.includes("oracle") || t.includes("red bull")) return "/logos/redbull.png"; 
+        if(t.includes("mclaren")) return "/logos/mclaren.png"; 
+        if(t.includes("aston")) return "/logos/astonmartin.png"; 
+        if(t.includes("haas")) return "/logos/haas.png"; 
+        if(t.includes("alfaromeo") || t.includes("alfa romeo") || (t.includes("alfa") && !t.includes("tauri"))) return "/logos/alfaromeo.png"; 
+        if(t.includes("alphatauri") || t.includes("alpha tauri")) return "/logos/alphatauri.png"; 
+        if(t.includes("tororosso") || t.includes("toro rosso") || t.includes("toro")) return "/logos/tororosso.png";
+        if(t.includes("williams")) return "/logos/williams.png"; 
+        if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/logos/sauber.png";
         return null;
     };
     const getTeamColor = (teamName) => {
@@ -376,7 +376,7 @@ function Standings() {
                                                     </div>
                                                 )}
                                             <span className="top5-team-name" style={{color: teamColor}}>{driver.team}</span>
-                                        </div>
+                                            </div>
                                         </div>
                                         
                                     {/* Points Bar */}
@@ -442,7 +442,7 @@ function Standings() {
                                             <span className="classification-points-label">PTS</span>
                                             <span className="classification-points-value">{driver.points.toFixed(0)}</span>
                                         </div>
-                                    </div>
+                                            </div>
                                         </div>
                                     );
                                 })}
