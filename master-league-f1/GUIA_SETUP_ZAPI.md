@@ -186,3 +186,7 @@ teste-whatsapp-curl.bat
 
 
 
+
+
+
+

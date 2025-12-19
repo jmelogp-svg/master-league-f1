@@ -161,10 +161,56 @@ function Standings() {
         return stats;
     };
     const handleDriverClick = (driver) => { setSelectedDriver({ ...driver, stats: getDriverStats(driver.name) }); };
+    
+    // Função para formatar nome: primeiro nome primeira letra maiúscula (sem negrito), segundo nome todo maiúsculo (negrito)
+    const formatDriverName = (fullName) => {
+        if (!fullName) return '';
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const firstName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const lastName = parts.slice(1).join(' ').toUpperCase();
+        return (
+            <>
+                <span style={{fontWeight: 400, display: 'block'}}>{firstName}</span>
+                <span style={{fontWeight: 900, display: 'block'}}>{lastName}</span>
+            </>
+        );
+    };
+    
+    // Função para formatar nome em uma linha (para lista de classificação)
+    const formatDriverNameOneLine = (fullName) => {
+        if (!fullName) return '';
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const firstName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const lastName = parts.slice(1).join(' ').toUpperCase();
+        return (
+            <>
+                <span style={{fontWeight: 400}}>{firstName}</span>
+                <span style={{fontWeight: 400}}>&nbsp;</span>
+                <span style={{fontWeight: 900}}>{lastName}</span>
+            </>
+        );
+    };
+    
     const getTeamLogo = (teamName) => {
         if(!teamName) return null;
         const t = teamName.toLowerCase().replace(/\s/g, ''); 
-        if(t.includes("ferrari")) return "/logos/ferrari.png"; if(t.includes("mercedes")) return "/logos/mercedes.png"; if(t.includes("alpine")) return "/logos/alpine.png"; if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls"))) return "/logos/racingbulls.png"; if(t.includes("redbull") || t.includes("oracle")) return "/logos/redbull.png"; if(t.includes("mclaren")) return "/logos/mclaren.png"; if(t.includes("aston")) return "/logos/astonmartin.png"; if(t.includes("haas")) return "/logos/haas.png"; if(t.includes("williams")) return "/logos/williams.png"; if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/logos/sauber.png";
+        if(t.includes("ferrari")) return "/logos-f1team/ferrari.png"; 
+        if(t.includes("mercedes")) return "/logos-f1team/mercedes.png"; 
+        if(t.includes("renault")) return "/logos-f1team/renault.png";
+        if(t.includes("alpine")) return "/logos-f1team/alpine.png"; 
+        if(t.includes("racingpoint") || (t.includes("racing") && t.includes("point"))) return "/logos-f1team/racingpoint.png";
+        if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls"))) return "/logos-f1team/racingbulls.png"; 
+        if(t.includes("redbull") || t.includes("oracle") || t.includes("red bull")) return "/logos-f1team/redbull.png"; 
+        if(t.includes("mclaren")) return "/logos-f1team/mclaren.png"; 
+        if(t.includes("aston")) return "/logos-f1team/astonmartin.png"; 
+        if(t.includes("haas")) return "/logos-f1team/haas.png"; 
+        if(t.includes("alfaromeo") || t.includes("alfa romeo") || (t.includes("alfa") && !t.includes("tauri"))) return "/logos-f1team/alfaromeo.png"; 
+        if(t.includes("alphatauri") || t.includes("alpha tauri")) return "/logos-f1team/alphatauri.png"; 
+        if(t.includes("tororosso") || t.includes("toro rosso") || t.includes("toro")) return "/logos-f1team/tororosso.png";
+        if(t.includes("williams")) return "/logos-f1team/williams.png"; 
+        if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/logos-f1team/sauber.png";
         return null;
     };
     const getTeamColor = (teamName) => {
@@ -174,54 +220,58 @@ function Standings() {
         return "#94A3B8";
     };
 
-    const getDrivers = () => {
+    const getDrivers = () => { /* Mesma Lógica */ 
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
-        console.log('🔍 getDrivers - gridType:', gridType, 'rawData length:', rawData.length, 'selectedSeason:', selectedSeason);
-        
         const totals = {};
         rawData.forEach(row => {
-            const s = parseInt(row[3]);
-            if (s !== parseInt(selectedSeason)) return;
-            const name = row[9];
-            const team = row[10];
-            if (!name) return;
-            
+            const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return;
+            const name = row[9]; const team = row[10]; if (!name) return;
             if (!totals[name]) totals[name] = { name, team, points: 0 };
-            
-            if (s >= 20) {
-                // Temporada 20+: usar coluna de pontos direta (coluna 15)
-                let p = parseFloat((row[15]||'0').replace(',', '.'));
-                if (!isNaN(p)) totals[name].points += p;
-            } else {
-                // Temporadas anteriores: calcular pontos baseado nas posições
-                const racePos = parseInt(row[8]);
-                if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1];
-                const sprintPos = parseInt(row[7]);
-                if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1];
-            }
+            if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) totals[name].points += p; }
+            else { const racePos = parseInt(row[8]); if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
         });
-        
-        const result = Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 }));
-        console.log('✅ getDrivers - result:', result.length, 'drivers');
-        return result;
+        return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 }));
     };
     const getConstructors = () => { /* Mesma Lógica */ 
         const drivers = getDrivers(); const teams = {}; drivers.forEach(d => { if (!teams[d.team]) teams[d.team] = { team: d.team, points: 0, driversList: [] }; teams[d.team].points += d.points; if (!teams[d.team].driversList.includes(d.name)) teams[d.team].driversList.push(d.name); });
         return Object.values(teams).sort((a, b) => b.points - a.points).map((t, i) => ({ ...t, pos: i + 1 }));
     };
-    const getRaceResults = () => { /* Mesma Lógica */ 
-        const rawData = gridType === 'carreira' ? rawCarreira : rawLight; const raceResults = [];
+    const getRaceResults = () => { 
+        const rawData = gridType === 'carreira' ? rawCarreira : rawLight; 
+        const raceResults = [];
         rawData.forEach(row => {
             const s = parseInt(row[3]); const r = parseInt(row[4]);
             if (s === parseInt(selectedSeason) && r === parseInt(selectedRound)) {
                 const pos = parseInt(row[8]);
                 if (!isNaN(pos)) {
-                    let stagePoints = 0; if (pos >= 1 && pos <= 10) stagePoints += POINTS_RACE[pos - 1]; const sprintPos = parseInt(row[7]); if (!isNaN(sprintPos) && sprintPos >= 1 && sprintPos <= 8) stagePoints += POINTS_SPRINT[sprintPos - 1];
-                    raceResults.push({ pos: pos, name: row[9], team: row[10], date: row[0], gp: row[5], fastestLap: row[11] || '-', totalPoints: stagePoints });
+                    let stagePoints = 0; 
+                    if (pos >= 1 && pos <= 10) stagePoints += POINTS_RACE[pos - 1]; 
+                    const sprintPos = parseInt(row[7]); 
+                    if (!isNaN(sprintPos) && sprintPos >= 1 && sprintPos <= 8) stagePoints += POINTS_SPRINT[sprintPos - 1];
+                    raceResults.push({ 
+                        pos: pos, 
+                        name: row[9], 
+                        team: row[10], 
+                        date: row[0], 
+                        gp: row[5], 
+                        fastestLap: row[11] || '-', 
+                        totalPoints: stagePoints 
+                    });
                 }
             }
         });
         return raceResults.sort((a, b) => a.pos - b.pos);
+    };
+    
+    // Função para parsear tempo de volta
+    const parseTime = (timeStr) => {
+        if (!timeStr || timeStr === '-') return Infinity;
+        const parts = timeStr.split(':');
+        if (parts.length === 2) {
+            const [minutes, seconds] = parts;
+            return parseInt(minutes) * 60000 + parseFloat(seconds) * 1000;
+        }
+        return Infinity;
     };
     const getCalendar = () => { /* Mesma Lógica */ 
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight; const raceMap = new Map();
@@ -240,14 +290,6 @@ function Standings() {
     const renderContent = () => {
         if (loading) return <div style={{padding:'40px', textAlign:'center', color:'var(--text-muted)'}}>Carregando Dados...</div>;
         if (gridType === 'light' && parseInt(selectedSeason) < 16) return <div style={{textAlign:'center', padding:'60px', color:'white'}}>TEMPORADA NÃO DISPONÍVEL NO GRID LIGHT</div>;
-        
-        // Debug: verificar se há dados
-        const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
-        console.log('📊 renderContent - rawData length:', rawData.length, 'seasons:', seasons, 'selectedSeason:', selectedSeason);
-        
-        if (rawData.length === 0) {
-            return <div style={{padding:'40px', textAlign:'center', color:'var(--text-muted)'}}>Nenhum dado disponível. Verifique se as planilhas estão acessíveis.</div>;
-        }
 
         if (viewType === 'calendar') {
             const { races, nextRace } = getCalendar();
@@ -283,15 +325,128 @@ function Standings() {
         // ... (VIEWTYPE DRIVERS/TEAMS/RESULTS MANTIDO IGUAL AO ANTERIOR - Resumido aqui para caber, mas use o código completo da versão anterior)
         if (viewType === 'drivers') {
             const data = getDrivers();
+            const top5 = data.slice(0, 5);
+            const rest = data.slice(5);
+            
             return (
                 <>
-                <div className="table-header header-default"><div>POS</div><div>PILOTO</div><div className="hide-mobile">EQUIPE</div><div style={{textAlign:'right'}}>PONTOS</div></div>
-                {data.map(driver => (
-                <div className="table-row row-default default-bg" key={driver.pos} style={{"--team-color": getTeamColor(driver.team)}} onClick={() => handleDriverClick(driver)}>
-                    <div className={`pos-number pos-${driver.pos}`}>{driver.pos}º</div>
-                    <div className="driver-cell"><DriverImage name={driver.name} gridType={gridType} season={selectedSeason} className="driver-photo-small"/><div className="driver-info-group"><div className="mobile-row-1"><div className="show-mobile-only">{getTeamLogo(driver.team) && <img src={getTeamLogo(driver.team)} className="team-logo-tiny" />}</div><div className="driver-name">{driver.name}</div></div><div className="team-name-small show-mobile-only">{driver.team}</div></div></div><div className="hide-mobile"><div className="team-name-group">{getTeamLogo(driver.team) && <img src={getTeamLogo(driver.team)} className="team-logo-tiny" />}<span className="team-name-small" style={{color: getTeamColor(driver.team)}}>{driver.team}</span></div></div><div className="driver-points-big">{driver.points.toFixed(0)}</div>
+                    {/* TOP 5 CARDS */}
+                    <div className="top5-container">
+                        {top5.map(driver => {
+                            const teamColor = getTeamColor(driver.team);
+                            const teamLogo = getTeamLogo(driver.team);
+                            const maxPoints = top5[0]?.points || driver.points;
+                            const progressPercent = maxPoints > 0 ? (driver.points / maxPoints) * 100 : 0;
+                            return (
+                                <article 
+                                    key={driver.pos} 
+                                    className="top5-card-new" 
+                                    style={{"--team-color": teamColor}}
+                                    onClick={() => handleDriverClick(driver)}
+                                >
+                                    {/* Rank Number - Top Left */}
+                                    <div className="top5-rank-number">{driver.pos}º</div>
+                                    
+                                    {/* Team Logo - Top Right */}
+                                    {teamLogo && (
+                                        <div className="top5-team-logo-top">
+                                            <img src={teamLogo} alt={driver.team} />
+                                        </div>
+                                    )}
+                                    
+                                    {/* Driver Photo */}
+                                    <div className="top5-photo-container">
+                                        <DriverImage 
+                                            name={driver.name} 
+                                            gridType={gridType} 
+                                            season={selectedSeason} 
+                                            className="top5-photo"
+                                        />
+                                    </div>
+                                    
+                                    {/* Driver Info */}
+                                    <div className="top5-info">
+                                        <div className="top5-driver-name">{formatDriverName(driver.name)}</div>
+                                            <div className="top5-team-info">
+                                                {teamLogo ? (
+                                                <img src={teamLogo} className="top5-team-logo-info" alt={driver.team} />
+                                                ) : (
+                                                <div className="top5-team-initial-info" style={{"--team-color": teamColor}}>
+                                                        {driver.team.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
+                                            <span className="top5-team-name" style={{color: teamColor}}>{driver.team}</span>
+                                        </div>
+                                        </div>
+                                        
+                                    {/* Points Bar */}
+                                    <div className="top5-points-container">
+                                        <div className="top5-points-bar">
+                                            <div 
+                                                className="top5-points-fill" 
+                                                style={{
+                                                    width: `${progressPercent}%`,
+                                                    background: `linear-gradient(90deg, ${teamColor} 0%, ${teamColor}dd 100%)`,
+                                                    "--fill-color": teamColor
+                                                }}
+                                            ></div>
+                                        </div>
+                                        <div className="top5-points-wrapper">
+                                            <div className="top5-points-value">{driver.points.toFixed(0)}</div>
+                                            <div className="top5-points-label">PONTOS</div>
+                                        </div>
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
+                    
+                    {/* LISTA DE CLASSIFICAÇÃO (6º - 18º) */}
+                    <div className="classification-section-new">
+                                {rest.map(driver => {
+                                    const teamColor = getTeamColor(driver.team);
+                                    const teamLogo = getTeamLogo(driver.team);
+                                    return (
+                                        <div 
+                                            key={driver.pos} 
+                                            className="classification-row-new" 
+                                            style={{"--team-color": teamColor}}
+                                            onClick={() => handleDriverClick(driver)}
+                                        >
+                                            <div className="classification-left">
+                                                <span className="classification-position">{driver.pos}º</span>
+                                                <div className="classification-avatar" style={{"--team-color": teamColor}}>
+                                                    <DriverImage 
+                                                        name={driver.name} 
+                                                        gridType={gridType} 
+                                                        season={selectedSeason} 
+                                                        className="classification-photo"
+                                                    />
+                                                </div>
+                                        <div className="classification-driver-name">{formatDriverNameOneLine(driver.name)}</div>
+                                            </div>
+                                            <div className="classification-right">
+                                                <div className="classification-team-info">
+                                                    {teamLogo ? (
+                                                        <img src={teamLogo} className="classification-team-logo" alt={driver.team} />
+                                                    ) : (
+                                                        <div className="classification-team-initial" style={{"--team-color": teamColor}}>
+                                                            {driver.team.charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                            <span className="classification-team-name">
+                                                        {driver.team}
+                                                    </span>
+                                                </div>
+                                        <div className="classification-points">
+                                            <span className="classification-points-label">PTS</span>
+                                            <span className="classification-points-value">{driver.points.toFixed(0)}</span>
+                                        </div>
+                                    </div>
+                                        </div>
+                                    );
+                                })}
                 </div>
-                ))}
                 </>
             );
         }
@@ -311,15 +466,201 @@ function Standings() {
         }
         if (viewType === 'results') {
             const data = getRaceResults();
-            if(data.length === 0) return <div>Sem resultados.</div>;
-            const podium = data.slice(0,3); const rest = data.slice(3); const p1=podium.find(p=>p.pos===1); const p2=podium.find(p=>p.pos===2); const p3=podium.find(p=>p.pos===3); const podiumDisplay=[p2,p1,p3].filter(x=>x!==undefined);
+            if(data.length === 0) return <div style={{padding:'40px', textAlign:'center', color:'#94A3B8'}}>Sem resultados para esta etapa.</div>;
+            
+            const podium = data.slice(0,3); 
+            const rest = data.slice(3); 
+            const p1 = podium.find(p=>p.pos===1); 
+            const p2 = podium.find(p=>p.pos===2); 
+            const p3 = podium.find(p=>p.pos===3); 
             const gpInfo = tracks[normalizeStr(data[0].gp)] || {};
+            
+            // Encontrar a melhor volta (menor tempo)
+            const validLaps = data.filter(r => r.fastestLap && r.fastestLap !== '-').map(r => ({...r, timeMs: parseTime(r.fastestLap)}));
+            const bestLapData = validLaps.length > 0 ? validLaps.reduce((best, current) => current.timeMs < best.timeMs ? current : best) : null;
+            const bestLap = bestLapData ? bestLapData.fastestLap : null;
+            
             return (
                 <>
-                    <div className="race-header-card"><div className="rh-left"><div className="rh-flag-container">{gpInfo.flag && <img src={gpInfo.flag} className="rh-flag" />}</div><div className="rh-info"><div className="rh-gp">{data[0].gp}</div><div className="rh-details-line">{gpInfo.circuitName}<span className="rh-divider">|</span><span className="rh-date">{data[0].date}</span></div></div></div><div className="rh-right"><div className="rh-record"><RecordIcon/> Recorde: <strong>{historicalRecord.time}</strong></div></div></div>
-                    <div className="results-layout"><div className="podium-container">{podiumDisplay.map(p=>(<div key={p.name} className={`podium-step podium-p${p.pos}`} style={{"--team-color":getTeamColor(p.team)}} onClick={()=>handleDriverClick(p)}><div className="podium-photo-container"><DriverImage name={p.name} gridType={gridType} season={selectedSeason} className="podium-photo"/></div><div className="podium-base"><div className={`podium-rank rank-${p.pos}`}>{p.pos}</div><div className="podium-driver-name">{p.name}</div><div className="podium-stats"><div className="podium-stat-item points">+{p.totalPoints}</div></div></div></div>))}</div></div>
-                    <div className="table-header header-results"><div>POS</div><div>PILOTO</div><div style={{textAlign:'right'}}>PTS</div></div>
-                    {rest.map(r => (<div className="table-row row-results colored-bg" key={r.pos} style={{"--team-color": getTeamColor(r.team)}}><div className="pos-number">{r.pos}º</div><div className="driver-cell"><DriverImage name={r.name} gridType={gridType} season={selectedSeason} className="driver-photo-small"/><div className="driver-name">{r.name}</div></div><div className="results-right-col"><span className="points-pill">+{r.totalPoints}</span></div></div>))}
+                    <div className="race-header-card">
+                        <div className="rh-left">
+                            <div className="rh-flag-container">{gpInfo.flag && <img src={gpInfo.flag} className="rh-flag" alt="" />}</div>
+                            <div className="rh-info">
+                                <div className="rh-gp">{data[0].gp}</div>
+                                <div className="rh-details-line">{gpInfo.circuitName}<span className="rh-divider">|</span><span className="rh-date">{data[0].date}</span></div>
+                            </div>
+                        </div>
+                        <div className="rh-right">
+                            <div className="rh-record"><RecordIcon/> Recorde: <strong>{historicalRecord.time}</strong></div>
+                        </div>
+                    </div>
+                    
+                    <div className="results-layout">
+                        <div className="podium-container">
+                            <div className="podium-left">
+                                {p2 && (
+                                    <div key={p2.name} className={`podium-step podium-p${p2.pos}`} style={{"--team-color":getTeamColor(p2.team)}} onClick={()=>handleDriverClick(p2)}>
+                                        <div className="podium-position-left">{p2.pos}º</div>
+                                        <div className="podium-team-logo-top">
+                                            {getTeamLogo(p2.team) ? (
+                                                <img src={getTeamLogo(p2.team)} className="podium-team-logo-top-img" alt={p2.team} />
+                                            ) : (
+                                                <div className="podium-team-initial-top" style={{"--team-color": getTeamColor(p2.team)}}>
+                                                    {p2.team.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="podium-photo-container">
+                                            <DriverImage name={p2.name} gridType={gridType} season={selectedSeason} className="podium-photo"/>
+                                        </div>
+                                        <div className="podium-base">
+                                            <div className="podium-driver-name">{formatDriverName(p2.name)}</div>
+                                            <div className="podium-team-info">
+                                                <span className="podium-team-name" style={{color: getTeamColor(p2.team)}}>
+                                                    {p2.team}
+                                                </span>
+                                            </div>
+                                            <div className="podium-stats">
+                                                {p2.fastestLap && p2.fastestLap !== '-' && (
+                                                    <div className={`podium-fastest-lap ${p2.fastestLap === bestLap ? 'best-lap' : ''}`}>
+                                                        <FastLapIcon />
+                                                        {p2.fastestLap}
+                                                    </div>
+                                                )}
+                                                <div className="podium-stat-item points">+{p2.totalPoints}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="podium-center">
+                                {p1 && (
+                                    <div key={p1.name} className={`podium-step podium-p${p1.pos}`} style={{"--team-color":getTeamColor(p1.team)}} onClick={()=>handleDriverClick(p1)}>
+                                        <div className="podium-position-left">{p1.pos}º</div>
+                                        <div className="podium-team-logo-top">
+                                            {getTeamLogo(p1.team) ? (
+                                                <img src={getTeamLogo(p1.team)} className="podium-team-logo-top-img" alt={p1.team} />
+                                            ) : (
+                                                <div className="podium-team-initial-top" style={{"--team-color": getTeamColor(p1.team)}}>
+                                                    {p1.team.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="podium-photo-container">
+                                            <DriverImage name={p1.name} gridType={gridType} season={selectedSeason} className="podium-photo"/>
+                                        </div>
+                                        <div className="podium-base">
+                                            <div className="podium-driver-name">{formatDriverName(p1.name)}</div>
+                                            <div className="podium-team-info">
+                                                <span className="podium-team-name" style={{color: getTeamColor(p1.team)}}>
+                                                    {p1.team}
+                                                </span>
+                                            </div>
+                                            <div className="podium-stats">
+                                                {p1.fastestLap && p1.fastestLap !== '-' && (
+                                                    <div className={`podium-fastest-lap ${p1.fastestLap === bestLap ? 'best-lap' : ''}`}>
+                                                        <FastLapIcon />
+                                                        {p1.fastestLap}
+                                                    </div>
+                                                )}
+                                                <div className="podium-stat-item points">+{p1.totalPoints}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="podium-right">
+                                {p3 && (
+                                    <div key={p3.name} className={`podium-step podium-p${p3.pos}`} style={{"--team-color":getTeamColor(p3.team)}} onClick={()=>handleDriverClick(p3)}>
+                                        <div className="podium-position-left">{p3.pos}º</div>
+                                        <div className="podium-team-logo-top">
+                                            {getTeamLogo(p3.team) ? (
+                                                <img src={getTeamLogo(p3.team)} className="podium-team-logo-top-img" alt={p3.team} />
+                                            ) : (
+                                                <div className="podium-team-initial-top" style={{"--team-color": getTeamColor(p3.team)}}>
+                                                    {p3.team.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="podium-photo-container">
+                                            <DriverImage name={p3.name} gridType={gridType} season={selectedSeason} className="podium-photo"/>
+                                        </div>
+                                        <div className="podium-base">
+                                            <div className="podium-driver-name">{formatDriverName(p3.name)}</div>
+                                            <div className="podium-team-info">
+                                                <span className="podium-team-name" style={{color: getTeamColor(p3.team)}}>
+                                                    {p3.team}
+                                                </span>
+                                            </div>
+                                            <div className="podium-stats">
+                                                {p3.fastestLap && p3.fastestLap !== '-' && (
+                                                    <div className={`podium-fastest-lap ${p3.fastestLap === bestLap ? 'best-lap' : ''}`}>
+                                                        <FastLapIcon />
+                                                        {p3.fastestLap}
+                                                    </div>
+                                                )}
+                                                <div className="podium-stat-item points">+{p3.totalPoints}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="classification-section-new">
+                        {rest.map(r => {
+                            const teamColor = getTeamColor(r.team);
+                            const teamLogo = getTeamLogo(r.team);
+                            return (
+                                <div 
+                                    key={r.pos} 
+                                    className="classification-row-new" 
+                                    style={{"--team-color": teamColor}}
+                                    onClick={() => handleDriverClick(r)}
+                                >
+                                    <div className="classification-left">
+                                        <span className="classification-position">{r.pos}º</span>
+                                        <div className="classification-avatar" style={{"--team-color": teamColor}}>
+                                            <DriverImage 
+                                                name={r.name} 
+                                                gridType={gridType} 
+                                                season={selectedSeason} 
+                                                className="classification-photo"
+                                            />
+                                        </div>
+                                        <div className="classification-driver-name">{formatDriverName(r.name)}</div>
+                                        <div className="classification-team-info">
+                                            {teamLogo ? (
+                                                <img src={teamLogo} className="classification-team-logo" alt={r.team} />
+                                            ) : (
+                                                <div className="classification-team-initial" style={{"--team-color": teamColor}}>
+                                                    {r.team.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                            <span className="classification-team-name">
+                                                {r.team}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="classification-right">
+                                        {r.fastestLap && r.fastestLap !== '-' && (
+                                            <div className={`classification-fastest-lap ${r.fastestLap === bestLap ? 'best-lap' : ''}`}>
+                                                <FastLapIcon />
+                                                {r.fastestLap}
+                                            </div>
+                                        )}
+                                        <div className="classification-points">
+                                            <span className="classification-points-label">PTS</span>
+                                            <span className="classification-points-value">+{r.totalPoints}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </>
             );
         }

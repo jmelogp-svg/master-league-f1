@@ -2,14 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { supabase } from '../supabaseClient';
-import { useSupabaseCache } from '../hooks/useSupabaseCache';
 import Papa from 'papaparse';
 
 // URL do CSV da Minicup
-// Planilha: CONTROLE ML1
-// Aba: TAB MINICUP (gid=1709066718)
-// Link: https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pubhtml?gid=1709066718&single=true
-const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv';
+const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pubhtml?gid=1709066718&single=true&widget=true&headers=false';
 
 // --- ÍCONES ---
 const ArrowRightIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>);
@@ -61,20 +57,24 @@ const MinicupDriverImage = ({ name, className, style }) => {
 
 // Função para obter logo da equipe
 const getTeamLogo = (teamName) => {
-    if (!teamName || teamName.trim() === "") return '/logos/reserva.png';
+    if (!teamName || teamName.trim() === "") return null;
     const t = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    if (t === "reserva" || t.includes('reserva')) return '/logos/reserva.png';
-    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos/redbull.png';
-    if (t.includes('ferrari')) return '/logos/ferrari.png';
-    if (t.includes('mercedes')) return '/logos/mercedes.png';
-    if (t.includes('mclaren')) return '/logos/mclaren.png';
-    if (t.includes('aston')) return '/logos/astonmartin.png';
-    if (t.includes('alpine')) return '/logos/alpine.png';
-    if (t.includes('williams')) return '/logos/williams.png';
-    if (t.includes('haas')) return '/logos/haas.png';
-    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos/sauber.png';
-    if (t.includes('racing') || t.includes('vcarb') || t.includes('bulls')) return '/logos/racingbulls.png';
-    return '/logos/reserva.png';
+    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos-f1team/redbull.png';
+    if (t.includes('ferrari')) return '/logos-f1team/ferrari.png';
+    if (t.includes('mercedes')) return '/logos-f1team/mercedes.png';
+    if (t.includes('renault')) return '/logos-f1team/renault.png';
+    if (t.includes('mclaren')) return '/logos-f1team/mclaren.png';
+    if (t.includes('aston')) return '/logos-f1team/astonmartin.png';
+    if (t.includes('alpine')) return '/logos-f1team/alpine.png';
+    if (t.includes('alfaromeo') || t.includes('alfa romeo') || (t.includes('alfa') && !t.includes('tauri'))) return '/logos-f1team/alfaromeo.png';
+    if (t.includes('alphatauri') || t.includes('alpha tauri')) return '/logos-f1team/alphatauri.png';
+    if (t.includes('tororosso') || t.includes('toro rosso') || t.includes('toro')) return '/logos-f1team/tororosso.png';
+    if (t.includes('williams')) return '/logos-f1team/williams.png';
+    if (t.includes('haas')) return '/logos-f1team/haas.png';
+    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos-f1team/sauber.png';
+    if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/logos-f1team/racingpoint.png';
+    if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/logos-f1team/racingbulls.png';
+    return null;
 };
 
 const Countdown = ({ targetDate }) => {
@@ -124,68 +124,35 @@ function Home() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Verificar se é um retorno de OAuth (piloto ou jurado)
+    // Verificar se é um retorno de OAuth de jurado (detectar hash na URL)
     useEffect(() => {
         const checkOAuthReturn = async () => {
-            const url = new URL(window.location.href);
-            const hasAccessTokenInHash = !!(url.hash && url.hash.includes('access_token'));
-            const hasCode = url.searchParams.has('code');
-            const hasOAuthError = url.searchParams.has('error') || url.searchParams.has('error_description');
-
-            // Supabase/Google normalmente retorna com ?code=... (PKCE) — não só via hash
-            const isOAuthReturn = hasAccessTokenInHash || hasCode || hasOAuthError;
-            if (!isOAuthReturn) return;
-
-            console.log('🔄 Detectado retorno de OAuth na Home...', {
-                hasCode,
-                hasAccessTokenInHash,
-                hasOAuthError,
-            });
-
-            // Dar um tempo para o Supabase processar o retorno
-            await new Promise((resolve) => setTimeout(resolve, 800));
-
-            // Se ainda não houver sessão e houver code, tentar exchange manualmente
-            let { data: { session } } = await supabase.auth.getSession();
-            if (!session && hasCode) {
-                const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
-                if (exchangeError) {
-                    console.warn('⚠️ Falha ao trocar code por sessão na Home:', exchangeError);
+            // Se há um hash de autenticação na URL (retorno do OAuth)
+            if (window.location.hash && window.location.hash.includes('access_token')) {
+                console.log('🔄 Detectado retorno de OAuth na Home...');
+                
+                // Aguardar a sessão ser processada
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (session) {
+                    const email = session.user.email?.toLowerCase().trim();
+                    console.log('📧 Email do OAuth:', email);
+                    
+                    // Verificar se é um jurado
+                    const { data: jurado } = await supabase
+                        .from('jurados')
+                        .select('*')
+                        .eq('email_google', email)
+                        .eq('ativo', true)
+                        .single();
+                    
+                    if (jurado) {
+                        console.log('✅ É jurado! Redirecionando para /veredito...');
+                        navigate('/veredito');
+                        return;
+                    }
                 }
-                ({ data: { session } } = await supabase.auth.getSession());
             }
-
-            // Limpar URL (code/hash) para evitar loops
-            try {
-                window.history.replaceState({}, '', window.location.pathname);
-            } catch {
-                // noop
-            }
-
-            if (!session?.user?.email) {
-                console.log('⚠️ OAuth retornou, mas sessão ainda não está disponível.');
-                return;
-            }
-
-            const email = session.user.email?.toLowerCase().trim();
-            console.log('📧 Email do OAuth:', email);
-
-            // Verificar se é jurado (senão, piloto)
-            const { data: jurado } = await supabase
-                .from('jurados')
-                .select('*')
-                .eq('email_google', email)
-                .eq('ativo', true)
-                .single();
-
-            if (jurado) {
-                console.log('✅ É jurado! Redirecionando para /veredito...');
-                navigate('/veredito');
-                return;
-            }
-
-            console.log('🔄 Não é jurado, redirecionando para /login (fluxo piloto / WhatsApp)...');
-            navigate('/login');
         };
         
         checkOAuthReturn();
@@ -211,7 +178,6 @@ function Home() {
     const [topDriversLight, setTopDriversLight] = useState([]);
     const [seasonDrivers, setSeasonDrivers] = useState([]);
     const [minicupDrivers, setMinicupDrivers] = useState([]);
-    const [minicupLoading, setMinicupLoading] = useState(true);
 
     const scrollRef = useRef(null);
     const minicupScrollRef = useRef(null);
@@ -255,133 +221,50 @@ function Home() {
         return () => clearInterval(interval);
     }, [isMinicupPaused, minicupDrivers]);
 
-    // Buscar dados da Minicup usando cache do Supabase
-    const { data: minicupCacheData, loading: minicupCacheLoading, source: minicupSource, error: minicupError } = useSupabaseCache('minicup_cache', {
-        fallbackUrl: MINICUP_CSV_URL,
-        cacheMaxAge: 10,
-        enableLocalCache: true,
-        parseData: (data) => {
-            console.log('🔍 parseData Minicup recebeu:', typeof data, data ? (Array.isArray(data) ? `Array[${data.length}]` : Object.keys(data)) : 'null');
-            // Os dados do Supabase vêm como { rows: [...] }
-            // Os dados do fallback também vêm como { rows: [...] }
-            if (data && typeof data === 'object' && Array.isArray(data.rows)) {
-                console.log('✅ parseData Minicup: retornando data.rows, tamanho:', data.rows.length);
-                return data.rows; // Retornar array de arrays
-            }
-            // Se for array direto (não deveria acontecer, mas por segurança)
-            if (Array.isArray(data)) {
-                console.log('✅ parseData Minicup: retornando array direto, tamanho:', data.length);
-                return data;
-            }
-            // Fallback: retornar array vazio
-            console.warn('⚠️ Formato de dados inesperado da Minicup:', typeof data, data);
-            return [];
-        }
-    });
-
-    // Debug: Log do que o hook retornou
+    // Buscar dados da Minicup
     useEffect(() => {
-        console.log('🔍 useSupabaseCache Minicup retornou:', {
-            loading: minicupCacheLoading,
-            source: minicupSource,
-            hasData: !!minicupCacheData,
-            dataType: typeof minicupCacheData,
-            isArray: Array.isArray(minicupCacheData),
-            dataLength: Array.isArray(minicupCacheData) ? minicupCacheData.length : 'N/A',
-            error: minicupError
-        });
-    }, [minicupCacheData, minicupCacheLoading, minicupSource, minicupError]);
-
-    useEffect(() => {
-        if (minicupCacheLoading) {
-            setMinicupLoading(true);
-            return;
-        }
-
-        if (!minicupCacheData) {
-            setMinicupDrivers([]);
-            setMinicupLoading(false);
-            return;
-        }
-
-        // Processar dados da Minicup
-        const processRows = (rows) => {
-            console.log('📋 Total de linhas no CSV:', rows.length);
-            const drivers = [];
-            
-            if (rows.length < 2) {
-                console.warn('⚠️ Dados da Minicup insuficientes');
-                setMinicupDrivers([]);
-                setMinicupLoading(false);
-                return;
-            }
-            
-            const header = rows[0];
-            
-            // Processar APENAS colunas E a J (índices 4 a 9) - máximo de 6 corridas
-            // Colunas L e M são apenas referências (POSIÇÃO e PTS), não são corridas
-            const raceStartCol = 4; // Coluna E (índice 4)
-            const raceEndCol = 9;   // Coluna J (índice 9)
-            const raceColumns = [];
-            
-            for (let i = raceStartCol; i <= raceEndCol; i++) {
-                raceColumns.push(i);
-            }
-            
-            console.log(`📊 Colunas de corridas processadas: ${raceColumns.length} (colunas E-J, índices ${raceColumns.join(', ')})`);
-            
-            // Nova estrutura do CSV:
-            // Coluna 0: #, Coluna 1: PILOTO, Coluna 2: EQUIPE, Coluna 3: #NUM
-            // Colunas 4-9 (E-J): Posições nas corridas (6 corridas máximo)
-            // Colunas 11-12 (L-M): POSIÇÃO e PTS (apenas referências, ignorar)
-            for (let i = 1; i < rows.length; i++) {
-                const row = rows[i];
-                const piloto = row[1]?.trim(); // Coluna PILOTO
-                const equipe = row[2]?.trim() || 'Reserva'; // Coluna EQUIPE
+        const fetchMinicup = async () => {
+            try {
+                const response = await fetch(MINICUP_CSV_URL);
+                const csvText = await response.text();
                 
-                if (!piloto) continue;
+                Papa.parse(csvText, {
+                    header: false,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        const data = results.data;
+                        const drivers = [];
+                        
+                        for (let i = 1; i < data.length; i++) {
+                            const row = data[i];
+                            const piloto = row[1]?.trim();
+                            const equipe = row[2]?.trim() || 'Reserva';
+                            
+                            if (!piloto) continue;
 
-                // Calcular pontos baseado nas posições das corridas (apenas colunas E-J)
-                // Isso garante consistência com a página Minicup
-                let totalPoints = 0;
-                for (const colIndex of raceColumns) {
-                    // Garantir que não processamos além da coluna J
-                    if (colIndex > raceEndCol) break;
-                    
-                    const position = row[colIndex]?.trim();
-                    if (position && !isNaN(parseInt(position))) {
-                        const pos = parseInt(position);
-                        if (pos >= 1 && pos <= 20) {
-                            // Pontuação: 1º = 20pts, 2º = 19pts, ..., 20º = 1pt
-                            totalPoints += (21 - pos);
+                            let totalPoints = 0;
+                            for (let j = 4; j < 10; j++) {
+                                const pos = parseInt(row[j]?.trim());
+                                if (!isNaN(pos) && pos >= 1 && pos <= 20) {
+                                    totalPoints += (21 - pos);
+                                }
+                            }
+
+                            // Incluir TODOS os pilotos do grid, independente de terem pontos
+                            drivers.push({ name: piloto, team: equipe, points: totalPoints });
                         }
+
+                        // Ordenar por pontos (pilotos com pontos primeiro, depois os sem pontos)
+                        drivers.sort((a, b) => b.points - a.points);
+                        setMinicupDrivers(drivers);
                     }
-                }
-
-                // Incluir TODOS os pilotos do grid, independente de terem pontos
-                drivers.push({ name: piloto, team: equipe, points: totalPoints });
+                });
+            } catch (err) {
+                console.error('Erro ao carregar Minicup:', err);
             }
-
-            // Ordenar por pontos (pilotos com pontos primeiro, depois os sem pontos)
-            drivers.sort((a, b) => b.points - a.points);
-            console.log('✅ Minicup drivers carregados:', drivers.length, `(${minicupSource === 'supabase' ? 'Supabase' : 'Google Sheets'})`);
-            if (drivers.length > 0) {
-                console.log('🎮 Primeiros 3 pilotos:', drivers.slice(0, 3));
-            }
-            
-            setMinicupDrivers(drivers);
-            setMinicupLoading(false);
         };
-
-        // Os dados já devem vir como array de arrays (parseados pelo hook)
-        if (Array.isArray(minicupCacheData)) {
-            processRows(minicupCacheData);
-        } else {
-            console.error('❌ Formato de dados inválido da Minicup:', typeof minicupCacheData);
-            setMinicupDrivers([]);
-            setMinicupLoading(false);
-        }
-    }, [minicupCacheData, minicupCacheLoading, minicupSource]);
+        fetchMinicup();
+    }, []);
 
     useEffect(() => { if (!loading && seasons.length > 0 && selectedSeason === 0) setSelectedSeason(seasons[0]); }, [seasons, loading]);
 
@@ -532,7 +415,75 @@ function Home() {
     
     const getDrivers = () => { const rawData = gridType === 'carreira' ? rawCarreira : rawLight; const totals = {}; rawData.forEach(row => { const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return; const name = row[9]; const team = row[10]; if (!name) return; if (!totals[name]) totals[name] = { name, team, points: 0 }; if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) totals[name].points += p; } else { const racePos = parseInt(row[8]); if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; } }); return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 })); };
     const getConstructors = () => { const drivers = getDrivers(); const teams = {}; drivers.forEach(d => { if (!teams[d.team]) teams[d.team] = { team: d.team, points: 0, driversList: [] }; teams[d.team].points += d.points; if (!teams[d.team].driversList.includes(d.name)) teams[d.team].driversList.push(d.name); }); return Object.values(teams).sort((a, b) => b.points - a.points).map((t, i) => ({ ...t, pos: i + 1 })); };
-    const getRaceResults = () => { const rawData = gridType === 'carreira' ? rawCarreira : rawLight; const raceResults = []; rawData.forEach(row => { const s = parseInt(row[3]); const r = parseInt(row[4]); if (s === parseInt(selectedSeason) && r === parseInt(selectedRound)) { const pos = parseInt(row[8]); if (!isNaN(pos)) { let stagePoints = 0; if (pos >= 1 && pos <= 10) stagePoints += POINTS_RACE[pos - 1]; const sprintPos = parseInt(row[7]); if (!isNaN(sprintPos) && sprintPos >= 1 && sprintPos <= 8) stagePoints += POINTS_SPRINT[sprintPos - 1]; raceResults.push({ pos: pos, name: row[9], team: row[10], date: row[0], gp: row[5], fastestLap: row[11] || '-', totalPoints: stagePoints }); } } }); return raceResults.sort((a, b) => a.pos - b.pos); };
+    // Função para formatar nome: primeiro nome primeira letra maiúscula (sem negrito), segundo nome todo maiúsculo (negrito)
+    const formatDriverName = (fullName) => {
+        if (!fullName) return '';
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const firstName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const lastName = parts.slice(1).join(' ').toUpperCase();
+        return (
+            <>
+                <span style={{fontWeight: 400, display: 'block'}}>{firstName}</span>
+                <span style={{fontWeight: 900, display: 'block'}}>{lastName}</span>
+            </>
+        );
+    };
+    
+    // Função para formatar nome em uma linha (para lista de classificação)
+    const formatDriverNameOneLine = (fullName) => {
+        if (!fullName) return '';
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const firstName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const lastName = parts.slice(1).join(' ').toUpperCase();
+        return (
+            <>
+                <span style={{fontWeight: 400}}>{firstName}</span>
+                <span style={{fontWeight: 400}}>&nbsp;</span>
+                <span style={{fontWeight: 900}}>{lastName}</span>
+            </>
+        );
+    };
+    
+    // Função para parsear tempo de volta
+    const parseTime = (timeStr) => {
+        if (!timeStr || timeStr === '-') return Infinity;
+        const parts = timeStr.split(':');
+        if (parts.length === 2) {
+            const [minutes, seconds] = parts;
+            return parseInt(minutes) * 60000 + parseFloat(seconds) * 1000;
+        }
+        return Infinity;
+    };
+    
+    const getRaceResults = () => { 
+        const rawData = gridType === 'carreira' ? rawCarreira : rawLight; 
+        const raceResults = []; 
+        rawData.forEach(row => { 
+            const s = parseInt(row[3]); 
+            const r = parseInt(row[4]); 
+            if (s === parseInt(selectedSeason) && r === parseInt(selectedRound)) { 
+                const pos = parseInt(row[8]); 
+                if (!isNaN(pos)) { 
+                    let stagePoints = 0; 
+                    if (pos >= 1 && pos <= 10) stagePoints += POINTS_RACE[pos - 1]; 
+                    const sprintPos = parseInt(row[7]); 
+                    if (!isNaN(sprintPos) && sprintPos >= 1 && sprintPos <= 8) stagePoints += POINTS_SPRINT[sprintPos - 1]; 
+                    raceResults.push({ 
+                        pos: pos, 
+                        name: row[9], 
+                        team: row[10], 
+                        date: row[0], 
+                        gp: row[5], 
+                        fastestLap: row[11] || '-', 
+                        totalPoints: stagePoints 
+                    }); 
+                } 
+            } 
+        }); 
+        return raceResults.sort((a, b) => a.pos - b.pos); 
+    };
     const getCalendar = () => { const rawData = gridType === 'carreira' ? rawCarreira : rawLight; const raceMap = new Map(); rawData.forEach(row => { const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return; const r = parseInt(row[4]); if(!isNaN(r) && !raceMap.has(r)) { raceMap.set(r, { round: r, date: row[0], gp: row[5], winner: null, winnerTeam: null }); } if(parseInt(row[8]) === 1) { const race = raceMap.get(r); if(race) { race.winner = row[9]; race.winnerTeam = row[10]; } } }); const races = Array.from(raceMap.values()).sort((a,b) => a.round - b.round); const parseDate = (dateStr) => { if (!dateStr) return 0; if (dateStr.includes('/')) { const [d, m, y] = dateStr.split('/'); return new Date(`${y}-${m}-${d}`).getTime(); } return new Date(dateStr).getTime(); }; const today = new Date().getTime(); let nextRace = null; const processedRaces = races.map(race => { const rDate = parseDate(race.date); let status = 'soon'; if (race.winner) status = 'done'; else if (rDate >= today) { status = 'next'; if (!nextRace) nextRace = { ...race, timestamp: rDate }; } return { ...race, status }; }); return { races: processedRaces, nextRace }; };
 
     // --- HELPER PARA CLASSE CSS DO BOTÃO ---
@@ -556,7 +507,133 @@ function Home() {
             );
         }
 
-        if (viewType === 'drivers') { const data = getDrivers(); return ( <> <div className="table-header header-default"><div>POS</div><div>PILOTO</div><div className="hide-mobile">EQUIPE</div><div style={{textAlign:'right'}}>PONTOS</div></div> {data.map(driver => ( <div className="table-row row-default default-bg" key={driver.pos} style={{"--team-color": getTeamColor(driver.team)}} onClick={() => handleDriverClick(driver)}> <div className={`pos-number pos-${driver.pos}`}>{driver.pos}º</div> <div className="driver-cell"><DriverImage name={driver.name} gridType={gridType} season={selectedSeason} className="driver-photo-small"/><div className="driver-info-group"><div className="mobile-row-1"><div className="show-mobile-only">{getTeamLogo(driver.team) && <img src={getTeamLogo(driver.team)} className="team-logo-tiny" alt="" />}</div><div className="driver-name">{driver.name}</div></div><div className="team-name-small show-mobile-only">{driver.team}</div></div></div><div className="hide-mobile"><div className="team-name-group">{getTeamLogo(driver.team) && <img src={getTeamLogo(driver.team)} className="team-logo-tiny" alt="" />}<span className="team-name-small" style={{color: getTeamColor(driver.team)}}>{driver.team}</span></div></div><div className="driver-points-big">{driver.points.toFixed(0)}</div> </div> ))} </> ); }
+        if (viewType === 'drivers') { 
+            const data = getDrivers(); 
+            const top5 = data.slice(0, 5);
+            const rest = data.slice(5);
+            
+            return ( 
+                <>
+                    {/* TOP 5 CARDS */}
+                    <div className="top5-container">
+                        {top5.map(driver => {
+                            const teamColor = getTeamColor(driver.team);
+                            const teamLogo = getTeamLogo(driver.team);
+                            const maxPoints = top5[0]?.points || driver.points;
+                            const progressPercent = maxPoints > 0 ? (driver.points / maxPoints) * 100 : 0;
+                            return (
+                                <article 
+                                    key={driver.pos} 
+                                    className="top5-card-new" 
+                                    style={{"--team-color": teamColor}}
+                                    onClick={() => handleDriverClick(driver)}
+                                >
+                                    {/* Rank Number - Top Left */}
+                                    <div className="top5-rank-number">{driver.pos}º</div>
+                                    
+                                    {/* Team Logo - Top Right */}
+                                    {teamLogo && (
+                                        <div className="top5-team-logo-top">
+                                            <img src={teamLogo} alt={driver.team} />
+                                        </div>
+                                    )}
+                                    
+                                    {/* Driver Photo */}
+                                    <div className="top5-photo-container">
+                                        <DriverImage 
+                                            name={driver.name} 
+                                            gridType={gridType} 
+                                            season={selectedSeason} 
+                                            className="top5-photo"
+                                        />
+                                    </div>
+                                    
+                                    {/* Driver Info */}
+                                    <div className="top5-info">
+                                        <div className="top5-driver-name">{formatDriverName(driver.name)}</div>
+                                        <div className="top5-team-info">
+                                            {teamLogo ? (
+                                                <img src={teamLogo} className="top5-team-logo-info" alt={driver.team} />
+                                            ) : (
+                                                <div className="top5-team-initial-info" style={{"--team-color": teamColor}}>
+                                                    {driver.team.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                            <span className="top5-team-name" style={{color: teamColor}}>{driver.team}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Points Bar */}
+                                    <div className="top5-points-container">
+                                        <div className="top5-points-bar">
+                                            <div 
+                                                className="top5-points-fill" 
+                                                style={{
+                                                    width: `${progressPercent}%`,
+                                                    background: `linear-gradient(90deg, ${teamColor} 0%, ${teamColor}dd 100%)`,
+                                                    "--fill-color": teamColor
+                                                }}
+                                            ></div>
+                                        </div>
+                                        <div className="top5-points-wrapper">
+                                            <div className="top5-points-value">{driver.points.toFixed(0)}</div>
+                                            <div className="top5-points-label">PONTOS</div>
+                                        </div>
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
+                    
+                    {/* LISTA DE CLASSIFICAÇÃO (6º - 18º) */}
+                    <div className="classification-section-new">
+                        {rest.map(driver => {
+                            const teamColor = getTeamColor(driver.team);
+                            const teamLogo = getTeamLogo(driver.team);
+                            return (
+                                <div 
+                                    key={driver.pos} 
+                                    className="classification-row-new" 
+                                    style={{"--team-color": teamColor}}
+                                    onClick={() => handleDriverClick(driver)}
+                                >
+                                    <div className="classification-left">
+                                        <span className="classification-position">{driver.pos}º</span>
+                                        <div className="classification-avatar" style={{"--team-color": teamColor}}>
+                                            <DriverImage 
+                                                name={driver.name} 
+                                                gridType={gridType} 
+                                                season={selectedSeason} 
+                                                className="classification-photo"
+                                            />
+                                        </div>
+                                        <div className="classification-driver-name">{formatDriverNameOneLine(driver.name)}</div>
+                                    </div>
+                                    <div className="classification-right">
+                                        <div className="classification-team-info">
+                                            {teamLogo ? (
+                                                <img src={teamLogo} className="classification-team-logo" alt={driver.team} />
+                                            ) : (
+                                                <div className="classification-team-initial" style={{"--team-color": teamColor}}>
+                                                    {driver.team.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                            <span className="classification-team-name">
+                                                {driver.team}
+                                            </span>
+                                        </div>
+                                        <div className="classification-points">
+                                            <span className="classification-points-label">PTS</span>
+                                            <span className="classification-points-value">{driver.points.toFixed(0)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </> 
+            ); 
+        }
         if (viewType === 'teams') { const data = getConstructors(); return ( <> <div className="table-header header-default"><div>POS</div><div>EQUIPE</div><div className="hide-mobile"></div><div style={{textAlign:'right'}}>PONTOS</div></div> {data.map(team => ( <div className="table-row row-default default-bg" key={team.pos} style={{"--team-color": getTeamColor(team.team)}}> <div className={`pos-number pos-${team.pos}`}>{team.pos}º</div> <div className="driver-cell">{getTeamLogo(team.team) && <img src={getTeamLogo(team.team)} className="team-logo-img" alt="" />}<div><div className="driver-name">{team.team}</div><div className="drivers-list">{team.driversList.join(' & ')}</div></div></div><div className="hide-mobile"></div><div className="driver-points-big">{team.points.toFixed(0)}</div> </div> ))} </> ); }
         
         // CORREÇÃO AQUI: INCLUSÃO DA LOGO NO PÓDIO DA TABELA DE RESULTADOS
@@ -564,59 +641,199 @@ function Home() {
             const data = getRaceResults(); 
             if(data.length === 0) return <div style={{padding:'40px', textAlign:'center', color:'#94A3B8'}}>Sem resultados para esta etapa.</div>; 
             
-            const podium = data.slice(0,3); const rest = data.slice(3); 
-            const p1=podium.find(p=>p.pos===1); const p2=podium.find(p=>p.pos===2); const p3=podium.find(p=>p.pos===3); const podiumDisplay=[p2,p1,p3].filter(x=>x!==undefined); 
+            const podium = data.slice(0,3); 
+            const rest = data.slice(3); 
+            const p1 = podium.find(p=>p.pos===1); 
+            const p2 = podium.find(p=>p.pos===2); 
+            const p3 = podium.find(p=>p.pos===3); 
             const gpInfo = tracks[normalizeStr(data[0].gp)] || {}; 
+            
+            // Encontrar a melhor volta (menor tempo)
+            const validLaps = data.filter(r => r.fastestLap && r.fastestLap !== '-').map(r => ({...r, timeMs: parseTime(r.fastestLap)}));
+            const bestLapData = validLaps.length > 0 ? validLaps.reduce((best, current) => current.timeMs < best.timeMs ? current : best) : null;
+            const bestLap = bestLapData ? bestLapData.fastestLap : null;
             
             return ( <> 
                 <div className="race-header-card">
                     <div className="rh-left">
                         <div className="rh-flag-container">{gpInfo.flag && <img src={gpInfo.flag} className="rh-flag" alt="" />}</div>
-                        <div className="rh-info"><div className="rh-gp">{data[0].gp}</div>
-                        <div className="rh-details-line">{gpInfo.circuitName} {gpInfo.circuit && <span className="hide-mobile" style={{marginLeft:10}}>• Pista</span>}<span className="rh-divider">|</span><span className="rh-date">{data[0].date}</span></div></div>
+                        <div className="rh-info">
+                            <div className="rh-gp">{data[0].gp}</div>
+                            <div className="rh-details-line">{gpInfo.circuitName} {gpInfo.circuit && <span className="hide-mobile" style={{marginLeft:10}}>• Pista</span>}<span className="rh-divider">|</span><span className="rh-date">{data[0].date}</span></div>
+                        </div>
                     </div>
                     <div className="rh-right">
                         <div className="rh-record"><RecordIcon/> Recorde: <strong>{historicalRecord.time}</strong> <small style={{marginLeft:5, opacity:0.7}}>({historicalRecord.driver})</small></div>
                         {gpInfo.circuit && <img src={gpInfo.circuit} className="rh-circuit" style={{height:50, marginTop:5, filter:'invert(1)'}} alt="" />}
                     </div>
                 </div> 
+                
                 <div className="results-layout">
                     <div className="podium-container">
-                        {podiumDisplay.map(p=>(
-                            <div key={p.name} className={`podium-step podium-p${p.pos}`} style={{"--team-color":getTeamColor(p.team)}} onClick={()=>handleDriverClick(p)}>
-                                <div className="podium-photo-container"><DriverImage name={p.name} gridType={gridType} season={selectedSeason} className="podium-photo"/></div>
-                                <div className="podium-base">
-                                    <div className={`podium-rank rank-${p.pos}`}>{p.pos}</div>
-                                    
-                                    {/* LOGO DA EQUIPE NO PÓDIO */}
-                                    {getTeamLogo(p.team) && (
-                                        <img src={getTeamLogo(p.team)} style={{height:'20px', marginBottom:'5px', objectFit:'contain'}} alt="" />
-                                    )}
-                                    
-                                    <div className="podium-driver-name">{p.name}</div>
-                                    <div className="podium-stats"><div className="podium-stat-item points">+{p.totalPoints}</div></div>
+                        <div className="podium-left">
+                            {p2 && (
+                                <div key={p2.name} className={`podium-step podium-p${p2.pos}`} style={{"--team-color":getTeamColor(p2.team)}} onClick={()=>handleDriverClick(p2)}>
+                                    <div className="podium-position-left">{p2.pos}º</div>
+                                    <div className="podium-team-logo-top">
+                                        {getTeamLogo(p2.team) ? (
+                                            <img src={getTeamLogo(p2.team)} className="podium-team-logo-top-img" alt={p2.team} />
+                                        ) : (
+                                            <div className="podium-team-initial-top" style={{"--team-color": getTeamColor(p2.team)}}>
+                                                {p2.team.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="podium-photo-container">
+                                        <DriverImage name={p2.name} gridType={gridType} season={selectedSeason} className="podium-photo"/>
+                                    </div>
+                                    <div className="podium-base">
+                                        <div className="podium-driver-name">{formatDriverName(p2.name)}</div>
+                                        <div className="podium-team-info">
+                                            <span className="podium-team-name" style={{color: getTeamColor(p2.team)}}>
+                                                {p2.team}
+                                            </span>
+                                        </div>
+                                        <div className="podium-stats">
+                                            {p2.fastestLap && p2.fastestLap !== '-' && (
+                                                <div className={`podium-fastest-lap ${p2.fastestLap === bestLap ? 'best-lap' : ''}`}>
+                                                    <FastLapIcon />
+                                                    {p2.fastestLap}
+                                                </div>
+                                            )}
+                                            <div className="podium-stat-item points">+{p2.totalPoints}</div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            )}
+                        </div>
+                        
+                        <div className="podium-center">
+                            {p1 && (
+                                <div key={p1.name} className={`podium-step podium-p${p1.pos}`} style={{"--team-color":getTeamColor(p1.team)}} onClick={()=>handleDriverClick(p1)}>
+                                    <div className="podium-position-left">{p1.pos}º</div>
+                                    <div className="podium-team-logo-top">
+                                        {getTeamLogo(p1.team) ? (
+                                            <img src={getTeamLogo(p1.team)} className="podium-team-logo-top-img" alt={p1.team} />
+                                        ) : (
+                                            <div className="podium-team-initial-top" style={{"--team-color": getTeamColor(p1.team)}}>
+                                                {p1.team.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="podium-photo-container">
+                                        <DriverImage name={p1.name} gridType={gridType} season={selectedSeason} className="podium-photo"/>
+                                    </div>
+                                    <div className="podium-base">
+                                        <div className="podium-driver-name">{formatDriverName(p1.name)}</div>
+                                        <div className="podium-team-info">
+                                            <span className="podium-team-name" style={{color: getTeamColor(p1.team)}}>
+                                                {p1.team}
+                                            </span>
+                                        </div>
+                                        <div className="podium-stats">
+                                            {p1.fastestLap && p1.fastestLap !== '-' && (
+                                                <div className={`podium-fastest-lap ${p1.fastestLap === bestLap ? 'best-lap' : ''}`}>
+                                                    <FastLapIcon />
+                                                    {p1.fastestLap}
+                                                </div>
+                                            )}
+                                            <div className="podium-stat-item points">+{p1.totalPoints}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="podium-right">
+                            {p3 && (
+                                <div key={p3.name} className={`podium-step podium-p${p3.pos}`} style={{"--team-color":getTeamColor(p3.team)}} onClick={()=>handleDriverClick(p3)}>
+                                    <div className="podium-position-left">{p3.pos}º</div>
+                                    <div className="podium-team-logo-top">
+                                        {getTeamLogo(p3.team) ? (
+                                            <img src={getTeamLogo(p3.team)} className="podium-team-logo-top-img" alt={p3.team} />
+                                        ) : (
+                                            <div className="podium-team-initial-top" style={{"--team-color": getTeamColor(p3.team)}}>
+                                                {p3.team.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="podium-photo-container">
+                                        <DriverImage name={p3.name} gridType={gridType} season={selectedSeason} className="podium-photo"/>
+                                    </div>
+                                    <div className="podium-base">
+                                        <div className="podium-driver-name">{formatDriverName(p3.name)}</div>
+                                        <div className="podium-team-info">
+                                            <span className="podium-team-name" style={{color: getTeamColor(p3.team)}}>
+                                                {p3.team}
+                                            </span>
+                                        </div>
+                                        <div className="podium-stats">
+                                            {p3.fastestLap && p3.fastestLap !== '-' && (
+                                                <div className={`podium-fastest-lap ${p3.fastestLap === bestLap ? 'best-lap' : ''}`}>
+                                                    <FastLapIcon />
+                                                    {p3.fastestLap}
+                                                </div>
+                                            )}
+                                            <div className="podium-stat-item points">+{p3.totalPoints}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div> 
-                <div className="table-header header-results"><div>POS</div><div>PILOTO</div><div style={{textAlign:'right'}}>PTS</div></div> 
-                {rest.map(r => (
-                    <div className="table-row row-results colored-bg" key={r.pos} style={{"--team-color": getTeamColor(r.team)}} onClick={()=>handleDriverClick(r)}>
-                        <div className="pos-number">{r.pos}º</div>
-                        <div className="driver-cell">
-                            <DriverImage name={r.name} gridType={gridType} season={selectedSeason} className="driver-photo-small"/>
-                            <div>
-                                <div className="driver-name">{r.name}</div>
-                                <div style={{display:'flex', alignItems:'center', gap:'5px', marginTop:'2px', opacity:0.8}}>
-                                    {getTeamLogo(r.team) && <img src={getTeamLogo(r.team)} style={{height:'16px', objectFit:'contain'}} alt="" />}
-                                    <span style={{fontSize:'0.65rem', textTransform:'uppercase', color:'#94A3B8', fontWeight:'700', letterSpacing:'0.5px'}}>{r.team}</span>
+                
+                <div className="classification-section-new">
+                    {rest.map(r => {
+                        const teamColor = getTeamColor(r.team);
+                        const teamLogo = getTeamLogo(r.team);
+                        return (
+                            <div 
+                                key={r.pos} 
+                                className="classification-row-new" 
+                                style={{"--team-color": teamColor}}
+                                onClick={() => handleDriverClick(r)}
+                            >
+                                <div className="classification-left">
+                                    <span className="classification-position">{r.pos}º</span>
+                                    <div className="classification-avatar" style={{"--team-color": teamColor}}>
+                                        <DriverImage 
+                                            name={r.name} 
+                                            gridType={gridType} 
+                                            season={selectedSeason} 
+                                            className="classification-photo"
+                                        />
+                                    </div>
+                                    <div className="classification-driver-name">{formatDriverNameOneLine(r.name)}</div>
+                                    <div className="classification-team-info">
+                                        {teamLogo ? (
+                                            <img src={teamLogo} className="classification-team-logo" alt={r.team} />
+                                        ) : (
+                                            <div className="classification-team-initial" style={{"--team-color": teamColor}}>
+                                                {r.team.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                        <span className="classification-team-name">
+                                            {r.team}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="classification-right">
+                                    {r.fastestLap && r.fastestLap !== '-' && (
+                                        <div className={`classification-fastest-lap ${r.fastestLap === bestLap ? 'best-lap' : ''}`}>
+                                            <FastLapIcon />
+                                            {r.fastestLap}
+                                        </div>
+                                    )}
+                                    <div className="classification-points">
+                                        <span className="classification-points-label">PTS</span>
+                                        <span className="classification-points-value">+{r.totalPoints}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="results-right-col"><span className="points-pill">+{r.totalPoints}</span></div>
-                    </div>
-                ))} 
+                        );
+                    })}
+                </div>
             </> ); 
         }
     };
@@ -671,7 +888,7 @@ function Home() {
 
                     <div className="hub-container">
                         {/* GRID MINICUP */}
-                        {(minicupDrivers.length > 0 || minicupLoading) && (
+                        {minicupDrivers.length > 0 && (
                             <section className="hub-section minicup-section">
                                 <div className="section-header-hub" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                     <img src="/logos/minicup-logo.jpg" alt="Minicup" style={{ height: '40px', borderRadius: '6px' }} onError={(e) => e.target.style.display = 'none'} />
@@ -680,13 +897,7 @@ function Home() {
                                     <Link to="/minicup" className="btn-text" style={{ marginLeft: 'auto', color: '#22C55E' }}>Ver Classificação <ArrowRightIcon/></Link>
                                 </div>
                                 <div className="drivers-grid-hub minicup-grid" ref={minicupScrollRef} onMouseEnter={() => setIsMinicupPaused(true)} onMouseLeave={() => setIsMinicupPaused(false)} style={{ background: 'linear-gradient(90deg, rgba(34,197,94,0.05), transparent, rgba(34,197,94,0.05))' }}>
-                                    {minicupLoading && minicupDrivers.length === 0 ? (
-                                        <div style={{ padding: '40px', textAlign: 'center', color: '#22C55E', width: '100%' }}>
-                                            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⏳</div>
-                                            <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>Carregando classificação Minicup...</div>
-                                        </div>
-                                    ) : (
-                                        minicupDrivers.map((d, idx) => {
+                                    {minicupDrivers.map((d, idx) => {
                                         const nameParts = d.name.split(' ');
                                         const firstName = nameParts[0];
                                         const lastName = nameParts.slice(1).join(' ');
@@ -721,8 +932,7 @@ function Home() {
                                             </div>
                                         </div>
                                         );
-                                        })
-                                    )}
+                                    })}
                                 </div>
                             </section>
                         )}
@@ -839,7 +1049,6 @@ function Home() {
             {selectedDriver && <DriverModal driver={selectedDriver} gridType={selectedDriver.gridType || gridType} season={selectedSeason} onClose={() => setSelectedDriver(null)} teamColor={getTeamColor(selectedDriver.team)} teamLogo={getTeamLogo(selectedDriver.team)} />}
             <footer><div className="nav-logo" style={{display:'flex', justifyContent:'center', marginBottom:'20px'}}>MASTER <span>LEAGUE</span></div><p style={{color:'#94A3B8'}}>© 2025. Acelere para a glória.</p>
             <Link to="/admin" style={{fontSize: '0.7rem', color: '#334155', textDecoration: 'none', marginTop: '20px', display: 'block'}}>Área Administrativa</Link>
-            <Link to="/narrador" style={{fontSize: '0.7rem', color: '#334155', textDecoration: 'none', marginTop: '10px', display: 'block'}}>Área do Narrador</Link>
             </footer>
         </div>
     );
