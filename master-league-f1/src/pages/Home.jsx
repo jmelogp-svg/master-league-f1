@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 import Papa from 'papaparse';
 
 // URL do CSV da Minicup
-const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pubhtml?gid=1709066718&single=true&widget=true&headers=false';
+const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv';
 
 // --- ÍCONES ---
 const ArrowRightIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>);
@@ -75,6 +75,29 @@ const getTeamLogo = (teamName) => {
     if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/logos-f1team/racingpoint.png';
     if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/logos-f1team/racingbulls.png';
     return null;
+};
+
+// Função específica para logos da minicup (usa pasta /logos/)
+const getMinicupTeamLogo = (teamName) => {
+    if (!teamName || teamName.trim() === "") return '/logos/reserva.png';
+    const t = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    if (t === "reserva" || t.includes('reserva')) return '/logos/reserva.png';
+    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos/redbull.png';
+    if (t.includes('ferrari')) return '/logos/ferrari.png';
+    if (t.includes('mercedes')) return '/logos/mercedes.png';
+    if (t.includes('renault')) return '/logos/renault.png';
+    if (t.includes('mclaren')) return '/logos/mclaren.png';
+    if (t.includes('aston')) return '/logos/astonmartin.png';
+    if (t.includes('alpine')) return '/logos/alpine.png';
+    if (t.includes('alfaromeo') || t.includes('alfa romeo') || (t.includes('alfa') && !t.includes('tauri'))) return '/logos/alfaromeo.png';
+    if (t.includes('alphatauri') || t.includes('alpha tauri')) return '/logos/alphatauri.png';
+    if (t.includes('tororosso') || t.includes('toro rosso') || t.includes('toro')) return '/logos/tororosso.png';
+    if (t.includes('williams')) return '/logos/williams.png';
+    if (t.includes('haas')) return '/logos/haas.png';
+    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos/sauber.png';
+    if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/logos/racingpoint.png';
+    if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/logos/racingbulls.png';
+    return '/logos/reserva.png';
 };
 
 const Countdown = ({ targetDate }) => {
@@ -235,8 +258,16 @@ function Home() {
                         const data = results.data;
                         const drivers = [];
                         
+                        // Verificar se os dados foram parseados corretamente
+                        if (!data || data.length === 0) {
+                            console.warn('⚠️ Dados da Minicup vazios ou inválidos');
+                            return;
+                        }
+                        
                         for (let i = 1; i < data.length; i++) {
                             const row = data[i];
+                            if (!row || row.length < 3) continue;
+                            
                             const piloto = row[1]?.trim();
                             const equipe = row[2]?.trim() || 'Reserva';
                             
@@ -256,7 +287,11 @@ function Home() {
 
                         // Ordenar por pontos (pilotos com pontos primeiro, depois os sem pontos)
                         drivers.sort((a, b) => b.points - a.points);
+                        console.log('✅ Minicup drivers carregados:', drivers.length);
                         setMinicupDrivers(drivers);
+                    },
+                    error: (error) => {
+                        console.error('❌ Erro ao parsear CSV da Minicup:', error);
                     }
                 });
             } catch (err) {
@@ -901,7 +936,7 @@ function Home() {
                                         const nameParts = d.name.split(' ');
                                         const firstName = nameParts[0];
                                         const lastName = nameParts.slice(1).join(' ');
-                                        const teamLogo = getTeamLogo(d.team);
+                                        const teamLogo = getMinicupTeamLogo(d.team);
                                         return (
                                         <div key={d.name} className="driver-card-hub minicup-card" style={{"--team-color": '#22C55E', border: idx === 0 ? '2px solid #22C55E' : '1px solid rgba(34,197,94,0.3)'}}>
                                             <div className="dch-bg" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.15), transparent)' }}></div>

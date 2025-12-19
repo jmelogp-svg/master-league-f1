@@ -1830,7 +1830,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     color: #FCD34D;
     font-weight: 700;
     text-align: center;
-    width: 100%;
+    width: auto;
+    margin: 0 auto;
 }
 
 .podium-fastest-lap.best-lap {
