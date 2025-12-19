@@ -85,9 +85,9 @@ const getTeamColor = (teamName) => {
 
 // Logos das equipes
 const getTeamLogo = (teamName) => {
-    if (!teamName || teamName.trim() === "") return '/logos/df-reserva.png';
+    if (!teamName || teamName.trim() === "") return '/logos/f1-reserva.png';
     const t = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    if (t === "reserva" || t.includes('reserva')) return '/logos/df-reserva.png';
+    if (t === "reserva" || t.includes('reserva')) return '/logos/f1-reserva.png';
     if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos/f1-redbull.png';
     if (t.includes('ferrari')) return '/logos/f1-ferrari.png';
     if (t.includes('mercedes')) return '/logos/f1-mercedes.png';
@@ -98,7 +98,7 @@ const getTeamLogo = (teamName) => {
     if (t.includes('haas')) return '/logos/f1-haas.png';
     if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos/f1-sauber.png';
     if (t.includes('racing') || t.includes('vcarb') || t.includes('bulls')) return '/logos/f1-racingbulls.png';
-    return '/logos/df-reserva.png';
+    return '/logos/f1-reserva.png';
 };
 
 // Componente de foto do piloto

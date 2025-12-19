@@ -79,9 +79,9 @@ const getTeamLogo = (teamName) => {
 
 // Função específica para logos da minicup (usa pasta /logos/)
 const getMinicupTeamLogo = (teamName) => {
-    if (!teamName || teamName.trim() === "") return '/logos/df-reserva.png';
+    if (!teamName || teamName.trim() === "") return '/logos/f1-reserva.png';
     const t = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    if (t === "reserva" || t.includes('reserva')) return '/logos/df-reserva.png';
+    if (t === "reserva" || t.includes('reserva')) return '/logos/f1-reserva.png';
     if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos/f1-redbull.png';
     if (t.includes('ferrari')) return '/logos/f1-ferrari.png';
     if (t.includes('mercedes')) return '/logos/f1-mercedes.png';
@@ -97,7 +97,7 @@ const getMinicupTeamLogo = (teamName) => {
     if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos/f1-sauber.png';
     if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/logos/f1-racingpoint.png';
     if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/logos/f1-racingbulls.png';
-    return '/logos/df-reserva.png';
+    return '/logos/f1-reserva.png';
 };
 
 const Countdown = ({ targetDate }) => {
