@@ -179,8 +179,12 @@ function HallOfFame() {
             totalPointsByDriver[name].totalPoints += points;
         });
         
-        const topWinnerName = Object.keys(titleCounts).reduce((a, b) => titleCounts[a] > titleCounts[b] ? a : b, '-');
-        const topTeamName = Object.keys(teamTitleCounts).reduce((a, b) => teamTitleCounts[a] > teamTitleCounts[b] ? a : b, '-');
+        const topWinnerName = Object.keys(titleCounts).length > 0 
+            ? Object.keys(titleCounts).reduce((a, b) => titleCounts[a] > titleCounts[b] ? a : b)
+            : null;
+        const topTeamName = Object.keys(teamTitleCounts).length > 0
+            ? Object.keys(teamTitleCounts).reduce((a, b) => teamTitleCounts[a] > teamTitleCounts[b] ? a : b)
+            : null;
 
         // Calcular Power Ranking total por piloto (somando todas as temporadas)
         const prByDriver = {};
@@ -210,10 +214,10 @@ function HallOfFame() {
                 .sort((a, b) => b.titles - a.titles || a.name.localeCompare(b.name)),
             mostPoints: Object.values(totalPointsByDriver).filter(d => d.totalPoints > 0).sort((a, b) => b.totalPoints - a.totalPoints),
             mostPR: mostPR,
-            topWinner: topWinnerName,
-            topWinnerCount: titleCounts[topWinnerName] || 0,
-            topTeam: topTeamName,
-            topTeamCount: teamTitleCounts[topTeamName] || 0
+            topWinner: topWinnerName || '-',
+            topWinnerCount: topWinnerName ? (titleCounts[topWinnerName] || 0) : 0,
+            topTeam: topTeamName || '-',
+            topTeamCount: topTeamName ? (teamTitleCounts[topTeamName] || 0) : 0
         });
 
         setChampionsList(champs);
@@ -239,23 +243,50 @@ function HallOfFame() {
                     </div>
                     <div className="hof-stats-bar">
                         <div className="hof-stat-item">
-                            <div className="hs-label">MAIOR CAMPEÃO</div>
-                            <div className="hs-value">👑 {stats?.topWinner} <small>({stats?.topWinnerCount}x)</small></div>
+                            <div className="hs-label">
+                                {gridType === 'light' ? 'ATUAL CAMPEÃO' : 'MAIOR CAMPEÃO'}
+                            </div>
+                            <div className="hs-value">
+                                👑 {gridType === 'light' 
+                                    ? (championsList.length > 0 && championsList[0]?.name ? championsList[0].name : '-')
+                                    : (stats?.topWinner && stats.topWinner !== '-' ? stats.topWinner : '-')} 
+                                {gridType === 'light' 
+                                    ? (championsList.length > 0 && championsList[0]?.season ? <small>(S{championsList[0].season})</small> : null)
+                                    : (stats?.topWinnerCount > 0 && <small>({stats.topWinnerCount}x)</small>)}
+                            </div>
                         </div>
                         <div className="hof-stat-divider"></div>
                         <div className="hof-stat-item">
-                            <div className="hs-label">DOMINÂNCIA</div>
-                            <div className="hs-value">🏎️ {stats?.topTeam} <small>({stats?.topTeamCount}x)</small></div>
+                            <div className="hs-label">
+                                {gridType === 'light' ? 'EQUIPE' : 'DOMINÂNCIA'}
+                            </div>
+                            <div className="hs-value">
+                                🏎️ {gridType === 'light'
+                                    ? (championsList.length > 0 && championsList[0]?.team ? championsList[0].team : '-')
+                                    : (stats?.topTeam && stats.topTeam !== '-' ? stats.topTeam : '-')} 
+                                {gridType === 'light'
+                                    ? null
+                                    : (stats?.topTeamCount > 0 && <small>({stats.topTeamCount}x)</small>)}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="hub-container">
-                <div style={{display: 'flex', justifyContent: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', background: '#020617', position: 'sticky', top: '70px', zIndex: 100, marginBottom:'40px'}}>
-                    <button onClick={() => setActiveTab('stats')} style={navTabStyle(activeTab === 'stats')}>ESTATÍSTICAS</button>
-                    <button onClick={() => setActiveTab('champions')} style={navTabStyle(activeTab === 'champions')}>MURO DOS CAMPEÕES</button>
-                    <button onClick={() => setActiveTab('records')} style={navTabStyle(activeTab === 'records')}>DOMÍNIO DAS PISTAS</button>
+                <div className="hof-tabs-container" style={{display: 'flex', justifyContent: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', background: '#020617', position: 'sticky', top: '60px', zIndex: 100, marginBottom:'40px'}}>
+                    <button onClick={() => setActiveTab('stats')} style={navTabStyle(activeTab === 'stats')}>
+                        <span className="hof-tab-text-desktop">ESTATÍSTICAS</span>
+                        <span className="hof-tab-text-mobile">DADOS</span>
+                    </button>
+                    <button onClick={() => setActiveTab('champions')} style={navTabStyle(activeTab === 'champions')}>
+                        <span className="hof-tab-text-desktop">MURO DOS CAMPEÕES</span>
+                        <span className="hof-tab-text-mobile">TÍTULOS</span>
+                    </button>
+                    <button onClick={() => setActiveTab('records')} style={navTabStyle(activeTab === 'records')}>
+                        <span className="hof-tab-text-desktop">DOMÍNIO DAS PISTAS</span>
+                        <span className="hof-tab-text-mobile">HOTLAPS</span>
+                    </button>
                 </div>
 
                 {activeTab === 'stats' && stats && (
@@ -285,11 +316,12 @@ function HallOfFame() {
 
                 {activeTab === 'champions' && (
                     <div className="hof-grid-champions fade-in">
-                        {championsList.map(champ => {
+                        {championsList.filter(champ => champ && champ.name && champ.name !== '-' && !isNaN(champ.points) && champ.points > 0).map(champ => {
                             // Dividir nome em primeira palavra (nome) e resto (sobrenome)
-                            const nameParts = champ.name.split(' ');
+                            const nameParts = (champ.name || '').split(' ');
                             const firstName = nameParts[0] || '';
                             const lastName = nameParts.slice(1).join(' ') || '';
+                            const validPoints = !isNaN(champ.points) && champ.points > 0 ? champ.points : 0;
                             
                             return (
                                 <div key={champ.season} className="hof-card-champion">
@@ -314,8 +346,8 @@ function HallOfFame() {
                                             <div className="hof-champion-firstname">{firstName}</div>
                                             {lastName && <div className="hof-champion-lastname">{lastName}</div>}
                                         </div>
-                                        <div className="hof-champion-team">{champ.team}</div>
-                                        <div className="hof-champion-points">{champ.points.toFixed(0)} PTS</div>
+                                        <div className="hof-champion-team">{champ.team || '-'}</div>
+                                        <div className="hof-champion-points">{validPoints.toFixed(0)} PTS</div>
                                     </div>
                                 </div>
                             );

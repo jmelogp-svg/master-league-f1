@@ -1293,6 +1293,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .pr-desktop-wrapper {
         display: block;
     }
+    
+    /* Hall of Fame - mostrar apenas texto desktop */
+    .hof-tab-text-desktop {
+        display: inline !important;
+    }
+    .hof-tab-text-mobile {
+        display: none !important;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1621,12 +1629,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         max-width: 100%;
     }
     /* Menu tabs - textos diferentes no mobile */
-    .hof-tab-text-desktop {
-        display: inline;
-    }
-    .hof-tab-text-mobile {
-        display: none;
-    }
+    /* Estas regras serão sobrescritas no mobile */
     .hof-tabs-container {
         top: 60px !important;
         margin-top: 0 !important;

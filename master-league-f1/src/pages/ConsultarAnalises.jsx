@@ -14,6 +14,20 @@ function ConsultarAnalises() {
     const [filtroEtapa, setFiltroEtapa] = useState('todas'); // 'todas' ou número da etapa
     const [mostrarTodos, setMostrarTodos] = useState(false); // false = mostra só 5
 
+    // Função para separar nome e sobrenome
+    const separarNomeSobrenome = (nomeCompleto) => {
+        if (!nomeCompleto || nomeCompleto === '-') {
+            return { nome: '-', sobrenome: '' };
+        }
+        const partes = nomeCompleto.trim().split(/\s+/);
+        if (partes.length === 1) {
+            return { nome: partes[0], sobrenome: '' };
+        }
+        const nome = partes[0];
+        const sobrenome = partes.slice(1).join(' ');
+        return { nome, sobrenome };
+    };
+
     useEffect(() => {
         fetchAnalises();
     }, []);
@@ -76,7 +90,7 @@ function ConsultarAnalises() {
                     opacity: 0.5
                 }} />
 
-                <div style={{ 
+                <div className="analises-header-inner" style={{ 
                     position: 'relative', 
                     zIndex: 1,
                     maxWidth: '1400px',
@@ -112,6 +126,7 @@ function ConsultarAnalises() {
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         {/* Botão para pedir análise */}
                         <button
+                            className="btn-enviar-analise"
                             onClick={() => navigate('/dashboard')}
                             style={{
                                 padding: '10px 20px',
@@ -148,6 +163,7 @@ function ConsultarAnalises() {
 
                         {/* Botão Tribunal do Júri (para jurados) */}
                         <button
+                            className="btn-tribunal"
                             onClick={() => navigate('/veredito')}
                             style={{
                                 padding: '10px 20px',
@@ -480,12 +496,32 @@ function ConsultarAnalises() {
                                     }}>
                                         <div style={{ textAlign: 'center' }}>
                                             <span style={{ color: '#EF4444', fontSize: '12px' }}>ACUSADOR</span>
-                                            <div style={{ color: '#F8FAFC', fontWeight: 'bold' }}>{acusador.nome || '-'}</div>
+                                            <div className="piloto-nome-2linhas" style={{ color: '#F8FAFC', fontWeight: 'bold' }}>
+                                                {(() => {
+                                                    const { nome, sobrenome } = separarNomeSobrenome(acusador.nome || '-');
+                                                    return (
+                                                        <>
+                                                            <div>{nome}</div>
+                                                            <div>{sobrenome || '\u00A0'}</div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
                                         </div>
                                         <div style={{ color: '#64748B', fontSize: '24px', alignSelf: 'center' }}>⚔️</div>
                                         <div style={{ textAlign: 'center' }}>
                                             <span style={{ color: '#F59E0B', fontSize: '12px' }}>ACUSADO</span>
-                                            <div style={{ color: '#F8FAFC', fontWeight: 'bold' }}>{acusado.nome || '-'}</div>
+                                            <div className="piloto-nome-2linhas" style={{ color: '#F8FAFC', fontWeight: 'bold' }}>
+                                                {(() => {
+                                                    const { nome, sobrenome } = separarNomeSobrenome(acusado.nome || '-');
+                                                    return (
+                                                        <>
+                                                            <div>{nome}</div>
+                                                            <div>{sobrenome || '\u00A0'}</div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
                                         </div>
                                     </div>
 

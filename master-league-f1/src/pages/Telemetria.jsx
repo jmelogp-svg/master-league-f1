@@ -188,11 +188,11 @@ function Telemetria() {
                             </div>
                             <div style={{ width: '100%', height: 500 }}> 
                                 <ResponsiveContainer>
-                                    <LineChart data={evolutionData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                                    <LineChart data={evolutionData} margin={{ top: 20, right: 30, left: 0, bottom: 80 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                                         <XAxis dataKey="name" stroke="#94A3B8" />
                                         <YAxis stroke="#94A3B8" />
-                                        <Tooltip contentStyle={{backgroundColor:'#1E293B', border:'1px solid #334155', borderRadius:'8px', color:'white'}} />
+                                        <Tooltip content={<div style={{display: 'none'}} />} />
                                         <Legend content={<CustomLegend />} verticalAlign="bottom" />
                                         {topDriversList.map((driver) => {
                                             const isSecondDriver = new Set([...topDriversList.slice(0, topDriversList.indexOf(driver))].map(d => d.team)).has(driver.team);
@@ -225,7 +225,7 @@ function Telemetria() {
                                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
                                             <XAxis type="number" domain={[0, 100]} hide />
                                             <YAxis dataKey="name" type="category" stroke="white" width={100} tick={{fontSize: 11}} interval={0} />
-                                            <Tooltip cursor={{fill: 'transparent'}} contentStyle={{backgroundColor:'#1E293B', border:'1px solid #334155', color:'white'}} formatter={(value, name, props) => [`${value}% (Méd: ${props.payload.avgPos}º)`, "Score"]} />
+                                            <Tooltip content={<div style={{display: 'none'}} />} />
                                             <Bar dataKey="score" name="Score" radius={[0, 4, 4, 0]} barSize={15}>
                                                 <LabelList dataKey="display" position="right" fill="white" fontSize={11} fontWeight={800} />
                                                 {qualyData.map((entry, index) => (
@@ -249,7 +249,7 @@ function Telemetria() {
                                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
                                             <XAxis type="number" stroke="#94A3B8" hide domain={[dataMin => Math.min(dataMin, 0), dataMax => Math.max(dataMax, 0)]} />
                                             <YAxis dataKey="name" type="category" stroke="white" width={140} tick={{fontSize: 11}} interval={0} />
-                                            <Tooltip cursor={{fill: 'transparent'}} contentStyle={{backgroundColor:'#1E293B', border:'1px solid #334155', color:'white'}} formatter={(value) => [`${value > 0 ? '+' : ''}${value} posições`, "Média"]} />
+                                            <Tooltip content={<div style={{display: 'none'}} />} />
                                             <ReferenceLine x={0} stroke="#64748B" strokeWidth={2} />
                                             <Bar dataKey="delta" name="Delta" barSize={15}>
                                                 {racePaceData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.delta >= 0 ? '#10B981' : '#EF4444'} radius={entry.delta >= 0 ? [0, 4, 4, 0] : [4, 0, 0, 4]} />)}

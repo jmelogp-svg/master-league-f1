@@ -39,6 +39,25 @@ const cacheData = {
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
+// Função para limpar cache e forçar atualização
+export const clearLeagueDataCache = () => {
+    cacheData.rawCarreira = null;
+    cacheData.rawLight = null;
+    cacheData.rawPR = null;
+    cacheData.tracks = null;
+    cacheData.datesCarreira = null;
+    cacheData.datesLight = null;
+    cacheData.seasons = null;
+    cacheData.lastFetch = 0;
+    
+    // Limpar localStorage relacionado
+    Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('cache_') || key.includes('league') || key.includes('carreira') || key.includes('light')) {
+            localStorage.removeItem(key);
+        }
+    });
+};
+
 export const useLeagueData = () => {
     const [data, setData] = useState({
         rawCarreira: [],

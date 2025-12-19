@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import VideoEmbed from '../components/VideoEmbed';
+import { clearLeagueDataCache } from '../hooks/useLeagueData';
 import '../index.css';
 
 function Admin() {
@@ -809,14 +810,68 @@ function Admin() {
         if (!window.confirm(`⚠️ ATENÇÃO: Remover piloto ${nome} permanentemente?\n\nEsta ação não pode ser desfeita. O piloto será removido do sistema.`)) return;
         
         try {
+            // Verificar se há sessão do Supabase (necessário para RLS)
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (!session) {
+                alert('⚠️ Você precisa estar autenticado no Supabase para deletar pilotos.\n\nPor favor, faça login no site primeiro e depois tente novamente.');
+                return;
+            }
+            // Verificar se há relacionamentos (acusações, defesas, etc.)
+            if (tableName === 'pilotos') {
+                const { data: acusacoes, error: acusacoesError } = await supabase
+                    .from('acusacoes')
+                    .select('id')
+                    .or(`piloto_acusador_id.eq.${userId},piloto_acusado_id.eq.${userId}`)
+                    .limit(1);
+                
+                const { data: defesas, error: defesasError } = await supabase
+                    .from('defesas')
+                    .select('id')
+                    .eq('piloto_acusado_id', userId)
+                    .limit(1);
+                
+                const { data: verdicts, error: verdictsError } = await supabase
+                    .from('verdicts')
+                    .select('id')
+                    .eq('steward_id', userId)
+                    .limit(1);
+                
+                if ((acusacoes && acusacoes.length > 0) || (defesas && defesas.length > 0) || (verdicts && verdicts.length > 0)) {
+                    const relacionamentos = [];
+                    if (acusacoes && acusacoes.length > 0) relacionamentos.push('acusações');
+                    if (defesas && defesas.length > 0) relacionamentos.push('defesas');
+                    if (verdicts && verdicts.length > 0) relacionamentos.push('vereditos');
+                    
+                    if (!window.confirm(`⚠️ Este piloto possui ${relacionamentos.join(', ')} relacionadas.\n\nPara deletar, é necessário primeiro remover ou atualizar esses registros.\n\nDeseja continuar mesmo assim? (A operação pode falhar se houver foreign keys sem CASCADE)`)) {
+                        return;
+                    }
+                }
+            }
+            
             // Remover da tabela principal (pilotos ou profiles)
-            const { error: mainError } = await supabase
+            // A sessão já foi verificada no início da função
+            const { error: mainError, data: deleteData } = await supabase
                 .from(tableName)
                 .delete()
-                .eq('id', userId);
+                .eq('id', userId)
+                .select();
             
             if (mainError) {
+                // Verificar se é erro de RLS
+                if (mainError.message.includes('RLS') || mainError.message.includes('policy') || mainError.message.includes('permission')) {
+                    throw new Error(`Erro de permissão (RLS): Você não tem permissão para deletar este registro. Verifique as políticas de Row Level Security no Supabase. É necessário criar uma política DELETE para a tabela ${tableName}.`);
+                }
+                // Verificar se é erro de foreign key
+                if (mainError.message.includes('foreign key') || mainError.message.includes('constraint') || mainError.message.includes('violates')) {
+                    throw new Error(`Não é possível deletar este piloto porque ele possui relacionamentos em outras tabelas (acusações, defesas, vereditos, etc.). É necessário primeiro remover ou atualizar esses registros, ou configurar ON DELETE CASCADE nas foreign keys.`);
+                }
                 throw new Error(mainError.message);
+            }
+            
+            // Verificar se realmente deletou
+            if (!deleteData || deleteData.length === 0) {
+                throw new Error('Nenhum registro foi deletado. Verifique se o ID está correto ou se há problemas de permissão (RLS).');
             }
 
             // Se removeu de 'pilotos', também tentar remover de 'profiles' se existir
@@ -836,7 +891,7 @@ function Admin() {
             await fetchAllUsers();
         } catch (err) {
             console.error('Erro ao remover piloto:', err);
-            alert('❌ Erro ao remover piloto: ' + err.message);
+            alert('❌ Erro ao remover piloto:\n\n' + err.message + '\n\nVerifique o console para mais detalhes.');
         }
     };
 
@@ -1290,7 +1345,90 @@ function Admin() {
                     <div>
                         <h1 style={{fontSize:'2rem', fontWeight:'900', color:'#FFD700', fontStyle:'italic', margin:0}}>PAINEL <span style={{color:'white'}}>ADM</span></h1>
                     </div>
-                    <div style={{display:'flex', gap:'10px'}}>
+                    <div style={{display:'flex', gap:'10px', flexWrap:'wrap'}}>
+                        <button 
+                            onClick={async () => {
+                                if (window.confirm('Forçar sincronização de dados da planilha?\n\nIsso atualizará:\n- Classificação (Carreira e Light)\n- Nomes dos pilotos\n- Voltas rápidas\n\nA página será recarregada após a sincronização.')) {
+                                    try {
+                                        // Limpar cache local completamente
+                                        clearLeagueDataCache();
+                                        
+                                        // Limpar cache do Supabase também (forçar atualização)
+                                        try {
+                                            // Invalidar cache do Supabase deletando e recriando
+                                            const { error: deleteError } = await supabase
+                                                .from('classificacao_cache')
+                                                .delete()
+                                                .in('grid', ['carreira', 'light']);
+                                            
+                                            if (deleteError) {
+                                                console.warn('Aviso ao limpar cache do Supabase:', deleteError);
+                                            }
+                                        } catch (e) {
+                                            console.warn('Erro ao limpar cache do Supabase:', e);
+                                        }
+                                        
+                                        // Limpar localStorage completamente
+                                        Object.keys(localStorage).forEach(key => {
+                                            if (key.includes('cache') || key.includes('league') || key.includes('carreira') || key.includes('light')) {
+                                                localStorage.removeItem(key);
+                                            }
+                                        });
+                                        
+                                        // Forçar sincronização do Supabase
+                                        const supabaseUrl = 'https://ueqfmjwdijaeawvxhdtp.supabase.co';
+                                        const { data: { session } } = await supabase.auth.getSession();
+                                        
+                                        if (session) {
+                                            // Sincronizar ambos os grids
+                                            const response = await fetch(`${supabaseUrl}/functions/v1/sync-google-sheets`, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'Authorization': `Bearer ${session.access_token}`
+                                                },
+                                                body: JSON.stringify({ 
+                                                    sheetType: 'classificacao',
+                                                    force: true,
+                                                    season: 20
+                                                })
+                                            });
+                                            
+                                            if (response.ok) {
+                                                alert('✅ Sincronização iniciada! Limpando cache e recarregando página em 3 segundos...\n\n⚠️ Se o nome ainda não atualizar, pressione Ctrl+Shift+R (ou Cmd+Shift+R no Mac) para limpar o cache do navegador.');
+                                                setTimeout(() => {
+                                                    // Forçar reload sem cache
+                                                    window.location.reload(true);
+                                                }, 3000);
+                                            } else {
+                                                const errorText = await response.text();
+                                                console.error('Erro na sincronização:', errorText);
+                                                alert('⚠️ Erro ao sincronizar. Recarregando página mesmo assim...\n\nPressione Ctrl+Shift+R para forçar atualização.');
+                                                setTimeout(() => window.location.reload(true), 1000);
+                                            }
+                                        } else {
+                                            alert('⚠️ Sessão expirada. Recarregando página para limpar cache local...\n\nPressione Ctrl+Shift+R para forçar atualização.');
+                                            setTimeout(() => window.location.reload(true), 1000);
+                                        }
+                                    } catch (error) {
+                                        console.error('Erro ao sincronizar:', error);
+                                        alert('⚠️ Erro ao sincronizar. Recarregando página...');
+                                        setTimeout(() => window.location.reload(), 1000);
+                                    }
+                                }
+                            }}
+                            className="btn-outline" 
+                            style={{
+                                fontSize:'0.8rem', 
+                                padding:'8px 20px',
+                                borderColor:'#FF9900',
+                                color:'#FF9900',
+                                background:'rgba(255, 153, 0, 0.1)'
+                            }}
+                            title="Forçar atualização dos dados da planilha Google Sheets"
+                        >
+                            🔄 SINCRONIZAR
+                        </button>
                         <button onClick={() => setShowChangePass(!showChangePass)} className="btn-outline" style={{fontSize:'0.8rem', padding:'8px 20px'}}>SENHA</button>
                         {/* Botão de Logout do ADMIN */}
                         <button onClick={handleLogoutAdmin} className="btn-outline" style={{fontSize:'0.8rem', padding:'8px 20px', borderColor:'#EF4444', color:'#EF4444'}}>LOGOUT</button>
