@@ -22,16 +22,16 @@ const DriverImage = ({ name, season, className }) => {
 const getTeamLogo = (teamName) => {
     if(!teamName) return null;
     const t = teamName.toLowerCase().replace(/\s/g, ''); 
-    if(t.includes("ferrari")) return "/logos/ferrari.png"; 
-    if(t.includes("mercedes")) return "/logos/mercedes.png"; 
-    if(t.includes("alpine")) return "/logos/alpine.png"; 
-    if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls")) || t.includes("visa")) return "/logos/racingbulls.png"; 
-    if(t.includes("redbull") || t.includes("oracle")) return "/logos/redbull.png"; 
-    if(t.includes("mclaren")) return "/logos/mclaren.png"; 
-    if(t.includes("aston")) return "/logos/astonmartin.png"; 
-    if(t.includes("haas")) return "/logos/haas.png"; 
-    if(t.includes("williams")) return "/logos/williams.png"; 
-    if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/logos/sauber.png";
+    if(t.includes("ferrari")) return "/logos/f1-ferrari.png"; 
+    if(t.includes("mercedes")) return "/logos/f1-mercedes.png"; 
+    if(t.includes("alpine")) return "/logos/f1-alpine.png"; 
+    if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls")) || t.includes("visa")) return "/logos/f1-racingbulls.png"; 
+    if(t.includes("redbull") || t.includes("oracle")) return "/logos/f1-redbull.png"; 
+    if(t.includes("mclaren")) return "/logos/f1-mclaren.png"; 
+    if(t.includes("aston")) return "/logos/f1-astonmartin.png"; 
+    if(t.includes("haas")) return "/logos/f1-haas.png"; 
+    if(t.includes("williams")) return "/logos/f1-williams.png"; 
+    if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/logos/f1-sauber.png";
     return null;
 };
 
