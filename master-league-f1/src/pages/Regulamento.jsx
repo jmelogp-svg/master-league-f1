@@ -27,7 +27,17 @@ import {
     ChevronUp,
     Save,
     Zap,
-    Gauge
+    Gauge,
+    ToggleRight,
+    ToggleLeft,
+    Shield,
+    Waves,
+    Thermometer,
+    CloudRain,
+    Settings2,
+    CornerUpRight,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 
 // ========== DADOS DO INFOGRÁFICO ==========
@@ -1185,14 +1195,41 @@ const Regulamento = () => {
 
                         {/* Configurações do Lobby */}
                         <div className="reg-lobby-config-section">
-                            <h3 style={{marginTop: '32px', marginBottom: '20px', fontSize: '1.3rem', fontWeight: '800', color: '#facc15'}}>⚙️ Configurações do Lobby</h3>
-                            <div className="reg-lobby-config-grid">
-                                {lobbyConfig.map((item, idx) => (
-                                    <div key={idx} className="reg-lobby-config-item">
-                                        <span className="config-label">{item.config}</span>
-                                        <span className="config-value">{item.valor}</span>
-                                    </div>
-                                ))}
+                            <h3 style={{marginTop: '32px', marginBottom: '20px', fontSize: '1.3rem', fontWeight: '800', color: '#facc15', display: 'flex', alignItems: 'center', gap: '10px'}}>
+                                <Settings2 size={24} /> Configurações do Lobby
+                            </h3>
+                            <div className="reg-lobby-config-grid-new">
+                                {lobbyConfig.map((item, idx) => {
+                                    const val = item.valor.toLowerCase();
+                                    const isYes = val === 'sim' || val === 'ligado';
+                                    const isNo = val === 'não' || val === 'desligado' || val === 'nenhuma';
+                                    
+                                    let statusIcon = null;
+                                    let statusColor = '#94A3B8';
+                                    
+                                    if (isYes) {
+                                        statusIcon = <ToggleRight size={20} color="#22c55e" />;
+                                        statusColor = '#22c55e';
+                                    } else if (isNo) {
+                                        statusIcon = <ToggleLeft size={20} color="#ef4444" />;
+                                        statusColor = '#ef4444';
+                                    } else {
+                                        statusIcon = <Activity size={18} color="#3b82f6" />;
+                                        statusColor = '#3b82f6';
+                                    }
+
+                                    return (
+                                        <div key={idx} className="reg-lobby-item-new">
+                                            <div className="lobby-item-header">
+                                                <span className="lobby-item-label">{item.config}</span>
+                                                {statusIcon}
+                                            </div>
+                                            <div className="lobby-item-value-container">
+                                                <span className="lobby-item-value" style={{color: statusColor}}>{item.valor}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </section>
