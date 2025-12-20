@@ -471,9 +471,72 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .dropdown-group { width: 100%; flex-direction: column; }
     .season-select { width: 100%; }
     
-    .race-header-card { padding: 15px; gap: 10px; border-radius: 12px; margin-bottom: 20px; height: auto; min-height: auto; flex-direction: column; text-align: center; }
-    .rh-left { padding: 0; min-width: auto; gap: 10px; flex-direction: column; }
-    .rh-right { padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.05); width: 100%; align-items: center; }
+    .race-header-card { 
+        padding: 12px; 
+        gap: 8px; 
+        border-radius: 10px; 
+        margin-bottom: 12px; 
+        height: auto; 
+        min-height: auto; 
+        flex-direction: column; 
+        text-align: center; 
+        margin-left: 4px;
+        margin-right: 4px;
+    }
+    
+    .rh-left { 
+        padding: 0; 
+        min-width: auto; 
+        gap: 8px; 
+        flex-direction: row; 
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .rh-flag-container {
+        width: 50px;
+        height: 35px;
+        flex-shrink: 0;
+    }
+    
+    .rh-info {
+        flex: 1;
+        min-width: 0;
+        text-align: left;
+    }
+    
+    .rh-gp {
+        font-size: 1.2rem;
+        line-height: 1.1;
+        letter-spacing: -0.5px;
+    }
+    
+    .rh-details-line {
+        font-size: 0.7rem;
+        gap: 6px;
+        margin-top: 2px;
+        flex-wrap: wrap;
+        white-space: normal;
+    }
+    
+    .rh-right { 
+        padding: 8px 0 0 0; 
+        border-top: 1px solid rgba(255,255,255,0.05); 
+        width: 100%; 
+        align-items: center; 
+        gap: 6px;
+    }
+    
+    .rh-circuit {
+        height: 35px;
+        margin-bottom: 0;
+    }
+    
+    .rh-record {
+        font-size: 0.7rem;
+        padding: 4px 10px;
+    }
     
     /* TABELA MOBILE */
     .header-default, .row-default, .header-results, .row-results { grid-template-columns: 35px 1fr 70px; }
