@@ -2135,7 +2135,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         display: flex;
         gap: 6px;
         overflow-x: visible;
-        padding: 0 6px 4px;
+        padding: 0 6px 0;
         scroll-snap-type: none;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
@@ -2474,7 +2474,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
        RANKING LIST (Mobile-First)
     ================================ */
     .classification-section-new {
-        margin-top: 8px;
+        margin-top: 2px;
         padding: 0 6px;
     }
 
