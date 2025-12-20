@@ -505,6 +505,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         flex-direction: column;
         align-items: center;
         gap: 4px;
+        position: relative;
     }
     
     .rh-flag {
@@ -520,7 +521,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         padding-left: 43px;
         margin-left: 0;
         position: relative;
-        z-index: 2;
+        z-index: 10;
     }
     
     .rh-gp {
@@ -547,19 +548,20 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         display: flex;
         flex-direction: column;
         position: absolute;
-        left: 0;
-        top: 29px;
+        left: 12px;
+        top: 37px;
         flex-shrink: 0;
         z-index: 1;
         pointer-events: none;
     }
     
-    .rh-flag-container {
-        margin-bottom: 26px;
-    }
-    
-    .rh-left {
-        min-height: 51px;
+    .rh-circuit {
+        width: 30px;
+        height: 22px;
+        margin: 0;
+        object-fit: contain;
+        filter: drop-shadow(0 0 4px rgba(255,255,255,0.3)) invert(1);
+        opacity: 0.9;
     }
     
     .rh-record {
