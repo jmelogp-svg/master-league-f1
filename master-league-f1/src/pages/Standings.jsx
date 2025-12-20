@@ -454,13 +454,44 @@ function Standings() {
             const data = getConstructors();
             return (
                 <>
-                <div className="table-header header-default"><div>POS</div><div>EQUIPE</div><div className="hide-mobile"></div><div style={{textAlign:'right'}}>PONTOS</div></div>
-                {data.map(team => (
-                <div className="table-row row-default default-bg" key={team.pos} style={{"--team-color": getTeamColor(team.team)}}>
-                    <div className={`pos-number pos-${team.pos}`}>{team.pos}º</div>
-                    <div className="driver-cell">{getTeamLogo(team.team) && <img src={getTeamLogo(team.team)} className="team-logo-img" />}<div><div className="driver-name">{team.team}</div><div className="drivers-list">{team.driversList.join(' & ')}</div></div></div><div className="hide-mobile"></div><div className="driver-points-big">{team.points.toFixed(0)}</div>
-                </div>
-                ))}
+                    <div className="classification-section-new">
+                        {data.map(team => {
+                            const teamColor = getTeamColor(team.team);
+                            const teamLogo = getTeamLogo(team.team);
+                            return (
+                                <div 
+                                    key={team.pos} 
+                                    className="classification-row-new" 
+                                    style={{"--team-color": teamColor}}
+                                >
+                                    <div className="classification-left">
+                                        <span className="classification-position">{team.pos}º</span>
+                                        <div className="classification-team-logo-container">
+                                            {teamLogo ? (
+                                                <img src={teamLogo} className="classification-team-logo" alt={team.team} />
+                                            ) : (
+                                                <div className="classification-team-initial" style={{"--team-color": teamColor}}>
+                                                    {team.team.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="classification-driver-name">{team.team}</div>
+                                    </div>
+                                    <div className="classification-right">
+                                        <div className="classification-team-info">
+                                            <span className="classification-team-name" style={{color: '#94A3B8', fontSize: '0.85rem'}}>
+                                                {team.driversList.join(' & ')}
+                                            </span>
+                                        </div>
+                                        <div className="classification-points">
+                                            <span className="classification-points-label">PTS</span>
+                                            <span className="classification-points-value">{team.points.toFixed(0)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </>
             );
         }

@@ -465,7 +465,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .race-header-card { padding: 15px; gap: 10px; border-radius: 12px; margin-bottom: 20px; height: auto; min-height: auto; flex-direction: column; text-align: center; }
     .rh-left { padding: 0; min-width: auto; gap: 10px; flex-direction: column; }
     .rh-right { padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.05); width: 100%; align-items: center; }
-
+    
     /* TABELA MOBILE */
     .header-default, .row-default, .header-results, .row-results { grid-template-columns: 35px 1fr 70px; }
     .pos-number { font-size: 1.1rem; }
@@ -1968,6 +1968,16 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     justify-content: flex-start;
     margin: 0;
     flex: 1;
+}
+
+.classification-team-logo-container {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .classification-team-logo {
