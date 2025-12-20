@@ -128,8 +128,8 @@ function PowerRanking() {
         <div className="pr-new-wrapper">
             <header className="pr-new-header">
                 <h1 className="pr-new-title">
-                    <span className="white">VIRTUAL MOTORSPORT </span>
-                    <span className="accent">POWER RANKING</span>
+                    <span className="white">POWER RANKING - </span>
+                    <span className="accent">MASTER LEAGUE F1</span>
                 </h1>
                 <div style={{position: 'relative', display:'inline-block'}}>
                     <select 
