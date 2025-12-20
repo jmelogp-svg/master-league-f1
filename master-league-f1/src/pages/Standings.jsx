@@ -449,8 +449,8 @@ function Standings() {
                                                     </span>
                                                 </div>
                                         <div className="classification-points">
-                                            <span className="classification-points-label">PTS</span>
                                             <span className="classification-points-value">{driver.points.toFixed(0)}</span>
+                                            <span className="classification-points-label">PTS</span>
                                         </div>
                                             </div>
                                         </div>
@@ -494,14 +494,14 @@ function Standings() {
                                             </span>
                                         </div>
                                         <div className="classification-points">
-                                            <span className="classification-points-label">PTS</span>
                                             <span className="classification-points-value">{team.points.toFixed(0)}</span>
+                                            <span className="classification-points-label">PTS</span>
                                         </div>
                                     </div>
                                 </div>
                             );
                         })}
-                    </div>
+                </div>
                 </>
             );
         }
@@ -694,8 +694,8 @@ function Standings() {
                                             </div>
                                         )}
                                         <div className="classification-points">
-                                            <span className="classification-points-label">PTS</span>
                                             <span className="classification-points-value">+{r.totalPoints}</span>
+                                            <span className="classification-points-label">PTS</span>
                                         </div>
                                     </div>
                                 </div>
