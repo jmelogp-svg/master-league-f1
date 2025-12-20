@@ -4453,8 +4453,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 .pr-new-wrapper {
     background-color: #050505;
     background-image: 
-        radial-gradient(circle at 50% 50%, rgba(20, 20, 20, 0.8) 0%, #050505 100%),
-        url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+        radial-gradient(circle at 50% 50%, rgba(5, 5, 5, 0.7) 0%, #050505 100%),
+        url('/banner1.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     min-height: 100vh;
     color: white;
     padding-bottom: 100px;
