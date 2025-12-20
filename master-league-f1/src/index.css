@@ -2207,22 +2207,25 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-team-logo-top {
-        position: absolute;
-        top: 6px;
-        right: 6px;
-        width: 24px;
-        height: 24px;
+        position: static;
+        top: auto;
+        right: auto;
+        width: 100%;
+        height: auto;
         z-index: 3;
         display: flex;
         align-items: center;
         justify-content: center;
+        margin-top: 6px;
+        margin-bottom: 0;
+        order: 0;
     }
 
     .top5-team-logo-top img {
-        width: 24px;
-        height: 24px;
+        width: 32px;
+        height: 32px;
         object-fit: contain;
-        filter: brightness(0) invert(1);
+        filter: none;
     }
 
     .top5-photo-container {
@@ -2260,6 +2263,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         justify-content: center;
         min-width: 0;
         width: 100%;
+        position: relative;
     }
 
     .top5-driver-name {
@@ -2341,7 +2345,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         border-radius: 2px;
         overflow: hidden;
         margin-top: 3px;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
     }
 
     .top5-points-fill {

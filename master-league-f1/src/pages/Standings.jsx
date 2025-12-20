@@ -367,13 +367,6 @@ function Standings() {
                                     {/* Rank Number - Top Left */}
                                     <div className="top5-rank-number">{driver.pos}º</div>
                                     
-                                    {/* Team Logo - Top Right */}
-                                    {teamLogo && (
-                                        <div className="top5-team-logo-top">
-                                            <img src={teamLogo} alt={driver.team} />
-                                        </div>
-                                    )}
-                                    
                                     {/* Driver Photo */}
                                     <div className="top5-photo-container">
                                         <DriverImage 
@@ -406,6 +399,12 @@ function Standings() {
                                                 }}
                                             ></div>
                                         </div>
+                                        {/* Team Logo - Below Bar */}
+                                        {teamLogo && (
+                                            <div className="top5-team-logo-top">
+                                                <img src={teamLogo} alt={driver.team} />
+                                            </div>
+                                        )}
                                         </div>
                                         
                                     {/* Points Value */}
