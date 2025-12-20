@@ -1981,10 +1981,10 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    display: flex;
-    align-items: center;
-    line-height: 1;
-    height: 100%;
+}
+
+.classification-team-logo-mobile {
+    display: none;
 }
 
 .classification-team-info {
