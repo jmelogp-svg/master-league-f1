@@ -2252,7 +2252,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .top5-info {
         flex: none;
-        margin-top: -2px;
+        margin-top: -4px;
         text-align: center;
         z-index: 3;
         display: flex;
@@ -2322,7 +2322,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-points-container {
-        margin-top: 2px;
+        margin-top: 0px;
         min-width: auto;
         width: 100%;
         display: flex;
@@ -2341,7 +2341,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         border-radius: 2px;
         overflow: hidden;
         margin-top: 3px;
-        margin-bottom: 0;
+        margin-bottom: 2px;
     }
 
     .top5-points-fill {
