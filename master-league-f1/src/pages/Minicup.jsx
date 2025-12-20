@@ -85,20 +85,20 @@ const getTeamColor = (teamName) => {
 
 // Logos das equipes
 const getTeamLogo = (teamName) => {
-    if (!teamName || teamName.trim() === "") return '/logos/f1-reserva.png';
+    if (!teamName || teamName.trim() === "") return '/team-logos/f1-reserva.png';
     const t = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    if (t === "reserva" || t.includes('reserva')) return '/logos/f1-reserva.png';
-    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos/f1-redbull.png';
-    if (t.includes('ferrari')) return '/logos/f1-ferrari.png';
-    if (t.includes('mercedes')) return '/logos/f1-mercedes.png';
-    if (t.includes('mclaren')) return '/logos/f1-mclaren.png';
-    if (t.includes('aston')) return '/logos/f1-astonmartin.png';
-    if (t.includes('alpine')) return '/logos/f1-alpine.png';
-    if (t.includes('williams')) return '/logos/f1-williams.png';
-    if (t.includes('haas')) return '/logos/f1-haas.png';
-    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos/f1-sauber.png';
-    if (t.includes('racing') || t.includes('vcarb') || t.includes('bulls')) return '/logos/f1-racingbulls.png';
-    return '/logos/f1-reserva.png';
+    if (t === "reserva" || t.includes('reserva')) return '/team-logos/f1-reserva.png';
+    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/team-logos/f1-redbull.png';
+    if (t.includes('ferrari')) return '/team-logos/f1-ferrari.png';
+    if (t.includes('mercedes')) return '/team-logos/f1-mercedes.png';
+    if (t.includes('mclaren')) return '/team-logos/f1-mclaren.png';
+    if (t.includes('aston')) return '/team-logos/f1-astonmartin.png';
+    if (t.includes('alpine')) return '/team-logos/f1-alpine.png';
+    if (t.includes('williams')) return '/team-logos/f1-williams.png';
+    if (t.includes('haas')) return '/team-logos/f1-haas.png';
+    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/team-logos/f1-sauber.png';
+    if (t.includes('racing') || t.includes('vcarb') || t.includes('bulls')) return '/team-logos/f1-racingbulls.png';
+    return '/team-logos/f1-reserva.png';
 };
 
 // Componente de foto do piloto
@@ -311,7 +311,7 @@ function Minicup() {
                     border: '2px solid #10B981'
                 }}>
                     <img 
-                        src="/logos/minicup-logo.png" 
+                        src="/team-logos/minicup-logo.png" 
                         alt="Minicup" 
                         style={{ width: '80%', height: 'auto' }}
                         onError={(e) => { e.target.style.display = 'none'; }}

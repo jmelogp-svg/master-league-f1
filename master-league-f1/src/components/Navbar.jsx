@@ -37,7 +37,7 @@ function Navbar() {
             >
                 {/* Logo carregada da pasta public/logos */}
                 <img 
-                    src="/logos/logo-ml.png" 
+                    src="/team-logos/logo-ml.png" 
                     alt="Logo Master League" 
                     style={{height: '40px', width: 'auto', objectFit: 'contain'}}
                     onError={(e) => e.target.style.display = 'none'}

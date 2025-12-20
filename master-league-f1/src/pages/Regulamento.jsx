@@ -809,7 +809,7 @@ const Regulamento = () => {
         <div className="regulamento-page">
             {/* Watermark */}
             <div className="reg-watermark">
-                <img src="/logos/logo-ml.png" alt="" />
+                <img src="/team-logos/logo-ml.png" alt="" />
             </div>
 
             <header className="regulamento-header">

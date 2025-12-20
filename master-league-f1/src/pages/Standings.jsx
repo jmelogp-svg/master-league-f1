@@ -196,21 +196,21 @@ function Standings() {
     const getTeamLogo = (teamName) => {
         if(!teamName) return null;
         const t = teamName.toLowerCase().replace(/\s/g, ''); 
-        if(t.includes("ferrari")) return "/logos/f1-ferrari.png"; 
-        if(t.includes("mercedes")) return "/logos/f1-mercedes.png"; 
-        if(t.includes("renault")) return "/logos/f1-renault.png";
-        if(t.includes("alpine")) return "/logos/f1-alpine.png"; 
-        if(t.includes("racingpoint") || (t.includes("racing") && t.includes("point"))) return "/logos/f1-racingpoint.png";
-        if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls"))) return "/logos/f1-racingbulls.png"; 
-        if(t.includes("redbull") || t.includes("oracle") || t.includes("red bull")) return "/logos/f1-redbull.png"; 
-        if(t.includes("mclaren")) return "/logos/f1-mclaren.png"; 
-        if(t.includes("aston")) return "/logos/f1-astonmartin.png"; 
-        if(t.includes("haas")) return "/logos/f1-haas.png"; 
-        if(t.includes("alfaromeo") || t.includes("alfa romeo") || (t.includes("alfa") && !t.includes("tauri"))) return "/logos/f1-alfaromeo.png"; 
-        if(t.includes("alphatauri") || t.includes("alpha tauri")) return "/logos/f1-alphatauri.png"; 
-        if(t.includes("tororosso") || t.includes("toro rosso") || t.includes("toro")) return "/logos/f1-tororosso.png";
-        if(t.includes("williams")) return "/logos/f1-williams.png"; 
-        if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/logos/f1-sauber.png";
+        if(t.includes("ferrari")) return "/team-logos/f1-ferrari.png"; 
+        if(t.includes("mercedes")) return "/team-logos/f1-mercedes.png"; 
+        if(t.includes("renault")) return "/team-logos/f1-renault.png";
+        if(t.includes("alpine")) return "/team-logos/f1-alpine.png"; 
+        if(t.includes("racingpoint") || (t.includes("racing") && t.includes("point"))) return "/team-logos/f1-racingpoint.png";
+        if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls"))) return "/team-logos/f1-racingbulls.png"; 
+        if(t.includes("redbull") || t.includes("oracle") || t.includes("red bull")) return "/team-logos/f1-redbull.png"; 
+        if(t.includes("mclaren")) return "/team-logos/f1-mclaren.png"; 
+        if(t.includes("aston")) return "/team-logos/f1-astonmartin.png"; 
+        if(t.includes("haas")) return "/team-logos/f1-haas.png"; 
+        if(t.includes("alfaromeo") || t.includes("alfa romeo") || (t.includes("alfa") && !t.includes("tauri"))) return "/team-logos/f1-alfaromeo.png"; 
+        if(t.includes("alphatauri") || t.includes("alpha tauri")) return "/team-logos/f1-alphatauri.png"; 
+        if(t.includes("tororosso") || t.includes("toro rosso") || t.includes("toro")) return "/team-logos/f1-tororosso.png";
+        if(t.includes("williams")) return "/team-logos/f1-williams.png"; 
+        if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/team-logos/f1-sauber.png";
         return null;
     };
     const getTeamColor = (teamName) => {

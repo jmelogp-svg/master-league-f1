@@ -59,45 +59,45 @@ const MinicupDriverImage = ({ name, className, style }) => {
 const getTeamLogo = (teamName) => {
     if (!teamName || teamName.trim() === "") return null;
     const t = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos/f1-redbull.png';
-    if (t.includes('ferrari')) return '/logos/f1-ferrari.png';
-    if (t.includes('mercedes')) return '/logos/f1-mercedes.png';
-    if (t.includes('renault')) return '/logos/f1-renault.png';
-    if (t.includes('mclaren')) return '/logos/f1-mclaren.png';
-    if (t.includes('aston')) return '/logos/f1-astonmartin.png';
-    if (t.includes('alpine')) return '/logos/f1-alpine.png';
-    if (t.includes('alfaromeo') || t.includes('alfa romeo') || (t.includes('alfa') && !t.includes('tauri'))) return '/logos/f1-alfaromeo.png';
-    if (t.includes('alphatauri') || t.includes('alpha tauri')) return '/logos/f1-alphatauri.png';
-    if (t.includes('tororosso') || t.includes('toro rosso') || t.includes('toro')) return '/logos/f1-tororosso.png';
-    if (t.includes('williams')) return '/logos/f1-williams.png';
-    if (t.includes('haas')) return '/logos/f1-haas.png';
-    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos/f1-sauber.png';
-    if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/logos/f1-racingpoint.png';
-    if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/logos/f1-racingbulls.png';
+    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/team-logos/f1-redbull.png';
+    if (t.includes('ferrari')) return '/team-logos/f1-ferrari.png';
+    if (t.includes('mercedes')) return '/team-logos/f1-mercedes.png';
+    if (t.includes('renault')) return '/team-logos/f1-renault.png';
+    if (t.includes('mclaren')) return '/team-logos/f1-mclaren.png';
+    if (t.includes('aston')) return '/team-logos/f1-astonmartin.png';
+    if (t.includes('alpine')) return '/team-logos/f1-alpine.png';
+    if (t.includes('alfaromeo') || t.includes('alfa romeo') || (t.includes('alfa') && !t.includes('tauri'))) return '/team-logos/f1-alfaromeo.png';
+    if (t.includes('alphatauri') || t.includes('alpha tauri')) return '/team-logos/f1-alphatauri.png';
+    if (t.includes('tororosso') || t.includes('toro rosso') || t.includes('toro')) return '/team-logos/f1-tororosso.png';
+    if (t.includes('williams')) return '/team-logos/f1-williams.png';
+    if (t.includes('haas')) return '/team-logos/f1-haas.png';
+    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/team-logos/f1-sauber.png';
+    if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/team-logos/f1-racingpoint.png';
+    if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/team-logos/f1-racingbulls.png';
     return null;
 };
 
-// Função específica para logos da minicup (usa pasta /logos/)
+// Função específica para logos da minicup (usa pasta /team-logos/)
 const getMinicupTeamLogo = (teamName) => {
-    if (!teamName || teamName.trim() === "") return '/logos/f1-reserva.png';
+    if (!teamName || teamName.trim() === "") return '/team-logos/f1-reserva.png';
     const t = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    if (t === "reserva" || t.includes('reserva')) return '/logos/f1-reserva.png';
-    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/logos/f1-redbull.png';
-    if (t.includes('ferrari')) return '/logos/f1-ferrari.png';
-    if (t.includes('mercedes')) return '/logos/f1-mercedes.png';
-    if (t.includes('renault')) return '/logos/f1-renault.png';
-    if (t.includes('mclaren')) return '/logos/f1-mclaren.png';
-    if (t.includes('aston')) return '/logos/f1-astonmartin.png';
-    if (t.includes('alpine')) return '/logos/f1-alpine.png';
-    if (t.includes('alfaromeo') || t.includes('alfa romeo') || (t.includes('alfa') && !t.includes('tauri'))) return '/logos/f1-alfaromeo.png';
-    if (t.includes('alphatauri') || t.includes('alpha tauri')) return '/logos/f1-alphatauri.png';
-    if (t.includes('tororosso') || t.includes('toro rosso') || t.includes('toro')) return '/logos/f1-tororosso.png';
-    if (t.includes('williams')) return '/logos/f1-williams.png';
-    if (t.includes('haas')) return '/logos/f1-haas.png';
-    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/logos/f1-sauber.png';
-    if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/logos/f1-racingpoint.png';
-    if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/logos/f1-racingbulls.png';
-    return '/logos/f1-reserva.png';
+    if (t === "reserva" || t.includes('reserva')) return '/team-logos/f1-reserva.png';
+    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/team-logos/f1-redbull.png';
+    if (t.includes('ferrari')) return '/team-logos/f1-ferrari.png';
+    if (t.includes('mercedes')) return '/team-logos/f1-mercedes.png';
+    if (t.includes('renault')) return '/team-logos/f1-renault.png';
+    if (t.includes('mclaren')) return '/team-logos/f1-mclaren.png';
+    if (t.includes('aston')) return '/team-logos/f1-astonmartin.png';
+    if (t.includes('alpine')) return '/team-logos/f1-alpine.png';
+    if (t.includes('alfaromeo') || t.includes('alfa romeo') || (t.includes('alfa') && !t.includes('tauri'))) return '/team-logos/f1-alfaromeo.png';
+    if (t.includes('alphatauri') || t.includes('alpha tauri')) return '/team-logos/f1-alphatauri.png';
+    if (t.includes('tororosso') || t.includes('toro rosso') || t.includes('toro')) return '/team-logos/f1-tororosso.png';
+    if (t.includes('williams')) return '/team-logos/f1-williams.png';
+    if (t.includes('haas')) return '/team-logos/f1-haas.png';
+    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/team-logos/f1-sauber.png';
+    if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/team-logos/f1-racingpoint.png';
+    if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/team-logos/f1-racingbulls.png';
+    return '/team-logos/f1-reserva.png';
 };
 
 const Countdown = ({ targetDate }) => {
@@ -405,22 +405,22 @@ function Home() {
         if(!teamName) return null;
         const t = teamName.toLowerCase().replace(/\s/g, ''); 
         // Antigas
-        if(t.includes("romeo") || (t.includes("alfa") && !t.includes("tauri"))) return "/logos/f1-alfaromeo.png";
-        if(t.includes("alphatauri") || t.includes("alpha") || t.includes("tauri")) return "/logos/f1-alphatauri.png";
-        if(t.includes("racingpoint") || t.includes("point") || t.includes("bwt")) return "/logos/f1-racingpoint.png";
-        if(t.includes("renault")) return "/logos/f1-renault.png";
-        if(t.includes("tororosso") || t.includes("toro")) return "/logos/f1-tororosso.png";
+        if(t.includes("romeo") || (t.includes("alfa") && !t.includes("tauri"))) return "/team-logos/f1-alfaromeo.png";
+        if(t.includes("alphatauri") || t.includes("alpha") || t.includes("tauri")) return "/team-logos/f1-alphatauri.png";
+        if(t.includes("racingpoint") || t.includes("point") || t.includes("bwt")) return "/team-logos/f1-racingpoint.png";
+        if(t.includes("renault")) return "/team-logos/f1-renault.png";
+        if(t.includes("tororosso") || t.includes("toro")) return "/team-logos/f1-tororosso.png";
         // Atuais
-        if(t.includes("ferrari")) return "/logos/f1-ferrari.png"; 
-        if(t.includes("mercedes")) return "/logos/f1-mercedes.png"; 
-        if(t.includes("alpine")) return "/logos/f1-alpine.png"; 
-        if(t.includes("vcarb") || t.includes("racingbulls") || t.includes("rb")) return "/logos/f1-racingbulls.png"; 
-        if(t.includes("redbull") || t.includes("oracle")) return "/logos/f1-redbull.png"; 
-        if(t.includes("mclaren")) return "/logos/f1-mclaren.png"; 
-        if(t.includes("aston")) return "/logos/f1-astonmartin.png"; 
-        if(t.includes("haas")) return "/logos/f1-haas.png"; 
-        if(t.includes("williams")) return "/logos/f1-williams.png"; 
-        if(t.includes("stake") || t.includes("sauber") || t.includes("kick")) return "/logos/f1-sauber.png";
+        if(t.includes("ferrari")) return "/team-logos/f1-ferrari.png"; 
+        if(t.includes("mercedes")) return "/team-logos/f1-mercedes.png"; 
+        if(t.includes("alpine")) return "/team-logos/f1-alpine.png"; 
+        if(t.includes("vcarb") || t.includes("racingbulls") || t.includes("rb")) return "/team-logos/f1-racingbulls.png"; 
+        if(t.includes("redbull") || t.includes("oracle")) return "/team-logos/f1-redbull.png"; 
+        if(t.includes("mclaren")) return "/team-logos/f1-mclaren.png"; 
+        if(t.includes("aston")) return "/team-logos/f1-astonmartin.png"; 
+        if(t.includes("haas")) return "/team-logos/f1-haas.png"; 
+        if(t.includes("williams")) return "/team-logos/f1-williams.png"; 
+        if(t.includes("stake") || t.includes("sauber") || t.includes("kick")) return "/team-logos/f1-sauber.png";
         return null;
     };
 
@@ -926,7 +926,7 @@ function Home() {
                         {minicupDrivers.length > 0 && (
                             <section className="hub-section minicup-section">
                                 <div className="section-header-hub" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                    <img src="/logos/minicup-logo.jpg" alt="Minicup" style={{ height: '40px', borderRadius: '6px' }} onError={(e) => e.target.style.display = 'none'} />
+                                    <img src="/team-logos/minicup-logo.jpg" alt="Minicup" style={{ height: '40px', borderRadius: '6px' }} onError={(e) => e.target.style.display = 'none'} />
                                     <h2 style={{ color: '#22C55E' }}>GRID MINICUP</h2>
                                     <div className="header-line" style={{ background: 'linear-gradient(90deg, #22C55E, transparent)' }}></div>
                                     <Link to="/minicup" className="btn-text" style={{ marginLeft: 'auto', color: '#22C55E' }}>Ver Classificação <ArrowRightIcon/></Link>
