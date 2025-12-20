@@ -397,10 +397,7 @@ function Standings() {
                                                 )}
                                             <span className="top5-team-name" style={{color: teamColor}}>{driver.team}</span>
                                             </div>
-                                        </div>
-                                        
-                                    {/* Points Bar */}
-                                    <div className="top5-points-container">
+                                        {/* Points Bar */}
                                         <div className="top5-points-bar">
                                             <div 
                                                 className="top5-points-fill" 
@@ -411,6 +408,10 @@ function Standings() {
                                                 }}
                                             ></div>
                                         </div>
+                                        </div>
+                                        
+                                    {/* Points Value */}
+                                    <div className="top5-points-container">
                                         <div className="top5-points-wrapper">
                                             <div className="top5-points-value">{driver.points.toFixed(0)}</div>
                                             <div className="top5-points-label">PONTOS</div>

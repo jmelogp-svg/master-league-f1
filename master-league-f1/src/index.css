@@ -2165,6 +2165,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         height: auto;
         aspect-ratio: auto;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
     }
 
     /* Glow por posição */
@@ -2184,22 +2185,44 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-rank-number {
-        position: relative;
-        top: auto;
-        left: auto;
-        font-size: 0.8rem;
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        font-size: 0.75rem;
         font-weight: 700;
-        opacity: 0.85;
+        opacity: 0.9;
         min-width: auto;
         text-align: center;
         z-index: 3;
         color: white;
         line-height: 1;
-        margin-bottom: 2px;
+        margin-bottom: 0;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .top5-team-logo-top {
-        display: none;
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .top5-team-logo-top img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        filter: brightness(0) invert(1);
     }
 
     .top5-photo-container {
@@ -2245,6 +2268,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         font-weight: 700;
         color: white;
         display: block;
+        margin-bottom: 4px;
     }
 
     .top5-driver-name span {
@@ -2264,27 +2288,37 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .top5-team-info {
         justify-content: center;
-        gap: 3px;
-        margin-top: 2px;
+        gap: 4px;
+        margin-top: 0;
+        margin-bottom: 6px;
         align-items: center;
+        width: 100%;
+        padding: 0 4px;
     }
 
     .top5-team-logo-info {
-        width: 12px;
-        height: 12px;
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
     }
 
     .top5-team-name {
-        font-size: 0.65rem;
-        font-weight: 400;
-        opacity: 0.7;
-        text-transform: none;
-        letter-spacing: 0;
+        font-size: 0.7rem;
+        font-weight: 600;
+        opacity: 1;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100% - 20px);
+        color: var(--team-color, rgba(255,255,255,0.9));
     }
 
     .top5-points-container {
-        margin-top: 6px;
+        margin-top: 4px;
         min-width: auto;
+        width: 100%;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -2294,17 +2328,31 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-points-bar {
-        display: none;
+        display: block !important;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 6px;
+        margin-bottom: 0;
+    }
+
+    .top5-points-fill {
+        height: 100%;
+        border-radius: 2px;
+        box-shadow: 0 0 6px var(--fill-color, rgba(255,255,255,0.5));
     }
 
     .top5-points-wrapper {
         align-items: center;
         display: flex;
         flex-direction: column;
+        width: 100%;
     }
 
     .top5-points-value {
-        font-size: 0.9rem;
+        font-size: 0.95rem;
         line-height: 1;
         font-weight: 800;
         color: white;
