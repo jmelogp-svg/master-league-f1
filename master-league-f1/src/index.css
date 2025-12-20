@@ -4769,3 +4769,23 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 .bg-rank-3-light { background-color: rgba(16, 185, 129, 0.2); }
 .bg-rank-4-light { background-color: rgba(219, 39, 119, 0.2); }
 .bg-rank-5-light { background-color: rgba(156, 163, 175, 0.2); }
+@media (min-width: 1024px) {
+    .pr-new-hero-card {
+        max-width: 400px;
+        margin: 0 auto 40px;
+        aspect-ratio: 4 / 3;
+    }
+    
+    .pr-new-hero-rank-num {
+        font-size: 4rem;
+    }
+    
+    .pr-new-hero-name {
+        font-size: 1.25rem;
+    }
+
+    .pr-new-main {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+}
