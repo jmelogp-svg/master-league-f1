@@ -402,9 +402,7 @@ function Standings() {
                                             <div 
                                                 className="top5-points-fill" 
                                                 style={{
-                                                    width: `${progressPercent}%`,
-                                                    background: `linear-gradient(90deg, ${teamColor} 0%, ${teamColor}dd 100%)`,
-                                                    "--fill-color": teamColor
+                                                    width: `${progressPercent}%`
                                                 }}
                                             ></div>
                                         </div>

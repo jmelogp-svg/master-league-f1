@@ -2288,7 +2288,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .top5-team-info {
         justify-content: center;
-        gap: 4px;
+        gap: 0;
         margin-top: 0;
         margin-bottom: 6px;
         align-items: center;
@@ -2297,22 +2297,26 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-team-logo-info {
-        width: 14px;
-        height: 14px;
-        flex-shrink: 0;
+        display: none;
+    }
+
+    .top5-team-initial-info {
+        display: none;
     }
 
     .top5-team-name {
-        font-size: 0.7rem;
+        font-size: 0.6rem;
         font-weight: 600;
         opacity: 1;
         text-transform: uppercase;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.2px;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: calc(100% - 20px);
+        overflow: visible;
+        text-overflow: clip;
+        max-width: 100%;
+        width: 100%;
         color: var(--team-color, rgba(255,255,255,0.9));
+        text-align: center;
     }
 
     .top5-points-container {
@@ -2341,7 +2345,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .top5-points-fill {
         height: 100%;
         border-radius: 2px;
-        box-shadow: 0 0 6px var(--fill-color, rgba(255,255,255,0.5));
+        background: var(--team-color, rgba(255,255,255,0.5));
+        box-shadow: 0 0 6px var(--team-color, rgba(255,255,255,0.5));
+        opacity: 0.9;
     }
 
     .top5-points-wrapper {
