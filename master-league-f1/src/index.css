@@ -498,7 +498,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
     
     .rh-flag-container {
-        width: 45px;
+        width: 35px;
         height: auto;
         flex-shrink: 0;
         display: flex;
@@ -508,8 +508,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
     
     .rh-flag {
-        width: 45px;
-        height: 32px;
+        width: 35px;
+        height: 25px;
         object-fit: contain;
     }
     
@@ -517,7 +517,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         flex: 1;
         min-width: 0;
         text-align: left;
-        margin-left: 53px;
+        margin-left: 43px;
     }
     
     .rh-gp {
@@ -537,7 +537,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .rh-right { 
         padding: 0;
         border-top: none;
-        width: 45px;
+        width: 35px;
         align-items: center;
         justify-content: flex-start;
         gap: 0;
@@ -545,7 +545,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         flex-direction: column;
         position: absolute;
         left: 0;
-        top: 36px;
+        top: 29px;
         flex-shrink: 0;
     }
     
@@ -554,8 +554,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
     
     .rh-circuit {
-        width: 40px;
-        height: 30px;
+        width: 30px;
+        height: 22px;
         margin: 0;
         object-fit: contain;
         filter: drop-shadow(0 0 4px rgba(255,255,255,0.3)) invert(1);
