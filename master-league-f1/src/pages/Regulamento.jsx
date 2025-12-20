@@ -113,6 +113,7 @@ const lobbyConfig = [
     { config: 'Fantasma (Ghost)', valor: 'Desligado' },
     { config: 'Corte nas curvas', valor: 'Rígido' },
     { config: 'Temperatura do pneu', valor: 'Simulação' },
+    { config: 'Setup do Carro', valor: 'Travado (Pré-Definidos)' },
     { config: 'Bandeiras', valor: 'Ligado' },
     { config: 'Safety Car', valor: 'Reduzido' },
     { config: 'Modo Imersivo', valor: 'Volta de formação, SC, Box' }
@@ -1203,6 +1204,7 @@ const Regulamento = () => {
                                     const val = item.valor.toLowerCase();
                                     const isYes = val === 'sim' || val === 'ligado';
                                     const isNo = val === 'não' || val === 'desligado' || val === 'nenhuma';
+                                    const isLocked = val.includes('travado');
                                     
                                     let statusIcon = null;
                                     let statusColor = '#94A3B8';
@@ -1213,6 +1215,9 @@ const Regulamento = () => {
                                     } else if (isNo) {
                                         statusIcon = <ToggleLeft size={20} color="#ef4444" />;
                                         statusColor = '#ef4444';
+                                    } else if (isLocked) {
+                                        statusIcon = <ShieldCheck size={20} color="#facc15" />;
+                                        statusColor = '#facc15';
                                     } else {
                                         statusIcon = <Activity size={18} color="#3b82f6" />;
                                         statusColor = '#3b82f6';
