@@ -1096,7 +1096,7 @@ const Regulamento = () => {
                                                                     }}
                                                                 />
                                                             ) : null}
-                                                            <span className="circuit-name">{info.nome || item.circuito}</span>
+                                                            <span className="circuit-name" style={{ marginLeft: '12px' }}>{info.nome || item.circuito}</span>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1145,7 +1145,7 @@ const Regulamento = () => {
                                                                     }}
                                                                 />
                                                             ) : null}
-                                                            <span className="circuit-name">{info.nome || item.circuito}</span>
+                                                            <span className="circuit-name" style={{ marginLeft: '12px' }}>{info.nome || item.circuito}</span>
                                                         </div>
                                                     </td>
                                                 </tr>
