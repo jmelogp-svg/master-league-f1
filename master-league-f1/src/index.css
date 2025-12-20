@@ -2147,41 +2147,52 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         align-items: center;
         justify-content: flex-start;
         width: 100%;
-        height: 100px;
-        padding: 0 15px;
-        gap: 12px;
+        height: 120px;
+        padding: 0 12px;
+        gap: 10px;
         border-radius: 12px;
         position: relative;
         overflow: hidden;
         flex: none;
         aspect-ratio: auto;
+        border: 2px solid var(--team-color, rgba(255,255,255,0.2));
+        border-left: 4px solid var(--team-color, rgba(255,255,255,0.3));
     }
 
     .top5-rank-number {
         position: relative;
         top: auto;
         left: auto;
-        font-size: 2.2rem;
-        min-width: 50px;
+        font-size: 2.8rem;
+        font-weight: 900;
+        min-width: 45px;
         text-align: center;
         z-index: 3;
+        color: white;
+        line-height: 1;
     }
 
     .top5-team-logo-top {
         position: absolute;
         top: 50% !important;
-        right: -5% !important;
+        right: -8% !important;
         transform: translateY(-50%);
-        width: 110px !important;
-        height: 110px !important;
-        opacity: 0.12;
-        filter: grayscale(1) brightness(2);
+        width: 140px !important;
+        height: 140px !important;
+        opacity: 0.15;
+        filter: grayscale(1) brightness(1.5);
         z-index: 1;
     }
 
+    .top5-team-logo-top img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
     .top5-photo-container {
-        width: 80px;
-        height: 100px;
+        width: 90px;
+        height: 120px;
         margin-top: 0;
         display: flex;
         align-items: flex-end;
@@ -2192,9 +2203,22 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-photo {
-        height: 110%;
+        height: 115%;
         width: auto;
         object-fit: contain;
+        filter: drop-shadow(0 0 20px var(--team-color, rgba(255,255,255,0.4))) drop-shadow(0 0 40px var(--team-color, rgba(255,255,255,0.2)));
+    }
+
+    .top5-photo-container::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 40%;
+        background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
+        z-index: 1;
+        pointer-events: none;
     }
 
     .top5-info {
@@ -2205,62 +2229,96 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         display: flex;
         flex-direction: column;
         justify-content: center;
+        min-width: 0;
     }
 
     .top5-driver-name {
-        font-size: 1.1rem;
-        line-height: 1.1;
+        font-size: 1.3rem;
+        line-height: 1.2;
+        font-weight: 900;
+        color: white;
     }
 
     .top5-driver-name span {
-        display: inline !important; /* Nome em uma linha para o layout horizontal se couber */
+        display: block !important;
     }
     
     .top5-driver-name span:first-child {
-        margin-right: 5px;
+        font-weight: 400;
+        font-size: 0.95em;
+        margin-bottom: 2px;
+    }
+
+    .top5-driver-name span:last-child {
+        font-weight: 900;
+        font-size: 1.05em;
     }
 
     .top5-team-info {
         justify-content: flex-start;
         gap: 6px;
-        margin-top: 4px;
+        margin-top: 6px;
+        align-items: center;
     }
 
     .top5-team-logo-info {
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
     }
 
     .top5-team-name {
-        font-size: 0.7rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     .top5-points-container {
         margin-top: 0;
-        min-width: 85px;
+        min-width: 90px;
         display: flex;
         flex-direction: column;
         align-items: flex-end;
         justify-content: center;
         z-index: 3;
+        gap: 4px;
     }
 
     .top5-points-bar {
-        display: none; /* Removido no layout horizontal para limpar o visual */
+        display: block !important;
+        width: 100%;
+        height: 6px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 4px;
+    }
+
+    .top5-points-fill {
+        height: 100%;
+        border-radius: 3px;
+        box-shadow: 0 0 8px var(--fill-color, rgba(255,255,255,0.5));
     }
 
     .top5-points-wrapper {
         align-items: flex-end;
+        display: flex;
+        flex-direction: column;
     }
 
     .top5-points-value {
-        font-size: 1.5rem;
+        font-size: 1.8rem;
         line-height: 1;
+        font-weight: 900;
+        color: white;
     }
 
     .top5-points-label {
-        font-size: 0.65rem;
+        font-size: 0.7rem;
         letter-spacing: 1px;
+        font-weight: 700;
+        color: rgba(255,255,255,0.7);
+        text-transform: uppercase;
     }
 
     /* Podium and Classification Row adaptations within the same 1024px query */
