@@ -2129,9 +2129,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 @media (max-width: 1024px) {
     .top5-container {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
         padding: 15px 10px;
         width: 100%;
         box-sizing: border-box;
@@ -2142,58 +2142,127 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-card-new {
-        flex: none;
-        min-width: 0;
-        width: 100%;
-        height: auto;
-        aspect-ratio: 2/3.2;
-        padding: 10px;
         display: flex;
-        flex-direction: column;
-        justify-content: space-between;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        width: 100%;
+        height: 100px;
+        padding: 0 15px;
+        gap: 12px;
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+        flex: none;
+        aspect-ratio: auto;
     }
 
     .top5-rank-number {
-        font-size: 1.8rem;
-        top: 8px;
-        left: 8px;
+        position: relative;
+        top: auto;
+        left: auto;
+        font-size: 2.2rem;
+        min-width: 50px;
+        text-align: center;
+        z-index: 3;
     }
 
     .top5-team-logo-top {
-        top: 8px;
-        right: 8px;
-        width: 28px;
-        height: 28px;
+        position: absolute;
+        top: 50% !important;
+        right: -5% !important;
+        transform: translateY(-50%);
+        width: 110px !important;
+        height: 110px !important;
+        opacity: 0.12;
+        filter: grayscale(1) brightness(2);
+        z-index: 1;
     }
 
     .top5-photo-container {
-        height: 55%;
-        margin-top: 15px;
+        width: 80px;
+        height: 100px;
+        margin-top: 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        z-index: 2;
+        flex-shrink: 0;
+        position: relative;
     }
 
     .top5-photo {
-        max-height: 100%;
+        height: 110%;
+        width: auto;
+        object-fit: contain;
     }
 
     .top5-info {
-        margin-top: 0px;
+        flex: 1;
+        margin-top: 0;
+        text-align: left;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
 
     .top5-driver-name {
-        font-size: 1rem;
+        font-size: 1.1rem;
+        line-height: 1.1;
+    }
+
+    .top5-driver-name span {
+        display: inline !important; /* Nome em uma linha para o layout horizontal se couber */
+    }
+    
+    .top5-driver-name span:first-child {
+        margin-right: 5px;
+    }
+
+    .top5-team-info {
+        justify-content: flex-start;
+        gap: 6px;
+        margin-top: 4px;
+    }
+
+    .top5-team-logo-info {
+        width: 16px;
+        height: 16px;
     }
 
     .top5-team-name {
-        font-size: 0.65rem;
+        font-size: 0.7rem;
+    }
+
+    .top5-points-container {
+        margin-top: 0;
+        min-width: 85px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        z-index: 3;
+    }
+
+    .top5-points-bar {
+        display: none; /* Removido no layout horizontal para limpar o visual */
+    }
+
+    .top5-points-wrapper {
+        align-items: flex-end;
     }
 
     .top5-points-value {
-        font-size: 1.2rem;
+        font-size: 1.5rem;
+        line-height: 1;
     }
 
     .top5-points-label {
         font-size: 0.65rem;
+        letter-spacing: 1px;
     }
+}
 
     /* Podium and Classification Row adaptations within the same 1024px query */
     .podium-container {
