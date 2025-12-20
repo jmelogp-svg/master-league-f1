@@ -2336,6 +2336,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         justify-content: center;
         z-index: 3;
         gap: 0;
+        position: relative;
+        padding-bottom: 8px;
+    }
+
+    .top5-points-container::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 10%;
+        right: 10%;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.2);
     }
 
     .top5-points-bar {
