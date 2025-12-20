@@ -517,7 +517,10 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         flex: 1;
         min-width: 0;
         text-align: left;
-        margin-left: 43px;
+        padding-left: 43px;
+        margin-left: 0;
+        position: relative;
+        z-index: 2;
     }
     
     .rh-gp {
@@ -547,6 +550,16 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         left: 0;
         top: 29px;
         flex-shrink: 0;
+        z-index: 1;
+        pointer-events: none;
+    }
+    
+    .rh-flag-container {
+        margin-bottom: 26px;
+    }
+    
+    .rh-left {
+        min-height: 51px;
     }
     
     .rh-record {
