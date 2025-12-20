@@ -2570,6 +2570,21 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .classification-team-info {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+    }
+
+    .classification-team-logo, .classification-team-initial {
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
+        max-width: 20px;
+        object-fit: contain;
+    }
+
+    .classification-team-name {
         display: none;
     }
     
@@ -2578,7 +2593,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         flex-direction: column;
         align-items: flex-end;
         justify-content: center;
-        gap: 0;
+        gap: 4px;
         min-width: auto;
     }
 
