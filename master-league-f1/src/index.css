@@ -2228,7 +2228,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .top5-photo-container {
         width: 65px;
         height: 65px;
-        margin: 8px auto 0px;
+        margin: 12px auto 0px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2252,7 +2252,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .top5-info {
         flex: none;
-        margin-top: -4px;
+        margin-top: -6px;
         text-align: center;
         z-index: 3;
         display: flex;
@@ -2322,7 +2322,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-points-container {
-        margin-top: 0px;
+        margin-top: -2px;
         min-width: auto;
         width: 100%;
         display: flex;
@@ -2341,7 +2341,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         border-radius: 2px;
         overflow: hidden;
         margin-top: 3px;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
     }
 
     .top5-points-fill {
