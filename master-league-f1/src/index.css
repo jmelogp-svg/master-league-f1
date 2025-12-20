@@ -2209,7 +2209,6 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         font-size: 0.75rem;
         padding: 2px 8px;
     }
-}
     
     .classification-row-new {
         display: grid;
