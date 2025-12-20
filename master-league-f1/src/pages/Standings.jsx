@@ -444,8 +444,8 @@ function Standings() {
                                                         {driver.team.charAt(0).toUpperCase()}
                                                     </div>
                                                 )}
+                                                <small style={{fontSize: '0.65rem', opacity: 0.7, fontWeight: 400}}>{driver.team}</small>
                                             </div>
-                                            <small style={{display: 'block', fontSize: '0.65rem', opacity: 0.7, marginTop: '1px', fontWeight: 400}}>{driver.team}</small>
                                         </div>
                                             </div>
                                             <div className="classification-right">
@@ -685,18 +685,18 @@ function Standings() {
                                                 className="classification-photo"
                                             />
                                         </div>
-                                        <div className="classification-driver-name">{formatDriverName(r.name)}</div>
-                                        <div className="classification-team-info">
-                                            {teamLogo ? (
-                                                <img src={teamLogo} className="classification-team-logo" alt={r.team} />
-                                            ) : (
-                                                <div className="classification-team-initial" style={{"--team-color": teamColor}}>
-                                                    {r.team.charAt(0).toUpperCase()}
-                                                </div>
-                                            )}
-                                            <span className="classification-team-name">
-                                                {r.team}
-                                            </span>
+                                        <div className="classification-driver-name">
+                                            {formatDriverNameOneLine(r.name)}
+                                            <div className="classification-team-logo-mobile">
+                                                {teamLogo ? (
+                                                    <img src={teamLogo} className="classification-team-logo" alt={r.team} />
+                                                ) : (
+                                                    <div className="classification-team-initial" style={{"--team-color": teamColor}}>
+                                                        {r.team.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
+                                                <small style={{fontSize: '0.65rem', opacity: 0.7, fontWeight: 400}}>{r.team}</small>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="classification-right">

@@ -2391,38 +2391,41 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .podium-container {
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        padding: 0 10px;
+        gap: 8px;
+        padding: 0 6px;
+        margin-bottom: 8px;
     }
     
     .podium-step {
         width: 100%;
-        min-height: 100px;
+        min-height: 80px;
         flex-direction: row;
-        padding: 10px 15px;
-        gap: 15px;
+        padding: 8px 10px;
+        gap: 10px;
         align-items: center;
         justify-content: flex-start;
     }
 
     .podium-position-left {
-        font-size: 2.2rem;
+        font-size: 1.8rem;
         position: static;
         transform: none;
-        min-width: 40px;
+        min-width: 32px;
+        font-weight: 800;
     }
     
     .podium-photo-container {
-        width: 70px;
-        height: 85px;
+        width: 55px;
+        height: 65px;
         margin: 0;
         position: static;
         order: 2;
+        flex-shrink: 0;
     }
     
     .podium-p1 .podium-photo-container {
-        width: 80px;
-        height: 95px;
+        width: 60px;
+        height: 70px;
     }
 
     .podium-base {
@@ -2431,43 +2434,54 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         align-items: flex-start;
         padding: 0;
         order: 3;
+        min-width: 0;
     }
     
     .podium-driver-name {
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         margin-bottom: 2px;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     .podium-team-logo-top {
         position: absolute;
-        top: 10px;
-        right: 15px;
-        width: 32px;
-        height: 32px;
+        top: 8px;
+        right: 10px;
+        width: 24px;
+        height: 24px;
     }
 
     .podium-team-logo-top-img {
-        max-width: 32px;
-        max-height: 32px;
+        max-width: 24px;
+        max-height: 24px;
     }
     
     .podium-team-name {
-        font-size: 0.8rem;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     .podium-stats {
         width: 100%;
         justify-content: flex-start;
-        margin-top: 5px;
+        margin-top: 4px;
+        gap: 6px;
+        flex-wrap: wrap;
     }
 
     .podium-stat-item.points {
-        font-size: 1rem;
+        font-size: 0.85rem;
+        font-weight: 800;
     }
     
     .podium-fastest-lap {
-        font-size: 0.75rem;
-        padding: 2px 8px;
+        font-size: 0.7rem;
+        padding: 2px 6px;
     }
     
     /* ================================
