@@ -2228,7 +2228,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .top5-photo-container {
         width: 65px;
         height: 65px;
-        margin: 4px auto 2px;
+        margin: 4px auto 0px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2252,7 +2252,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .top5-info {
         flex: none;
-        margin-top: 0;
+        margin-top: -2px;
         text-align: center;
         z-index: 3;
         display: flex;
