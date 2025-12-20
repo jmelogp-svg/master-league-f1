@@ -2228,7 +2228,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .top5-photo-container {
         width: 65px;
         height: 65px;
-        margin: 4px auto 0px;
+        margin: 8px auto 0px;
         display: flex;
         align-items: center;
         justify-content: center;
