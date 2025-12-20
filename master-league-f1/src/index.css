@@ -2462,8 +2462,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     
     .podium-photo-container {
         width: 100%;
-        height: 60px;
-        margin: 0 0 3px 0;
+        height: 80px;
+        margin: 0 0 4px 0;
         position: relative;
         order: 1;
         flex-shrink: 0;
@@ -2473,13 +2473,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
     
     .podium-p1 .podium-photo-container {
-        height: 70px;
+        height: 90px;
     }
 
     .podium-photo {
         width: auto;
         height: 100%;
         object-fit: contain;
+        max-width: 100%;
     }
 
     .podium-base {
