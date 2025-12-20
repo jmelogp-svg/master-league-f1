@@ -602,11 +602,10 @@ function Home() {
                                     <div className="top5-info">
                                         <div className="top5-driver-name">{formatDriverName(driver.name)}</div>
                                         <div className="top5-team-info">
-                                            {teamLogo ? (
-                                                <img src={teamLogo} className="top5-team-logo-info" alt={driver.team} />
-                                            ) : (
-                                                <div className="top5-team-initial-info" style={{"--team-color": teamColor}}>
-                                                    {driver.team.charAt(0).toUpperCase()}
+                                            {/* Team Logo - Above Name */}
+                                            {teamLogo && (
+                                                <div className="top5-team-logo-top">
+                                                    <img src={teamLogo} alt={driver.team} />
                                                 </div>
                                             )}
                                             <span className="top5-team-name" style={{color: teamColor}}>{driver.team}</span>
@@ -620,12 +619,6 @@ function Home() {
                                                 }}
                                             ></div>
                                         </div>
-                                        {/* Team Logo - Below Bar */}
-                                        {teamLogo && (
-                                            <div className="top5-team-logo-top">
-                                                <img src={teamLogo} alt={driver.team} />
-                                            </div>
-                                        )}
                                     </div>
                                     
                                     {/* Points Value */}
