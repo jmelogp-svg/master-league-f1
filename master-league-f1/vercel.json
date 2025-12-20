@@ -4,7 +4,7 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/((?!assets|logos|pilotos|wallpapers|flags|jurados).*)",
+      "source": "/((?!assets|team-logos|pilotos|wallpapers|flags|jurados).*)",
       "destination": "/index.html"
     }
   ],
