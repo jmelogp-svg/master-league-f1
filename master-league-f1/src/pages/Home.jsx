@@ -665,8 +665,8 @@ function Home() {
                                                         {driver.team.charAt(0).toUpperCase()}
                                                     </div>
                                                 )}
+                                                <small style={{fontSize: '0.65rem', opacity: 0.7, fontWeight: 400}}>{driver.team}</small>
                                             </div>
-                                            <small style={{display: 'block', fontSize: '0.65rem', opacity: 0.7, marginTop: '1px', fontWeight: 400}}>{driver.team}</small>
                                         </div>
                                     </div>
                                     <div className="classification-right">
