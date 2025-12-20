@@ -232,6 +232,15 @@ function Standings() {
         });
         return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 }));
     };
+
+    // Função para verificar se é mobile
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const getConstructors = () => {
         const drivers = getDrivers();
         const teams = {};
@@ -335,17 +344,18 @@ function Standings() {
         // ... (VIEWTYPE DRIVERS/TEAMS/RESULTS MANTIDO IGUAL AO ANTERIOR - Resumido aqui para caber, mas use o código completo da versão anterior)
         if (viewType === 'drivers') {
             const data = getDrivers();
-            const top5 = data.slice(0, 5);
-            const rest = data.slice(5);
+            const topCount = isMobile ? 3 : 5;
+            const topDrivers = data.slice(0, topCount);
+            const rest = data.slice(topCount);
             
             return (
                 <>
-                    {/* TOP 5 CARDS */}
+                    {/* TOP CARDS */}
                     <div className="top5-container">
-                        {top5.map(driver => {
+                        {topDrivers.map(driver => {
                             const teamColor = getTeamColor(driver.team);
                             const teamLogo = getTeamLogo(driver.team);
-                            const maxPoints = top5[0]?.points || driver.points;
+                            const maxPoints = topDrivers[0]?.points || driver.points;
                             const progressPercent = maxPoints > 0 ? (driver.points / maxPoints) * 100 : 0;
                             return (
                                 <article 

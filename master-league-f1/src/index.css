@@ -2128,12 +2128,80 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 
 @media (max-width: 768px) {
-    .podium-container {
+    .top5-container {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
         gap: 12px;
-        padding: 0 10px;
+        padding: 10px 15px 25px;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        justify-content: center; /* Centraliza se houver poucos */
     }
+
+    .top5-container::-webkit-scrollbar {
+        display: none;
+    }
+
+    .top5-card-new {
+        flex: 0 0 160px; /* Largura fixa igual ao site original */
+        min-width: 160px;
+        height: 240px; /* Altura proporcional */
+        padding: 12px;
+    }
+
+    .top5-rank-number {
+        font-size: 1.5rem;
+        top: 8px;
+        left: 8px;
+    }
+
+    .top5-team-logo-top {
+        top: 8px;
+        right: 8px;
+        width: 32px;
+        height: 32px;
+    }
+
+    .top5-photo-container {
+        height: 140px;
+        margin-top: 10px;
+    }
+
+    .top5-photo {
+        height: 100%;
+    }
+
+    .top5-info {
+        margin-top: -15px;
+    }
+
+    .top5-driver-name {
+        font-size: 0.9rem;
+    }
+
+    .top5-team-info {
+        gap: 4px;
+        margin-top: 2px;
+    }
+
+    .top5-team-name {
+        font-size: 0.6rem;
+    }
+
+    .top5-points-container {
+        margin-top: 8px;
+    }
+
+    .top5-points-value {
+        font-size: 1.1rem;
+    }
+
+    .top5-points-label {
+        font-size: 0.6rem;
+    }
+}
     
     .podium-step {
         width: 100%;
