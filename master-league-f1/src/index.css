@@ -1988,7 +1988,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 
 .classification-team-info {
-    display: none;
+    display: flex;
     align-items: center;
     gap: 12px;
     align-self: center;
@@ -2045,7 +2045,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    display: none;
+    display: flex;
     align-items: center;
     line-height: 1;
     white-space: nowrap;
@@ -2686,7 +2686,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         }
 
         .classification-team-info {
-            display: none;
+            display: flex;
+            gap: 12px;
         }
 
         .classification-right {
