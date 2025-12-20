@@ -2399,16 +2399,16 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         display: flex;
         flex-direction: row;
         gap: 4px;
-        padding: 0 4px;
-        margin-bottom: 8px;
+        padding: 0;
+        margin: 0 4px 8px;
         align-items: flex-end;
-        width: 100%;
+        width: calc(100% - 8px);
         box-sizing: border-box;
         overflow-x: hidden;
     }
     
     .podium-step {
-        flex: 1;
+        flex: 1 1 0;
         min-height: 160px;
         flex-direction: column;
         padding: 4px 2px 6px;
@@ -2416,16 +2416,16 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         align-items: center;
         justify-content: flex-end;
         min-width: 0;
-        max-width: 33.33%;
         box-sizing: border-box;
     }
 
     .podium-p1 {
         order: 2;
+        flex: 1 1 0;
     }
 
     .podium-p2, .podium-p3 {
-        flex: 1;
+        flex: 1 1 0;
     }
 
     .podium-p2 {
@@ -2437,9 +2437,15 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .podium-left, .podium-center, .podium-right {
-        width: 100%;
+        flex: 1 1 0;
         display: flex;
         justify-content: center;
+        min-width: 0;
+        width: 0;
+    }
+
+    .podium-step {
+        width: 100%;
     }
 
     .podium-position-left {
