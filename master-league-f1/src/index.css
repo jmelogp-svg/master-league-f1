@@ -4771,17 +4771,17 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 .bg-rank-5-light { background-color: rgba(156, 163, 175, 0.2); }
 @media (min-width: 1024px) {
     .pr-new-hero-card {
-        max-width: 100%;
+        max-width: 400px;
         margin: 0 auto 40px;
-        aspect-ratio: 21 / 9;
+        aspect-ratio: 4 / 3;
     }
     
     .pr-new-hero-rank-num {
-        font-size: 8rem;
+        font-size: 4rem;
     }
     
     .pr-new-hero-name {
-        font-size: 2.5rem;
+        font-size: 1.5rem;
     }
 
     .pr-new-main {
