@@ -478,10 +478,11 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         margin-bottom: 12px; 
         height: auto; 
         min-height: auto; 
-        flex-direction: column; 
-        text-align: center; 
+        flex-direction: row; 
+        text-align: left; 
         margin-left: 4px;
         margin-right: 4px;
+        align-items: flex-start;
     }
     
     .rh-left { 
@@ -489,21 +490,34 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         min-width: auto; 
         gap: 8px; 
         flex-direction: row; 
-        align-items: center;
-        justify-content: center;
-        width: 100%;
+        align-items: flex-start;
+        justify-content: flex-start;
+        flex: 1;
+        min-width: 0;
+        position: relative;
     }
     
     .rh-flag-container {
-        width: 50px;
-        height: 35px;
+        width: 45px;
+        height: auto;
         flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .rh-flag {
+        width: 45px;
+        height: 32px;
+        object-fit: contain;
     }
     
     .rh-info {
         flex: 1;
         min-width: 0;
         text-align: left;
+        margin-left: 53px;
     }
     
     .rh-gp {
@@ -521,16 +535,31 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
     
     .rh-right { 
-        padding: 8px 0 0 0; 
-        border-top: 1px solid rgba(255,255,255,0.05); 
-        width: 100%; 
-        align-items: center; 
-        gap: 6px;
+        padding: 0;
+        border-top: none;
+        width: 45px;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0;
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        left: 0;
+        top: 36px;
+        flex-shrink: 0;
+    }
+    
+    .rh-record {
+        display: none;
     }
     
     .rh-circuit {
-        height: 35px;
-        margin-bottom: 0;
+        width: 40px;
+        height: 30px;
+        margin: 0;
+        object-fit: contain;
+        filter: drop-shadow(0 0 4px rgba(255,255,255,0.3)) invert(1);
+        opacity: 0.9;
     }
     
     .rh-record {
