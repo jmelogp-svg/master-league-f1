@@ -700,6 +700,18 @@ function Standings() {
                                         </div>
                                     </div>
                                     <div className="classification-right">
+                                        <div className="classification-team-info">
+                                            {teamLogo ? (
+                                                <img src={teamLogo} className="classification-team-logo" alt={r.team} />
+                                            ) : (
+                                                <div className="classification-team-initial" style={{"--team-color": teamColor}}>
+                                                    {r.team.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                            <span className="classification-team-name">
+                                                {r.team}
+                                            </span>
+                                        </div>
                                         {r.fastestLap && r.fastestLap !== '-' && (
                                             <div className={`classification-fastest-lap ${r.fastestLap === bestLap ? 'best-lap' : ''}`}>
                                                 <FastLapIcon />

@@ -2405,10 +2405,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         gap: 4px;
         align-items: center;
         justify-content: flex-end;
+        min-width: 0;
     }
 
     .podium-p1 {
         order: 2;
+        flex: 1.1;
+        max-width: 35%;
+    }
+
+    .podium-p2, .podium-p3 {
+        flex: 0.95;
+        max-width: 32.5%;
     }
 
     .podium-p2 {
