@@ -2678,11 +2678,23 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         }
 
         .classification-driver-name small {
-            display: none;
+            display: none !important;
+        }
+
+        .classification-driver-name .classification-team-logo-mobile {
+            display: none !important;
+        }
+
+        .classification-driver-name .classification-team-logo-mobile * {
+            display: none !important;
         }
 
         .classification-team-logo-mobile {
-            display: none;
+            display: none !important;
+        }
+
+        .classification-team-logo-mobile small {
+            display: none !important;
         }
 
         .classification-team-info {
