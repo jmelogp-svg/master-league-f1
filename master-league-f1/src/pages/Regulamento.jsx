@@ -115,6 +115,7 @@ const lobbyConfig = [
     { config: 'Temperatura do pneu', valor: 'Simulação' },
     { config: 'Setup do Carro', valor: 'Travado (Pré-Definidos)' },
     { config: 'Bandeiras', valor: 'Ligado' },
+    { config: 'Telemetria', valor: 'Pública (Aberta)' },
     { config: 'Safety Car', valor: 'Reduzido' },
     { config: 'Modo Imersivo', valor: 'Volta de formação, SC, Box' }
 ];
@@ -1205,6 +1206,7 @@ const Regulamento = () => {
                                     const isYes = val === 'sim' || val === 'ligado';
                                     const isNo = val === 'não' || val === 'desligado' || val === 'nenhuma';
                                     const isLocked = val.includes('travado');
+                                    const isOpen = val.includes('aberta') || val.includes('pública');
                                     
                                     let statusIcon = null;
                                     let statusColor = '#94A3B8';
@@ -1218,6 +1220,9 @@ const Regulamento = () => {
                                     } else if (isLocked) {
                                         statusIcon = <ShieldCheck size={20} color="#facc15" />;
                                         statusColor = '#facc15';
+                                    } else if (isOpen) {
+                                        statusIcon = <Eye size={20} color="#06b6d4" />;
+                                        statusColor = '#06b6d4';
                                     } else {
                                         statusIcon = <Activity size={18} color="#3b82f6" />;
                                         statusColor = '#3b82f6';
