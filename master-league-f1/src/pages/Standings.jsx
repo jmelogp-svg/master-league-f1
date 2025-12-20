@@ -436,6 +436,15 @@ function Standings() {
                                                 </div>
                                         <div className="classification-driver-name">
                                             {formatDriverNameOneLine(driver.name)}
+                                            <div className="classification-team-logo-mobile">
+                                                {teamLogo ? (
+                                                    <img src={teamLogo} className="classification-team-logo" alt={driver.team} />
+                                                ) : (
+                                                    <div className="classification-team-initial" style={{"--team-color": teamColor}}>
+                                                        {driver.team.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
                                             <small style={{display: 'block', fontSize: '0.65rem', opacity: 0.7, marginTop: '1px', fontWeight: 400}}>{driver.team}</small>
                                         </div>
                                             </div>

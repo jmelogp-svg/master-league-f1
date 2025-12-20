@@ -2570,17 +2570,21 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .classification-team-info {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 4px;
+        display: none;
     }
 
-    .classification-team-logo, .classification-team-initial {
-        width: 20px;
-        height: 20px;
-        min-width: 20px;
-        max-width: 20px;
+    .classification-team-logo-mobile {
+        display: flex;
+        align-items: center;
+        margin: 4px 0 2px 0;
+    }
+
+    .classification-team-logo-mobile .classification-team-logo,
+    .classification-team-logo-mobile .classification-team-initial {
+        width: 18px;
+        height: 18px;
+        min-width: 18px;
+        max-width: 18px;
         object-fit: contain;
     }
 
@@ -2673,6 +2677,10 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         }
 
         .classification-driver-name small {
+            display: none;
+        }
+
+        .classification-team-logo-mobile {
             display: none;
         }
 
