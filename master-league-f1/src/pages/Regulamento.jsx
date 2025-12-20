@@ -116,7 +116,7 @@ const lobbyConfig = [
     { config: 'Setup do Carro', valor: 'Travado (Pré-Definidos)' },
     { config: 'Bandeiras', valor: 'Ligado' },
     { config: 'Telemetria', valor: 'Pública (Aberta)' },
-    { config: 'Safety Car', valor: 'Reduzido' },
+    { config: 'Safety Car', valor: 'Modo Reduzido / Freq. Padrão' },
     { config: 'Modo Imersivo', valor: 'Volta de formação, SC, Box' }
 ];
 
