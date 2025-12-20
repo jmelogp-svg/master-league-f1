@@ -449,19 +449,19 @@ function Home() {
     const handleDriverClick = (driver) => { setSelectedDriver({ ...driver, stats: getDriverStats(driver.name) }); };
     
     const getDrivers = () => { const rawData = gridType === 'carreira' ? rawCarreira : rawLight; const totals = {}; rawData.forEach(row => { const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return; const name = row[9]; const team = row[10]; if (!name) return; if (!totals[name]) totals[name] = { name, team, points: 0 }; if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) totals[name].points += p; } else { const racePos = parseInt(row[8]); if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; } }); return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 })); };
-    const getConstructors = () => { 
-        const drivers = getDrivers(); 
-        const teams = {}; 
-        drivers.forEach(d => { 
+    const getConstructors = () => {
+        const drivers = getDrivers();
+        const teams = {};
+        drivers.forEach(d => {
             if (!teams[d.team]) {
-                teams[d.team] = { team: d.team, points: 0, drivers: [] }; 
+                teams[d.team] = { team: d.team, points: 0, driversList: [] };
             }
-            teams[d.team].points += d.points; 
-            if (!teams[d.team].drivers.some(dr => dr.name === d.name)) {
-                teams[d.team].drivers.push({ name: d.name }); 
+            teams[d.team].points += d.points;
+            if (!teams[d.team].driversList.includes(d.name)) {
+                teams[d.team].driversList.push(d.name);
             }
-        }); 
-        return Object.values(teams).sort((a, b) => b.points - a.points).map((t, i) => ({ ...t, pos: i + 1 })); 
+        });
+        return Object.values(teams).sort((a, b) => b.points - a.points).map((t, i) => ({ ...t, pos: i + 1 }));
     };
     // Função para formatar nome: primeiro nome primeira letra maiúscula (sem negrito), segundo nome todo maiúsculo (negrito)
     const formatDriverName = (fullName) => {
@@ -711,31 +711,9 @@ function Home() {
                                     </div>
                                     <div className="classification-right">
                                         <div className="classification-team-info">
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                                {team.drivers.map((driver, idx) => (
-                                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <div style={{ 
-                                                            width: '24px', 
-                                                            height: '32px', 
-                                                            borderRadius: '3px', 
-                                                            overflow: 'hidden', 
-                                                            border: '1px solid rgba(255,255,255,0.2)',
-                                                            background: '#0F172A',
-                                                            flexShrink: 0
-                                                        }}>
-                                                            <DriverImage 
-                                                                name={driver.name} 
-                                                                gridType={gridType} 
-                                                                season={selectedSeason} 
-                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                                                            />
-                                                        </div>
-                                                        <span style={{ color: '#94A3B8', fontSize: '0.85rem', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                                                            {driver.name.split(' ').slice(-1)[0]}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            <span className="classification-team-name" style={{color: '#94A3B8', fontSize: '0.85rem'}}>
+                                                {team.driversList.join(' & ')}
+                                            </span>
                                         </div>
                                         <div className="classification-points">
                                             <span className="classification-points-label">PTS</span>
