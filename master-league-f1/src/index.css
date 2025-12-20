@@ -2133,9 +2133,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 @media (max-width: 1024px) {
     .top5-container {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         overflow-x: visible;
-        padding: 0 10px 12px;
+        padding: 0 6px 12px;
         scroll-snap-type: none;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
@@ -2152,8 +2152,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         min-width: 0;
         max-width: 100%;
         background: linear-gradient(180deg, #141d3a, #0c1327);
-        border-radius: 14px;
-        padding: 10px 8px 12px;
+        border-radius: 12px;
+        padding: 6px 6px 8px;
         text-align: center;
         scroll-snap-align: none;
         position: relative;
@@ -2186,8 +2186,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .top5-rank-number {
         position: absolute;
-        top: 8px;
-        left: 8px;
+        top: 6px;
+        left: 6px;
         font-size: 0.75rem;
         font-weight: 700;
         opacity: 0.9;
@@ -2208,8 +2208,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .top5-team-logo-top {
         position: absolute;
-        top: 8px;
-        right: 8px;
+        top: 6px;
+        right: 6px;
         width: 24px;
         height: 24px;
         z-index: 3;
@@ -2226,9 +2226,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-photo-container {
-        width: 60px;
-        height: 60px;
-        margin: 8px auto 4px;
+        width: 65px;
+        height: 65px;
+        margin: 4px auto 2px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2238,8 +2238,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-photo {
-        width: 60px;
-        height: 60px;
+        width: 65px;
+        height: 65px;
         border-radius: 50%;
         object-fit: cover;
         display: block;
@@ -2263,12 +2263,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-driver-name {
-        font-size: 0.8rem;
-        line-height: 1.2;
+        font-size: 0.85rem;
+        line-height: 1.1;
         font-weight: 700;
         color: white;
         display: block;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
     }
 
     .top5-driver-name span {
@@ -2277,20 +2277,22 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     
     .top5-driver-name span:first-child {
         font-weight: 400;
-        margin-bottom: 1px;
-        font-size: 0.75rem;
+        margin-bottom: 0px;
+        font-size: 0.8rem;
+        line-height: 1;
     }
 
     .top5-driver-name span:last-child {
         font-weight: 700;
-        font-size: 0.85rem;
+        font-size: 0.9rem;
+        line-height: 1.1;
     }
 
     .top5-team-info {
         justify-content: center;
         gap: 0;
         margin-top: 0;
-        margin-bottom: 6px;
+        margin-bottom: 3px;
         align-items: center;
         width: 100%;
         padding: 0 4px;
@@ -2305,7 +2307,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-team-name {
-        font-size: 0.6rem;
+        font-size: 0.65rem;
         font-weight: 600;
         opacity: 1;
         text-transform: uppercase;
@@ -2320,7 +2322,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-points-container {
-        margin-top: 4px;
+        margin-top: 2px;
         min-width: auto;
         width: 100%;
         display: flex;
@@ -2338,7 +2340,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         background: rgba(255, 255, 255, 0.1);
         border-radius: 2px;
         overflow: hidden;
-        margin-top: 6px;
+        margin-top: 3px;
         margin-bottom: 0;
     }
 
@@ -2358,7 +2360,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-points-value {
-        font-size: 0.95rem;
+        font-size: 1rem;
         line-height: 1;
         font-weight: 800;
         color: white;
@@ -2456,18 +2458,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     ================================ */
     .classification-section-new {
         margin-top: 18px;
-        padding: 0 16px;
+        padding: 0 6px;
     }
 
     .classification-row-new {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 12px 14px;
-        border-radius: 14px;
+        gap: 8px;
+        padding: 10px 8px;
+        border-radius: 12px;
         background: linear-gradient(180deg, #121a33, #0a1024);
         border: 1px solid rgba(255, 255, 255, 0.06);
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         min-height: auto;
         grid-template-columns: none;
         position: relative;
@@ -2502,36 +2504,36 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-left {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         min-width: 0;
         flex: 1;
     }
     
     .classification-position {
-        width: 24px;
-        font-size: 0.9rem;
+        width: 28px;
+        font-size: 0.95rem;
         font-weight: 700;
         opacity: 0.75;
-        min-width: 24px;
+        min-width: 28px;
         text-align: left;
     }
 
     .classification-avatar {
-        width: 42px;
-        height: 42px;
+        width: 44px;
+        height: 44px;
         border-radius: 50%;
         border: none;
     }
     
     .classification-photo {
-        width: 42px;
-        height: 42px;
+        width: 44px;
+        height: 44px;
         border-radius: 50%;
         object-fit: cover;
     }
     
     .classification-driver-name {
-        font-size: 0.9rem;
+        font-size: 0.95rem;
         font-weight: 700;
         color: white;
         min-width: 0;
