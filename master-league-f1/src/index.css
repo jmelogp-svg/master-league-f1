@@ -2461,8 +2461,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
     
     .podium-photo-container {
-        width: 100%;
-        height: 80px;
+        width: 50px;
+        height: 50px;
         margin: 0 0 4px 0;
         position: relative;
         order: 1;
@@ -2470,17 +2470,29 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         display: flex;
         align-items: center;
         justify-content: center;
+        border-radius: 50%;
+        overflow: hidden;
+        border: none;
     }
     
     .podium-p1 .podium-photo-container {
-        height: 90px;
+        width: 55px;
+        height: 55px;
+    }
+
+    .podium-photo-container::before {
+        border-radius: 50%;
+    }
+
+    .podium-photo-container::after {
+        border-radius: 0 0 50% 50%;
     }
 
     .podium-photo {
-        width: auto;
+        width: 100%;
         height: 100%;
-        object-fit: contain;
-        max-width: 100%;
+        object-fit: cover;
+        border-radius: 50%;
     }
 
     .podium-base {
