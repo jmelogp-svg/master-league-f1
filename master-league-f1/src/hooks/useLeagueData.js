@@ -130,50 +130,57 @@ export const useLeagueData = () => {
                         .select('data')
                         .single();
 
-                    // Buscar Power Ranking do Supabase
-                    const { data: prData } = await supabase
-                        .from('power_ranking_cache')
-                        .select('data')
-                        .single();
+                // Buscar Power Ranking do Supabase
+                const { data: prData } = await supabase
+                    .from('power_ranking_cache')
+                    .select('data')
+                    .single();
 
-                    if (carreiraData?.data?.rows && lightData?.data?.rows) {
-                        rowsC = carreiraData.data.rows;
-                        rowsL = lightData.data.rows;
-                        fromSupabase = true;
-                        console.log('📊 Dados de classificação carregados do Supabase');
-                    }
-
-                    if (tracksData?.data?.rows) {
-                        rowsT = tracksData.data.rows;
-                        fromSupabase = true;
-                        console.log('📊 Dados de tracks carregados do Supabase');
-                    }
-
-                    if (prData?.data?.rows) {
-                        rowsPR = prData.data.rows;
-                        fromSupabase = true;
-                        console.log('📊 Dados de Power Ranking carregados do Supabase');
-                    }
-                } catch (supabaseError) {
-                    console.warn('Erro ao buscar do Supabase, usando fallback:', supabaseError);
-                }
-
-                // Se não conseguiu do Supabase, buscar do Google Sheets (fallback)
-                if (!fromSupabase) {
-                    console.log('📊 Usando fallback para Google Sheets');
-                    
-                    const [resC, resL, resT, resPR] = await Promise.all([
+                if (carreiraData?.data?.rows && lightData?.data?.rows) {
+                    rowsC = carreiraData.data.rows;
+                    rowsL = lightData.data.rows;
+                    console.log('📊 Dados de classificação carregados do Supabase');
+                } else {
+                    console.log('📊 Buscando classificação do Google Sheets (não encontrada no Supabase)');
+                    const [resC, resL] = await Promise.all([
                         fetch(PROXY_URL + encodeURIComponent(LINKS.carreira)).catch(() => ({ text: async () => '[]' })),
-                        fetch(PROXY_URL + encodeURIComponent(LINKS.light)).catch(() => ({ text: async () => '[]' })),
-                        fetch(PROXY_URL + encodeURIComponent(LINKS.tracks)).catch(() => ({ text: async () => '[]' })),
-                        fetch(PROXY_URL + encodeURIComponent(LINKS.pr)).catch(() => ({ text: async () => '[]' }))
+                        fetch(PROXY_URL + encodeURIComponent(LINKS.light)).catch(() => ({ text: async () => '[]' }))
                     ]);
-
                     rowsC = await parseCSV(await resC.text());
                     rowsL = await parseCSV(await resL.text());
+                }
+
+                if (tracksData?.data?.rows) {
+                    rowsT = tracksData.data.rows;
+                    console.log('📊 Dados de tracks carregados do Supabase');
+                } else {
+                    console.log('📊 Buscando tracks do Google Sheets (não encontradas no Supabase)');
+                    const resT = await fetch(PROXY_URL + encodeURIComponent(LINKS.tracks)).catch(() => ({ text: async () => '[]' }));
                     rowsT = await parseCSV(await resT.text());
+                }
+
+                if (prData?.data?.rows) {
+                    rowsPR = prData.data.rows;
+                    console.log('📊 Dados de Power Ranking carregados do Supabase');
+                } else {
+                    console.log('📊 Buscando Power Ranking do Google Sheets (não encontrado no Supabase)');
+                    const resPR = await fetch(PROXY_URL + encodeURIComponent(LINKS.pr)).catch(() => ({ text: async () => '[]' }));
                     rowsPR = await parseCSV(await resPR.text());
                 }
+            } catch (supabaseError) {
+                console.warn('Erro ao buscar do Supabase, usando fallback total:', supabaseError);
+                const [resC, resL, resT, resPR] = await Promise.all([
+                    fetch(PROXY_URL + encodeURIComponent(LINKS.carreira)).catch(() => ({ text: async () => '[]' })),
+                    fetch(PROXY_URL + encodeURIComponent(LINKS.light)).catch(() => ({ text: async () => '[]' })),
+                    fetch(PROXY_URL + encodeURIComponent(LINKS.tracks)).catch(() => ({ text: async () => '[]' })),
+                    fetch(PROXY_URL + encodeURIComponent(LINKS.pr)).catch(() => ({ text: async () => '[]' }))
+                ]);
+
+                rowsC = await parseCSV(await resC.text());
+                rowsL = await parseCSV(await resL.text());
+                rowsT = await parseCSV(await resT.text());
+                rowsPR = await parseCSV(await resPR.text());
+            }
                 
                 console.log('📊 useLeagueData - Dados carregados:');
                 console.log('  - BD_CARREIRA:', rowsC?.length || 0, 'linhas', fromSupabase ? '(Supabase)' : '(Google Sheets)');

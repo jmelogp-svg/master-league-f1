@@ -191,7 +191,7 @@ function HallOfFame() {
         if (rawPR && rawPR.length > 0) {
             rawPR.forEach(row => {
                 const driverName = row[0];
-                const totalPR = parseFloat(row[8]) || 0;
+                const totalPR = parseFloat((row[8] || '0').replace(',', '.')) || 0;
                 if (driverName && driverName !== '-') {
                     if (!prByDriver[driverName]) {
                         prByDriver[driverName] = { name: driverName, totalPR: 0 };
@@ -226,7 +226,7 @@ function HallOfFame() {
             return obj;
         }, {}));
 
-    }, [gridType, rawCarreira, rawLight]);
+    }, [gridType, rawCarreira, rawLight, rawPR]);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 
@@ -454,7 +454,7 @@ const TopList = ({ title, data, valueKey }) => {
                             <span style={{fontWeight: '800', color: i === 0 ? '#FFD700' : (i===1 ? '#C0C0C0' : (i===2 ? '#CD7F32' : '#64748B')), width: '20px'}}>{i+1}º</span>
                             <span style={{fontWeight: '600', fontSize: '0.9rem'}}>{d.name}</span>
                         </div>
-                        <span style={{fontWeight: '800', fontSize: '1rem', color: 'white'}}>{valueKey === 'totalPoints' ? Math.round(d[valueKey]) : d[valueKey]}</span>
+                        <span style={{fontWeight: '800', fontSize: '1rem', color: 'white'}}>{(valueKey === 'totalPoints' || valueKey === 'totalPR') ? Math.round(d[valueKey]) : d[valueKey]}</span>
                     </div>
                 ))}
             </div>
