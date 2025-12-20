@@ -195,7 +195,15 @@ function Home() {
     const [selectedRound, setSelectedRound] = useState(0);
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
-    
+
+    // Adicionado: Hook para verificar se é mobile
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const [nextRaceData, setNextRaceData] = useState(null);
     const [topDrivers, setTopDrivers] = useState([]);
     const [topDriversLight, setTopDriversLight] = useState([]);
@@ -557,17 +565,18 @@ function Home() {
 
         if (viewType === 'drivers') { 
             const data = getDrivers(); 
-            const top5 = data.slice(0, 5);
-            const rest = data.slice(5);
+            const topCount = isMobile ? 3 : 5;
+            const topDriversList = data.slice(0, topCount);
+            const rest = data.slice(topCount);
             
             return ( 
                 <>
-                    {/* TOP 5 CARDS */}
+                    {/* TOP CARDS */}
                     <div className="top5-container">
-                        {top5.map(driver => {
+                        {topDriversList.map(driver => {
                             const teamColor = getTeamColor(driver.team);
                             const teamLogo = getTeamLogo(driver.team);
-                            const maxPoints = top5[0]?.points || driver.points;
+                            const maxPoints = topDriversList[0]?.points || driver.points;
                             const progressPercent = maxPoints > 0 ? (driver.points / maxPoints) * 100 : 0;
                             return (
                                 <article 
