@@ -407,6 +407,15 @@ input:focus, textarea:focus, select:focus, button:focus {
 .hof-trophy { position: absolute; top: -15px; background: #0F172A; border-radius: 50%; padding: 5px; border: 3px solid var(--team-color); }
 .hof-stats-pill { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; color: #CBD5E1; }
 
+/* Tabs Hall of Fame */
+.hof-tab-text-mobile {
+    display: none;
+}
+
+.hof-tab-text-desktop {
+    display: inline;
+}
+
 .hof-grid-champions { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 30px; }
 .hof-card-champion { background: #1E293B; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); position: relative; text-align: center; padding-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: transform 0.3s; }
 .hof-card-champion:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.2); }
@@ -525,6 +534,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .hof-champion-circle img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
     .hof-champion-image-container { height: 130px !important; }
     .hof-champion-title { display: block !important; }
+
+    /* Hall of Fame Mobile Tabs */
+    .hof-tab-text-desktop {
+        display: none;
+    }
+    .hof-tab-text-mobile {
+        display: inline;
+    }
 }
 /* --- GRID DA TEMPORADA (Estilo F1 - 30% Menor) --- */
 .drivers-grid-hub {
