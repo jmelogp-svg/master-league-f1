@@ -476,7 +476,7 @@ function Standings() {
                                 >
                                     <div className="classification-left">
                                         <span className="classification-position">{team.pos}º</span>
-                                        <div className="classification-team-logo-container" style={{ width: '60px', height: '40px' }}>
+                                        <div className="classification-team-logo-container">
                                             {teamLogo ? (
                                                 <img src={teamLogo} className="classification-team-logo" alt={team.team} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                             ) : (

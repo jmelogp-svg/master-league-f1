@@ -1881,7 +1881,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 .classification-section-new {
     width: 100%;
     max-width: 1400px;
-    margin: 0 auto;
+    margin: 40px auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+@media (max-width: 768px) {
+    .classification-section-new {
+        margin-top: 25px;
+        gap: 6px;
+        padding: 0 10px;
+    }
 }
 
 .classification-row-new {
@@ -1988,13 +1999,19 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 
 .classification-team-logo-container {
-    width: 40px;
+    width: 60px;
     height: 40px;
-    min-width: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .classification-team-logo-container {
+        width: 32px;
+        height: 24px;
+    }
 }
 
 .classification-team-logo {
@@ -2112,81 +2129,167 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 @media (max-width: 768px) {
     .podium-container {
-        grid-template-columns: 1fr;
-        gap: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 0 10px;
     }
     
+    .podium-step {
+        width: 100%;
+        min-height: 100px;
+        flex-direction: row;
+        padding: 10px 15px;
+        gap: 15px;
+        align-items: center;
+        justify-content: flex-start;
+    }
+
     .podium-position-left {
-        font-size: 2.5rem;
-        left: 12px;
-        top: 12px;
+        font-size: 2.2rem;
+        position: static;
+        transform: none;
+        min-width: 40px;
     }
     
     .podium-photo-container {
-        width: 100px;
-        height: 100px;
+        width: 70px;
+        height: 85px;
+        margin: 0;
+        position: static;
+        order: 2;
     }
     
     .podium-p1 .podium-photo-container {
-        width: 120px;
-        height: 120px;
+        width: 80px;
+        height: 95px;
+    }
+
+    .podium-base {
+        flex: 1;
+        text-align: left;
+        align-items: flex-start;
+        padding: 0;
+        order: 3;
     }
     
     .podium-driver-name {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
+        margin-bottom: 2px;
     }
     
-    .podium-team-logo, .podium-team-initial {
-        width: 24px;
-        height: 24px;
-        min-width: 24px;
-        max-width: 24px;
+    .podium-team-logo-top {
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        width: 32px;
+        height: 32px;
+    }
+
+    .podium-team-logo-top-img {
+        max-width: 32px;
+        max-height: 32px;
     }
     
     .podium-team-name {
-        font-size: 0.9rem;
-    }
-    
-    .podium-fastest-lap {
         font-size: 0.8rem;
     }
     
+    .podium-stats {
+        width: 100%;
+        justify-content: flex-start;
+        margin-top: 5px;
+    }
+
+    .podium-stat-item.points {
+        font-size: 1rem;
+    }
+    
+    .podium-fastest-lap {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+    }
+}
+    
     .classification-row-new {
-        grid-template-columns: 1fr;
-        gap: 10px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 8px;
         padding: 8px 12px;
         min-height: auto;
+        align-items: center;
     }
     
     .classification-left {
-        flex-wrap: wrap;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
     }
     
     .classification-position {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
+        min-width: 35px;
+    }
+
+    .classification-avatar {
+        width: 32px;
+        height: 42px;
     }
     
     .classification-driver-name {
-        font-size: 1.25rem;
-        min-width: auto;
+        font-size: 1rem;
+        min-width: 0;
         max-width: none;
         flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     .classification-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
         justify-content: center;
-        align-items: flex-start;
-        width: 100%;
+        gap: 2px;
+        min-width: 80px;
+    }
+
+    .classification-team-info {
         gap: 6px;
+        justify-content: flex-end;
+    }
+
+    .classification-team-logo, .classification-team-initial, .classification-team-logo-container {
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
+        max-width: 20px;
+    }
+
+    .classification-team-name {
+        font-size: 0.7rem;
+        max-width: 100px;
     }
     
     .classification-fastest-lap {
         width: auto;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
+        margin-left: 0;
     }
     
+    .classification-points {
+        min-width: auto;
+        gap: 4px;
+    }
+
     .classification-points-value {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
+    }
+
+    .classification-points-label {
+        font-size: 0.75rem;
     }
 }
 .navbar { 
