@@ -664,7 +664,10 @@ function Home() {
                                                 className="classification-photo"
                                             />
                                         </div>
-                                        <div className="classification-driver-name">{formatDriverNameOneLine(driver.name)}</div>
+                                        <div className="classification-driver-name">
+                                            {formatDriverNameOneLine(driver.name)}
+                                            <small style={{display: 'block', fontSize: '0.7rem', opacity: 0.7, marginTop: '2px', fontWeight: 400}}>{driver.team}</small>
+                                        </div>
                                     </div>
                                     <div className="classification-right">
                                         <div className="classification-team-info">

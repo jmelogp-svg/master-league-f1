@@ -2127,14 +2127,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     fill: currentColor;
 }
 
+/* ================================
+   RANKING MOBILE-FIRST (Top 3 Carousel)
+================================ */
 @media (max-width: 1024px) {
     .top5-container {
         display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 15px 10px;
-        width: 100%;
-        box-sizing: border-box;
+        gap: 14px;
+        overflow-x: auto;
+        padding: 0 16px 12px;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
     }
 
     .top5-container::-webkit-scrollbar {
@@ -2142,60 +2146,64 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-card-new {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        width: 100%;
-        height: 120px;
-        padding: 0 12px;
-        gap: 10px;
-        border-radius: 12px;
+        min-width: 170px;
+        background: linear-gradient(180deg, #141d3a, #0c1327);
+        border-radius: 18px;
+        padding: 14px 12px 16px;
+        text-align: center;
+        scroll-snap-align: start;
         position: relative;
-        overflow: hidden;
-        flex: none;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        height: auto;
         aspect-ratio: auto;
-        border: 2px solid var(--team-color, rgba(255,255,255,0.2));
-        border-left: 4px solid var(--team-color, rgba(255,255,255,0.3));
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Glow por posição */
+    .top5-card-new:nth-child(1) {
+        box-shadow: 0 0 18px rgba(255, 140, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3);
+        border-color: #ff8c00;
+    }
+
+    .top5-card-new:nth-child(2) {
+        box-shadow: 0 0 16px rgba(70, 130, 255, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+        border-color: #4682ff;
+    }
+
+    .top5-card-new:nth-child(3) {
+        box-shadow: 0 0 16px rgba(0, 220, 180, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+        border-color: #00dcb4;
     }
 
     .top5-rank-number {
         position: relative;
         top: auto;
         left: auto;
-        font-size: 2.8rem;
-        font-weight: 900;
-        min-width: 45px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        opacity: 0.85;
+        min-width: auto;
         text-align: center;
         z-index: 3;
         color: white;
         line-height: 1;
+        margin-bottom: 4px;
     }
 
     .top5-team-logo-top {
-        position: absolute;
-        top: 50% !important;
-        right: -8% !important;
-        transform: translateY(-50%);
-        width: 140px !important;
-        height: 140px !important;
-        opacity: 0.15;
-        filter: grayscale(1) brightness(1.5);
-        z-index: 1;
-    }
-
-    .top5-team-logo-top img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
+        display: none;
     }
 
     .top5-photo-container {
-        width: 90px;
-        height: 120px;
-        margin-top: 0;
+        width: 76px;
+        height: 76px;
+        margin: 10px auto 6px;
         display: flex;
-        align-items: flex-end;
+        align-items: center;
         justify-content: center;
         z-index: 2;
         flex-shrink: 0;
@@ -2203,122 +2211,101 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .top5-photo {
-        height: 115%;
-        width: auto;
-        object-fit: contain;
-        filter: drop-shadow(0 0 20px var(--team-color, rgba(255,255,255,0.4))) drop-shadow(0 0 40px var(--team-color, rgba(255,255,255,0.2)));
+        width: 76px;
+        height: 76px;
+        border-radius: 50%;
+        object-fit: cover;
+        display: block;
+        filter: drop-shadow(0 0 8px var(--team-color, rgba(255,255,255,0.3)));
     }
 
     .top5-photo-container::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 40%;
-        background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
-        z-index: 1;
-        pointer-events: none;
+        display: none;
     }
 
     .top5-info {
-        flex: 1;
+        flex: none;
         margin-top: 0;
-        text-align: left;
+        text-align: center;
         z-index: 3;
         display: flex;
         flex-direction: column;
         justify-content: center;
         min-width: 0;
+        width: 100%;
     }
 
     .top5-driver-name {
-        font-size: 1.3rem;
-        line-height: 1.2;
-        font-weight: 900;
+        font-size: 0.95rem;
+        line-height: 1.3;
+        font-weight: 700;
         color: white;
+        display: block;
     }
 
     .top5-driver-name span {
-        display: block !important;
+        display: block;
     }
     
     .top5-driver-name span:first-child {
         font-weight: 400;
-        font-size: 0.95em;
         margin-bottom: 2px;
     }
 
     .top5-driver-name span:last-child {
-        font-weight: 900;
-        font-size: 1.05em;
+        font-weight: 700;
     }
 
     .top5-team-info {
-        justify-content: flex-start;
-        gap: 6px;
-        margin-top: 6px;
+        justify-content: center;
+        gap: 4px;
+        margin-top: 2px;
         align-items: center;
     }
 
     .top5-team-logo-info {
-        width: 18px;
-        height: 18px;
+        width: 14px;
+        height: 14px;
     }
 
     .top5-team-name {
         font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-weight: 400;
+        opacity: 0.7;
+        text-transform: none;
+        letter-spacing: 0;
     }
 
     .top5-points-container {
-        margin-top: 0;
-        min-width: 90px;
+        margin-top: 10px;
+        min-width: auto;
         display: flex;
         flex-direction: column;
-        align-items: flex-end;
+        align-items: center;
         justify-content: center;
         z-index: 3;
-        gap: 4px;
+        gap: 0;
     }
 
     .top5-points-bar {
-        display: block !important;
-        width: 100%;
-        height: 6px;
-        background: rgba(255,255,255,0.1);
-        border-radius: 3px;
-        overflow: hidden;
-        margin-bottom: 4px;
-    }
-
-    .top5-points-fill {
-        height: 100%;
-        border-radius: 3px;
-        box-shadow: 0 0 8px var(--fill-color, rgba(255,255,255,0.5));
+        display: none;
     }
 
     .top5-points-wrapper {
-        align-items: flex-end;
+        align-items: center;
         display: flex;
         flex-direction: column;
     }
 
     .top5-points-value {
-        font-size: 1.8rem;
+        font-size: 1.05rem;
         line-height: 1;
-        font-weight: 900;
+        font-weight: 800;
         color: white;
     }
 
     .top5-points-label {
-        font-size: 0.7rem;
-        letter-spacing: 1px;
-        font-weight: 700;
-        color: rgba(255,255,255,0.7);
-        text-transform: uppercase;
+        display: none;
     }
 
     /* Podium and Classification Row adaptations within the same 1024px query */
@@ -2404,40 +2391,100 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         padding: 2px 8px;
     }
     
-    .classification-row-new {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        gap: 8px;
-        padding: 8px 12px;
-        min-height: auto;
-        align-items: center;
+    /* ================================
+       RANKING LIST (Mobile-First)
+    ================================ */
+    .classification-section-new {
+        margin-top: 18px;
+        padding: 0 16px;
     }
-    
+
+    .classification-row-new {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #121a33, #0a1024);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        margin-bottom: 10px;
+        min-height: auto;
+        grid-template-columns: none;
+        position: relative;
+    }
+
+    /* Highlight por equipe */
+    .classification-row-new[style*="--f1-redbull"],
+    .classification-row-new[style*="redbull"] {
+        box-shadow: inset 0 0 0 1px rgba(255, 60, 60, 0.4);
+    }
+
+    .classification-row-new[style*="--f1-ferrari"],
+    .classification-row-new[style*="ferrari"] {
+        box-shadow: inset 0 0 0 1px rgba(255, 200, 60, 0.4);
+    }
+
+    .classification-row-new[style*="--f1-alpine"],
+    .classification-row-new[style*="alpine"] {
+        box-shadow: inset 0 0 0 1px rgba(200, 80, 255, 0.4);
+    }
+
+    .classification-row-new[style*="--f1-mercedes"],
+    .classification-row-new[style*="mercedes"] {
+        box-shadow: inset 0 0 0 1px rgba(0, 210, 190, 0.4);
+    }
+
+    .classification-row-new[style*="--f1-mclaren"],
+    .classification-row-new[style*="mclaren"] {
+        box-shadow: inset 0 0 0 1px rgba(255, 140, 0, 0.4);
+    }
+
     .classification-left {
         display: flex;
         align-items: center;
         gap: 10px;
         min-width: 0;
+        flex: 1;
     }
     
     .classification-position {
-        font-size: 1.25rem;
-        min-width: 35px;
+        width: 24px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        opacity: 0.75;
+        min-width: 24px;
+        text-align: left;
     }
 
     .classification-avatar {
-        width: 32px;
+        width: 42px;
         height: 42px;
+        border-radius: 50%;
+        border: none;
+    }
+    
+    .classification-photo {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        object-fit: cover;
     }
     
     .classification-driver-name {
-        font-size: 1rem;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: white;
         min-width: 0;
         max-width: none;
         flex: 1;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        display: block;
+    }
+
+    .classification-team-info {
+        display: none;
     }
     
     .classification-right {
@@ -2445,44 +2492,111 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         flex-direction: column;
         align-items: flex-end;
         justify-content: center;
-        gap: 2px;
-        min-width: 80px;
+        gap: 0;
+        min-width: auto;
     }
 
-    .classification-team-info {
-        gap: 6px;
-        justify-content: flex-end;
-    }
-
-    .classification-team-logo, .classification-team-initial, .classification-team-logo-container {
-        width: 20px;
-        height: 20px;
-        min-width: 20px;
-        max-width: 20px;
-    }
-
-    .classification-team-name {
-        font-size: 0.7rem;
-        max-width: 100px;
-    }
-    
     .classification-fastest-lap {
-        width: auto;
-        font-size: 0.7rem;
-        margin-left: 0;
+        display: none;
     }
     
     .classification-points {
         min-width: auto;
-        gap: 4px;
+        gap: 0;
+        flex-direction: column;
+        align-items: flex-end;
     }
 
     .classification-points-value {
-        font-size: 1.1rem;
+        font-size: 0.85rem;
+        font-weight: 800;
+        opacity: 0.9;
+        color: white;
     }
 
     .classification-points-label {
-        font-size: 0.75rem;
+        display: none;
+    }
+
+    /* Restaurar layout desktop para telas maiores */
+    @media (min-width: 1025px) {
+        .classification-section-new {
+            margin-top: 40px;
+            padding: 0;
+        }
+
+        .classification-row-new {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            padding: 6px 16px;
+            margin-bottom: 4px;
+            min-height: 55px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.3) 100%);
+            border: 1px solid var(--team-color, rgba(255,255,255,0.1));
+            border-left: 3px solid var(--team-color, rgba(255,255,255,0.2));
+            border-radius: 8px;
+            box-shadow: none;
+        }
+
+        .classification-left {
+            gap: 12px;
+            flex: none;
+        }
+
+        .classification-position {
+            font-size: 1.5rem;
+            min-width: 45px;
+            width: auto;
+        }
+
+        .classification-avatar {
+            width: 40px;
+            height: 53px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .classification-photo {
+            width: 100%;
+            height: 100%;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .classification-driver-name {
+            font-size: 1.2rem;
+            min-width: 280px;
+            max-width: 280px;
+        }
+
+        .classification-driver-name small {
+            display: none;
+        }
+
+        .classification-team-info {
+            display: flex;
+            gap: 12px;
+        }
+
+        .classification-right {
+            flex-direction: row;
+            gap: 16px;
+        }
+
+        .classification-fastest-lap {
+            display: flex;
+        }
+
+        .classification-points {
+            flex-direction: row;
+            gap: 6px;
+        }
+
+        .classification-points-label {
+            display: block;
+            font-size: 1rem;
+        }
     }
 }
 .navbar { 
