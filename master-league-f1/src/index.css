@@ -2862,6 +2862,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         height: auto !important;
     }
     
+    .classification-team-name-main {
+        font-size: 1.4rem;
+        font-weight: 900;
+        color: white;
+    }
+    
     .drivers-list-mobile {
         display: inline !important;
         visibility: visible !important;
@@ -3171,8 +3177,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         }
 
         .classification-team-name-main {
-            font-size: 1.2rem;
-            font-weight: 700;
+            font-size: 1.5rem;
+            font-weight: 900;
             color: white;
             min-width: 280px;
             max-width: 280px;
