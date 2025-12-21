@@ -501,9 +501,6 @@ function Standings() {
                                         <div className="classification-team-content-mobile">
                                             <div className="classification-team-name-main">{team.team}</div>
                                             <div className="classification-team-drivers-list">
-                                                <span className="drivers-list-desktop">
-                                                    {team.driversList && team.driversList.length > 0 ? team.driversList.join(' & ') : ""}
-                                                </span>
                                                 <span className="drivers-list-mobile">
                                                     {team.driversList && team.driversList.length > 0
                                                         ? team.driversList.map(abbreviateDriverName).join(' & ')
