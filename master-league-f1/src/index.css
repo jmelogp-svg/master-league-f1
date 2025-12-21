@@ -2825,6 +2825,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 /* Garantir ocultação em telas acima de 768px (tablet e desktop) */
 @media (min-width: 769px) {
+    /* OCULTA conteúdo mobile */
     .classification-team-content-mobile,
     .classification-team-drivers-list,
     .classification-team-drivers-mobile,
@@ -2836,20 +2837,29 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         margin: 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
+        position: absolute !important;
+        width: 0 !important;
     }
     
+    /* GARANTE que o conteúdo desktop apareça */
     .classification-team-info {
         display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
     }
     
     .classification-team-info .classification-team-name {
         display: inline !important;
         visibility: visible !important;
         opacity: 1 !important;
+        height: auto !important;
     }
     
     .drivers-list-desktop {
         display: inline !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 }
 
@@ -2885,21 +2895,54 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         opacity: 1 !important;
     }
 
+    /* OCULTA conteúdo desktop no mobile */
     .classification-team-info {
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        width: 0 !important;
     }
 
     .classification-team-info .classification-team-name {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;
+        height: 0 !important;
     }
 
     .drivers-list-desktop {
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        width: 0 !important;
     }
+    
+    /* GARANTE que o conteúdo mobile apareça */
     .drivers-list-mobile {
         display: inline !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+    }
+    
+    .classification-team-content-mobile {
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+    }
+    
+    .classification-team-drivers-list {
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
     }
 
     .classification-team-logo-mobile {
@@ -3090,20 +3133,33 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             display: flex !important;
             align-items: center;
             gap: 12px;
+            visibility: visible !important;
+            opacity: 1 !important;
+            height: auto !important;
         }
 
         .classification-team-info .classification-team-name {
             display: inline !important;
             visibility: visible !important;
             opacity: 1 !important;
+            height: auto !important;
         }
 
         /* 3. Garante que o span dos nomes na linha horizontal apareça */
         .drivers-list-desktop {
             display: inline !important;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
         .drivers-list-mobile {
             display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            position: absolute !important;
+            width: 0 !important;
         }
 
         .classification-driver-name small {
