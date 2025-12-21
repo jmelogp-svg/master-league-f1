@@ -2860,20 +2860,63 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     opacity: 1 !important;
 }
 
-/* Garantir que nomes abreviados apareçam em todas as telas */
+/* =========================================
+   VERSÃO DESKTOP (≥769px) - ÚNICA VERSÃO PC
+   Todas as regras desktop consolidadas aqui
+   ========================================= */
 @media (min-width: 769px) {
-    /* MANTÉM conteúdo mobile visível (nomes abreviados embaixo do nome) */
-    /* Nota: display já está definido na regra padrão acima */
-    
+    /* Layout e estrutura desktop */
+    .classification-section-new {
+        margin-top: 40px;
+        padding: 0;
+    }
+
+    .classification-row-new {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        padding: 6px 16px;
+        margin-bottom: 4px;
+        min-height: 55px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.3) 100%);
+        border: 1px solid var(--team-color, rgba(255,255,255,0.1));
+        border-left: 3px solid var(--team-color, rgba(255,255,255,0.2));
+        border-radius: 8px;
+        box-shadow: none;
+    }
+
+    .classification-left {
+        gap: 12px;
+        flex: none;
+    }
+
+    .classification-position {
+        font-size: 1.5rem;
+        min-width: 45px;
+        width: auto;
+    }
+
+    .classification-avatar {
+        width: 40px;
+        height: 53px;
+        border-radius: 4px;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .classification-photo {
+        width: 100%;
+        height: 100%;
+        border-radius: 4px;
+        object-fit: cover;
+    }
+
+    /* Nome da equipe - tamanho e estilo únicos para todos os desktops */
     .classification-team-name-main {
         font-size: 1.4rem !important;
         font-weight: 900 !important;
     }
     
-    /* Nota: .drivers-list-mobile já está definido na regra padrão acima */
-    
     /* OCULTA completamente os nomes duplicados da lateral direita no desktop */
-    /* Nota: regra padrão acima já oculta .classification-team-info, aqui apenas reforça seletores específicos */
     .classification-right .classification-team-info,
     .classification-team-drivers,
     .classification-drivers,
@@ -2887,6 +2930,36 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         position: absolute !important;
         width: 0 !important;
         overflow: hidden !important;
+    }
+
+    .classification-driver-name small {
+        display: none !important;
+    }
+
+    .classification-driver-name .classification-team-logo-mobile,
+    .classification-driver-name .classification-team-logo-mobile *,
+    .classification-team-logo-mobile,
+    .classification-team-logo-mobile small {
+        display: none !important;
+    }
+
+    .classification-right {
+        flex-direction: row;
+        gap: 16px;
+    }
+
+    .classification-fastest-lap {
+        display: flex;
+    }
+
+    .classification-points {
+        flex-direction: row;
+        gap: 6px;
+    }
+
+    .classification-points-label {
+        display: block;
+        font-size: 1rem;
     }
 }
 
@@ -3031,138 +3104,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 }
 
-    /* Restaurar layout desktop para telas maiores */
-    @media (min-width: 1025px) {
-        .classification-section-new {
-            margin-top: 40px;
-            padding: 0;
-        }
-
-        .classification-row-new {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            padding: 6px 16px;
-            margin-bottom: 4px;
-            min-height: 55px;
-            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.3) 100%);
-            border: 1px solid var(--team-color, rgba(255,255,255,0.1));
-            border-left: 3px solid var(--team-color, rgba(255,255,255,0.2));
-            border-radius: 8px;
-            box-shadow: none;
-        }
-
-        .classification-left {
-            gap: 12px;
-            flex: none;
-        }
-
-        .classification-position {
-            font-size: 1.5rem;
-            min-width: 45px;
-            width: auto;
-        }
-
-        .classification-avatar {
-            width: 40px;
-            height: 53px;
-            border-radius: 4px;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .classification-photo {
-            width: 100%;
-            height: 100%;
-            border-radius: 4px;
-            object-fit: cover;
-        }
-
-        /* 1. MANTÉM a lista que aparece ABAIXO do nome (nomes abreviados) */
-        /* Nota: display já está definido na regra padrão, apenas ajustes de tamanho aqui */
-
-        .classification-team-name-main {
-            font-size: 1.5rem !important;
-            font-weight: 900 !important;
-            min-width: 280px;
-            max-width: 280px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* 2. OCULTA completamente os nomes duplicados da lateral direita no desktop */
-        /* Nota: regra padrão acima já oculta, aqui apenas reforça seletores específicos para desktop grande */
-        .classification-right .classification-team-info,
-        .classification-team-drivers,
-        .classification-drivers,
-        [class*="drivers"]:not(.drivers-list-mobile):not(.classification-team-drivers-list) {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            position: absolute !important;
-            width: 0 !important;
-            overflow: hidden !important;
-        }
-
-        /* 3. Garante que os nomes abreviados apareçam */
-        .drivers-list-mobile {
-            display: inline !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-        .drivers-list-desktop {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            position: absolute !important;
-            width: 0 !important;
-        }
-
-        .classification-driver-name small {
-            display: none !important;
-        }
-
-        .classification-driver-name .classification-team-logo-mobile {
-            display: none !important;
-        }
-
-        .classification-driver-name .classification-team-logo-mobile * {
-            display: none !important;
-        }
-
-        .classification-team-logo-mobile {
-            display: none !important;
-        }
-
-        .classification-team-logo-mobile small {
-            display: none !important;
-        }
-
-        .classification-right {
-            flex-direction: row;
-            gap: 16px;
-        }
-
-        .classification-fastest-lap {
-            display: flex;
-        }
-
-        .classification-points {
-            flex-direction: row;
-            gap: 6px;
-        }
-
-        .classification-points-label {
-            display: block;
-            font-size: 1rem;
-        }
-    }
+    /* Nota: Todas as regras desktop foram consolidadas no bloco @media (min-width: 769px) acima */
+    /* Não há mais diferenças entre diferentes tamanhos de PC - apenas entre mobile e desktop */
 }
 .navbar { 
     position: fixed; /* Isso garante que ela fique fixa no topo */
