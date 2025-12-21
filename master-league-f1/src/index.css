@@ -2742,8 +2742,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .classification-avatar {
-        width: 38px;
-        height: 38px;
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         border: none;
         align-self: flex-start;
@@ -2751,8 +2751,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
     
     .classification-photo {
-        width: 38px;
-        height: 38px;
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         object-fit: cover;
     }
