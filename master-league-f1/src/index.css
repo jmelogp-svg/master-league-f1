@@ -2793,27 +2793,27 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     line-height: 1.2;
 }
 
-/* Sobrescrever cor para desktop - garantir que verde apareça em TODAS as resoluções desktop */
+/* TESTE: Sobrescrever cor para desktop - azul para testar em TODAS as resoluções desktop */
 @media (min-width: 769px) {
     .classification-row-new .classification-team-name-main,
     .classification-team-content-mobile .classification-team-name-main {
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
     
     .classification-row-new .classification-team-drivers-list,
     .classification-team-content-mobile .classification-team-drivers-list,
     .classification-row-new .drivers-list-mobile,
     .classification-team-content-mobile .drivers-list-mobile {
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
 }
 
-/* Regra adicional para telas grandes (fullscreen) - garantir que funcione em qualquer resolução desktop */
+/* TESTE: Regra adicional para telas grandes (fullscreen) - azul para testar */
 @media (min-width: 1025px) {
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-row-new .classification-team-name-main,
     .classification-team-content-mobile .classification-team-name-main {
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
     
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
@@ -2824,17 +2824,17 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-team-content-mobile .classification-team-drivers-list,
     .classification-row-new .drivers-list-mobile,
     .classification-team-content-mobile .drivers-list-mobile {
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
 }
 
-/* Regra para telas muito grandes (4K, ultrawide) */
+/* TESTE: Regra para telas muito grandes (4K, ultrawide) - azul */
 @media (min-width: 1920px) {
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-row-new .classification-team-name-main,
     .classification-team-content-mobile .classification-team-name-main,
     .classification-team-name-main {
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
     
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
@@ -2849,7 +2849,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-team-drivers-list *,
     .classification-team-drivers-list span,
     .drivers-list-mobile {
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
 }
 .classification-team-drivers-list {
@@ -2863,14 +2863,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     opacity: 1 !important;
 }
 
-/* Regra universal para desktop - aplica verde quando não for mobile */
+/* TESTE: Regra universal para desktop - aplica azul quando não for mobile */
 @media screen and (min-width: 769px) {
-    /* Aplica para todas as resoluções desktop, incluindo tela cheia */
+    /* TESTE: Aplica azul para todas as resoluções desktop, incluindo tela cheia */
     body:not(.mobile-view) .classification-row-new .classification-team-name-main,
     body .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-row-new .classification-team-content-mobile .classification-team-name-main,
     .classification-team-content-mobile .classification-team-name-main {
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
     
     body:not(.mobile-view) .classification-row-new .classification-team-drivers-list,
@@ -2884,7 +2884,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-team-content-mobile .classification-team-drivers-list span,
     .classification-team-content-mobile .drivers-list-mobile,
     .drivers-list-mobile {
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
 }
 /* OCULTA completamente os nomes em caixa alta da lateral direita */
@@ -2953,12 +2953,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         height: auto !important;
     }
     
-    /* COR VERDE - MÁXIMA ESPECIFICIDADE para desktop */
+    /* TESTE: COR AZUL - MÁXIMA ESPECIFICIDADE para desktop */
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-team-name-main {
         font-size: 1.4rem !important;
         font-weight: 900 !important;
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
     
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
@@ -2968,14 +2968,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-team-drivers-list,
     .classification-team-drivers-list *,
     .classification-team-drivers-list span {
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
     
     .drivers-list-mobile {
         display: inline !important;
         visibility: visible !important;
         opacity: 1 !important;
-        color: #10B981 !important;
+        color: #3B82F6 !important;
     }
     
     /* OCULTA completamente os nomes duplicados da lateral direita no desktop */
@@ -3293,12 +3293,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             height: auto !important;
         }
 
-        /* COR VERDE - MÁXIMA ESPECIFICIDADE para desktop grande */
+        /* TESTE: COR AZUL - MÁXIMA ESPECIFICIDADE para desktop grande */
         .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
         .classification-team-name-main {
             font-size: 1.5rem !important;
             font-weight: 900 !important;
-            color: #10B981 !important;
+            color: #3B82F6 !important;
             min-width: 280px;
             max-width: 280px;
             white-space: nowrap;
@@ -3313,11 +3313,11 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         .classification-team-drivers-list,
         .classification-team-drivers-list *,
         .classification-team-drivers-list span {
-            color: #10B981 !important;
+            color: #3B82F6 !important;
         }
         
         .drivers-list-mobile {
-            color: #10B981 !important;
+            color: #3B82F6 !important;
         }
 
         /* 2. OCULTA completamente os nomes duplicados da lateral direita no desktop */
