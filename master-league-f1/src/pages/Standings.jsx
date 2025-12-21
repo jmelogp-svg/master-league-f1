@@ -501,9 +501,7 @@ function Standings() {
                                         <div className="classification-driver-name">
                                             {team.team}
                                             <div className="classification-team-drivers-mobile">
-                                                <small style={{fontSize: '0.7rem', opacity: 0.7, fontWeight: 400, display: 'block', marginTop: '2px'}}>
-                                                    {team.driversList.join(' & ')}
-                                                </small>
+                                                <small>{team.driversList.join(' & ')}</small>
                                             </div>
                                         </div>
                                     </div>
