@@ -2773,6 +2773,41 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         padding-top: 4px;
     }
 
+/* Padrão (desktop) */
+.classification-team-content-mobile {
+    display: none;
+}
+.classification-team-name-main {
+    font-size: 1rem;
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+.classification-team-drivers-list {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-weight: 400;
+    white-space: normal;
+    line-height: 1.2;
+    display: none;
+    visibility: hidden;
+    opacity: 0;
+}
+.classification-team-info {
+    display: flex;
+}
+.team-name-desktop {
+    display: inline;
+    white-space: nowrap;
+}
+.team-name-mobile {
+    display: none;
+}
+
+@media (max-width: 768px) {
     .classification-team-content-mobile {
         display: flex;
         flex-direction: column;
@@ -2806,6 +2841,13 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .classification-team-info {
         display: none;
+    }
+
+    .team-name-desktop {
+        display: none;
+    }
+    .team-name-mobile {
+        display: inline;
     }
 
     .classification-team-logo-mobile {
@@ -2920,6 +2962,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         transform: translateZ(0);
     }
 
+}
+
     /* Restaurar layout desktop para telas maiores */
     @media (min-width: 1025px) {
         .classification-section-new {
@@ -2967,7 +3011,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         }
 
         .classification-team-content-mobile {
-            display: block !important;
+            display: none !important;
         }
 
         .classification-team-name-main {
@@ -2983,6 +3027,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
         .classification-team-drivers-list {
             display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            overflow: hidden !important;
         }
 
         .classification-driver-name small {
