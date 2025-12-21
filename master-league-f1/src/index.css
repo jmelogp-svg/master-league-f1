@@ -2792,6 +2792,21 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     text-overflow: ellipsis;
     line-height: 1.2;
 }
+
+/* Sobrescrever cor para desktop - garantir que amarelo apareça */
+@media (min-width: 769px) {
+    .classification-row-new .classification-team-name-main,
+    .classification-team-content-mobile .classification-team-name-main {
+        color: #FFD700 !important;
+    }
+    
+    .classification-row-new .classification-team-drivers-list,
+    .classification-team-content-mobile .classification-team-drivers-list,
+    .classification-row-new .drivers-list-mobile,
+    .classification-team-content-mobile .drivers-list-mobile {
+        color: #FFD700 !important;
+    }
+}
 .classification-team-drivers-list {
     font-size: 0.75rem;
     color: rgba(255, 255, 255, 0.65);
@@ -2868,13 +2883,21 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         height: auto !important;
     }
     
+    /* COR AMARELA - MÁXIMA ESPECIFICIDADE para desktop */
+    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-team-name-main {
-        font-size: 1.4rem;
-        font-weight: 900;
-        color: #FFD700;
+        font-size: 1.4rem !important;
+        font-weight: 900 !important;
+        color: #FFD700 !important;
     }
     
-    .classification-team-drivers-list {
+    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
+    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list *,
+    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list span,
+    .classification-row-new .classification-left .classification-team-content-mobile .drivers-list-mobile,
+    .classification-team-drivers-list,
+    .classification-team-drivers-list *,
+    .classification-team-drivers-list span {
         color: #FFD700 !important;
     }
     
@@ -3201,9 +3224,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         }
 
         .classification-team-name-main {
-            font-size: 1.5rem;
-            font-weight: 900;
-            color: #FFD700;
+            font-size: 1.5rem !important;
+            font-weight: 900 !important;
+            color: #FFD700 !important;
             min-width: 280px;
             max-width: 280px;
             white-space: nowrap;
@@ -3212,6 +3235,11 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         }
         
         .classification-team-drivers-list {
+            color: #FFD700 !important;
+        }
+        
+        .classification-team-drivers-list *,
+        .classification-team-drivers-list span {
             color: #FFD700 !important;
         }
         
