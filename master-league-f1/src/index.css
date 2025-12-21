@@ -2793,50 +2793,19 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     line-height: 1.2;
 }
 
-/* TESTE: Sobrescrever cor para desktop - azul para testar em TODAS as resoluções desktop */
+/* =========================================
+   COR DO TEXTO - CLASSIFICAÇÃO DE EQUIPES (DESKTOP)
+   ÚNICA REGRA - ALTERE AQUI PARA MUDAR A COR
+   ========================================= */
 @media (min-width: 769px) {
-    .classification-row-new .classification-team-name-main,
-    .classification-team-content-mobile .classification-team-name-main {
-        color: #3B82F6 !important;
-    }
-    
-    .classification-row-new .classification-team-drivers-list,
-    .classification-team-content-mobile .classification-team-drivers-list,
-    .classification-row-new .drivers-list-mobile,
-    .classification-team-content-mobile .drivers-list-mobile {
-        color: #3B82F6 !important;
-    }
-}
-
-/* TESTE: Regra adicional para telas grandes (fullscreen) - azul para testar */
-@media (min-width: 1025px) {
+    /* Nome da equipe - ALTERE #3B82F6 para a cor desejada */
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-row-new .classification-team-name-main,
     .classification-team-content-mobile .classification-team-name-main {
         color: #3B82F6 !important;
     }
     
-    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
-    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list *,
-    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list span,
-    .classification-row-new .classification-left .classification-team-content-mobile .drivers-list-mobile,
-    .classification-row-new .classification-team-drivers-list,
-    .classification-team-content-mobile .classification-team-drivers-list,
-    .classification-row-new .drivers-list-mobile,
-    .classification-team-content-mobile .drivers-list-mobile {
-        color: #3B82F6 !important;
-    }
-}
-
-/* TESTE: Regra para telas muito grandes (4K, ultrawide) - azul */
-@media (min-width: 1920px) {
-    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
-    .classification-row-new .classification-team-name-main,
-    .classification-team-content-mobile .classification-team-name-main,
-    .classification-team-name-main {
-        color: #3B82F6 !important;
-    }
-    
+    /* Nomes dos pilotos - ALTERE #3B82F6 para a cor desejada */
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list *,
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list span,
@@ -2863,30 +2832,6 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     opacity: 1 !important;
 }
 
-/* TESTE: Regra universal para desktop - aplica azul quando não for mobile */
-@media screen and (min-width: 769px) {
-    /* TESTE: Aplica azul para todas as resoluções desktop, incluindo tela cheia */
-    body:not(.mobile-view) .classification-row-new .classification-team-name-main,
-    body .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
-    .classification-row-new .classification-team-content-mobile .classification-team-name-main,
-    .classification-team-content-mobile .classification-team-name-main {
-        color: #3B82F6 !important;
-    }
-    
-    body:not(.mobile-view) .classification-row-new .classification-team-drivers-list,
-    body .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
-    body .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list *,
-    body .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list span,
-    body .classification-row-new .classification-left .classification-team-content-mobile .drivers-list-mobile,
-    .classification-row-new .classification-team-content-mobile .classification-team-drivers-list,
-    .classification-team-content-mobile .classification-team-drivers-list,
-    .classification-team-content-mobile .classification-team-drivers-list *,
-    .classification-team-content-mobile .classification-team-drivers-list span,
-    .classification-team-content-mobile .drivers-list-mobile,
-    .drivers-list-mobile {
-        color: #3B82F6 !important;
-    }
-}
 /* OCULTA completamente os nomes em caixa alta da lateral direita */
 .classification-team-info {
     display: none !important;
@@ -2953,29 +2898,15 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         height: auto !important;
     }
     
-    /* TESTE: COR AZUL - MÁXIMA ESPECIFICIDADE para desktop */
-    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-team-name-main {
         font-size: 1.4rem !important;
         font-weight: 900 !important;
-        color: #3B82F6 !important;
-    }
-    
-    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
-    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list *,
-    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list span,
-    .classification-row-new .classification-left .classification-team-content-mobile .drivers-list-mobile,
-    .classification-team-drivers-list,
-    .classification-team-drivers-list *,
-    .classification-team-drivers-list span {
-        color: #3B82F6 !important;
     }
     
     .drivers-list-mobile {
         display: inline !important;
         visibility: visible !important;
         opacity: 1 !important;
-        color: #3B82F6 !important;
     }
     
     /* OCULTA completamente os nomes duplicados da lateral direita no desktop */
@@ -3293,31 +3224,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             height: auto !important;
         }
 
-        /* TESTE: COR AZUL - MÁXIMA ESPECIFICIDADE para desktop grande */
-        .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
         .classification-team-name-main {
             font-size: 1.5rem !important;
             font-weight: 900 !important;
-            color: #3B82F6 !important;
             min-width: 280px;
             max-width: 280px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-        }
-        
-        .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
-        .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list *,
-        .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list span,
-        .classification-row-new .classification-left .classification-team-content-mobile .drivers-list-mobile,
-        .classification-team-drivers-list,
-        .classification-team-drivers-list *,
-        .classification-team-drivers-list span {
-            color: #3B82F6 !important;
-        }
-        
-        .drivers-list-mobile {
-            color: #3B82F6 !important;
         }
 
         /* 2. OCULTA completamente os nomes duplicados da lateral direita no desktop */
