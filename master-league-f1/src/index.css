@@ -2843,12 +2843,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         display: none !important;
     }
 
-        .drivers-list-desktop {
-            display: none !important;
-        }
-        .drivers-list-mobile {
-            display: inline !important;
-        }
+    .classification-team-info .classification-team-name {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+    }
+
+    .drivers-list-desktop {
+        display: none !important;
+    }
+    .drivers-list-mobile {
+        display: inline !important;
+    }
 
     .classification-team-logo-mobile {
         display: flex;
@@ -3015,9 +3021,11 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         .classification-team-content-mobile,
         .classification-team-drivers-mobile {
             display: none !important;
-            height: 0 !important;
             visibility: hidden !important;
+            height: 0 !important;
             opacity: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
 
         .classification-team-name-main {
@@ -3036,6 +3044,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             display: flex !important;
             align-items: center;
             gap: 12px;
+        }
+
+        .classification-team-info .classification-team-name {
+            display: inline !important;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
 
         /* 3. Garante que o span dos nomes na linha horizontal apareça */
