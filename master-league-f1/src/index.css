@@ -2794,7 +2794,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .classification-driver-name .classification-team-logo-mobile small {
-        text-transform: uppercase !important;
+        text-transform: capitalize !important;
         font-size: 0.85rem !important;
         letter-spacing: 0.3px !important;
         font-weight: 600 !important;
