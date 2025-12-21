@@ -2793,6 +2793,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         object-fit: contain;
     }
 
+    .classification-driver-name .classification-team-logo-mobile small {
+        text-transform: uppercase !important;
+        font-size: 0.7rem !important;
+        letter-spacing: 0.3px !important;
+    }
+
     .classification-team-name {
         display: none;
     }
@@ -2827,6 +2833,47 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .classification-points-label {
         display: none;
+    }
+
+    /* Otimizações Mobile - Touch Targets e Performance */
+    .classification-row-new {
+        min-height: 56px;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .top5-card-new {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .podium-step {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Otimização de scroll suave */
+    .classification-section-new {
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
+
+    .top5-container {
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
+
+    /* Melhor uso de espaço - reduzir gaps desnecessários */
+    .classification-section-new {
+        gap: 4px;
+    }
+
+    /* Otimização de renderização */
+    .classification-row-new,
+    .top5-card-new,
+    .podium-step {
+        will-change: transform;
+        transform: translateZ(0);
     }
 
     /* Restaurar layout desktop para telas maiores */
