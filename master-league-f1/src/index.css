@@ -2793,18 +2793,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     line-height: 1.2;
 }
 
-/* Sobrescrever cor para desktop - garantir que amarelo apareça */
+/* Sobrescrever cor para desktop - garantir que verde apareça */
 @media (min-width: 769px) {
     .classification-row-new .classification-team-name-main,
     .classification-team-content-mobile .classification-team-name-main {
-        color: #FFD700 !important;
+        color: #10B981 !important;
     }
     
     .classification-row-new .classification-team-drivers-list,
     .classification-team-content-mobile .classification-team-drivers-list,
     .classification-row-new .drivers-list-mobile,
     .classification-team-content-mobile .drivers-list-mobile {
-        color: #FFD700 !important;
+        color: #10B981 !important;
     }
 }
 .classification-team-drivers-list {
@@ -2883,12 +2883,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         height: auto !important;
     }
     
-    /* COR AMARELA - MÁXIMA ESPECIFICIDADE para desktop */
+    /* COR VERDE - MÁXIMA ESPECIFICIDADE para desktop */
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-team-name-main {
         font-size: 1.4rem !important;
         font-weight: 900 !important;
-        color: #FFD700 !important;
+        color: #10B981 !important;
     }
     
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
@@ -2898,14 +2898,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-team-drivers-list,
     .classification-team-drivers-list *,
     .classification-team-drivers-list span {
-        color: #FFD700 !important;
+        color: #10B981 !important;
     }
     
     .drivers-list-mobile {
         display: inline !important;
         visibility: visible !important;
         opacity: 1 !important;
-        color: #FFD700 !important;
+        color: #10B981 !important;
     }
     
     /* OCULTA completamente os nomes duplicados da lateral direita no desktop */
@@ -3223,12 +3223,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             height: auto !important;
         }
 
-        /* COR AMARELA - MÁXIMA ESPECIFICIDADE para desktop grande */
+        /* COR VERDE - MÁXIMA ESPECIFICIDADE para desktop grande */
         .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
         .classification-team-name-main {
             font-size: 1.5rem !important;
             font-weight: 900 !important;
-            color: #FFD700 !important;
+            color: #10B981 !important;
             min-width: 280px;
             max-width: 280px;
             white-space: nowrap;
@@ -3243,11 +3243,11 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         .classification-team-drivers-list,
         .classification-team-drivers-list *,
         .classification-team-drivers-list span {
-            color: #FFD700 !important;
+            color: #10B981 !important;
         }
         
         .drivers-list-mobile {
-            color: #FFD700 !important;
+            color: #10B981 !important;
         }
 
         /* 2. OCULTA completamente os nomes duplicados da lateral direita no desktop */
