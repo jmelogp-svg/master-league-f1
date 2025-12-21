@@ -2775,7 +2775,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 /* Padrão (desktop) */
 .classification-team-content-mobile {
-    display: none;
+    display: none !important;
 }
 .classification-team-name-main {
     font-size: 1rem;
@@ -2786,30 +2786,30 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     text-overflow: ellipsis;
     line-height: 1.2;
 }
-.classification-team-drivers-list {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.65);
-    font-weight: 400;
-    white-space: normal;
-    line-height: 1.2;
-    display: none;
-    visibility: hidden;
-    opacity: 0;
-}
+    .classification-team-drivers-list {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.65);
+        font-weight: 400;
+        white-space: normal;
+        line-height: 1.2;
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+    }
 .classification-team-info {
-    display: flex;
+    display: flex !important;
 }
-.team-name-desktop {
-    display: inline;
+.drivers-list-desktop {
+    display: inline !important;
     white-space: nowrap;
 }
-.team-name-mobile {
-    display: none;
+.drivers-list-mobile {
+    display: none !important;
 }
 
 @media (max-width: 768px) {
     .classification-team-content-mobile {
-        display: flex;
+        display: flex !important;
         flex-direction: column;
         justify-content: center;
         align-items: flex-start;
@@ -2840,15 +2840,15 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 
     .classification-team-info {
-        display: none;
+        display: none !important;
     }
 
-    .team-name-desktop {
-        display: none;
-    }
-    .team-name-mobile {
-        display: inline;
-    }
+        .drivers-list-desktop {
+            display: none !important;
+        }
+        .drivers-list-mobile {
+            display: inline !important;
+        }
 
     .classification-team-logo-mobile {
         display: flex;
@@ -3010,8 +3010,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             object-fit: cover;
         }
 
-        .classification-team-content-mobile {
+        /* 1. Esconde a lista que aparece ABAIXO do nome (estilo mobile) */
+        .classification-team-drivers-list, 
+        .classification-team-content-mobile,
+        .classification-team-drivers-mobile {
             display: none !important;
+            height: 0 !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
         }
 
         .classification-team-name-main {
@@ -3025,18 +3031,22 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             text-overflow: ellipsis;
         }
 
-        .classification-team-drivers-list {
+        /* 2. Garante que o grupo da direita (onde os nomes devem ficar) esteja visível */
+        .classification-team-info {
+            display: flex !important;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* 3. Garante que o span dos nomes na linha horizontal apareça */
+        .drivers-list-desktop {
+            display: inline !important;
+        }
+        .drivers-list-mobile {
             display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-            overflow: hidden !important;
         }
 
         .classification-driver-name small {
-            display: none !important;
-        }
-
-        .classification-team-drivers-mobile {
             display: none !important;
         }
 
@@ -3054,11 +3064,6 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
         .classification-team-logo-mobile small {
             display: none !important;
-        }
-
-        .classification-team-info {
-            display: flex;
-            gap: 12px;
         }
 
         .classification-right {

@@ -456,17 +456,39 @@ function Home() {
     const getDriverStats = (driverName) => { const rawData = gridType === 'carreira' ? rawCarreira : rawLight; let stats = { points: 0, wins: 0, podiums: 0, poles: 0, races: 0 }; rawData.forEach(row => { const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return; if (row[9] === driverName) { stats.races++; const qualy = parseInt(row[6]); if (qualy === 1) stats.poles++; const racePos = parseInt(row[8]); if (racePos === 1) stats.wins++; if (racePos >= 1 && racePos <= 3) stats.podiums++; if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) stats.points += p; } else { if (racePos >= 1 && racePos <= 10) stats.points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) stats.points += POINTS_SPRINT[sprintPos - 1]; } } }); stats.points = stats.points.toFixed(0); return stats; };
     const handleDriverClick = (driver) => { setSelectedDriver({ ...driver, stats: getDriverStats(driver.name) }); };
     
-    const getDrivers = () => { const rawData = gridType === 'carreira' ? rawCarreira : rawLight; const totals = {}; rawData.forEach(row => { const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return; const name = row[9]; const team = row[10]; if (!name) return; if (!totals[name]) totals[name] = { name, team, points: 0 }; if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) totals[name].points += p; } else { const racePos = parseInt(row[8]); if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; } }); return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 })); };
+    const abbreviateDriverName = (fullName) => {
+        if (!fullName || typeof fullName !== 'string') return fullName;
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length === 1) return fullName;
+        const first = parts[0]?.[0] ? `${parts[0][0].toUpperCase()}.` : '';
+        const rest = parts.slice(1).join(' ');
+        return [first, rest].filter(Boolean).join(' ');
+    };
+
+    const getDrivers = () => {
+        const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
+        const totals = {};
+        rawData.forEach(row => {
+            const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return;
+            const name = row[9]; const team = row[10]; if (!name) return;
+            if (!totals[name]) totals[name] = { name, team, points: 0 };
+            if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) totals[name].points += p; }
+            else { const racePos = parseInt(row[8]); if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
+        });
+        return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 }));
+    };
+
     const getConstructors = () => {
         const drivers = getDrivers();
         const teams = {};
         drivers.forEach(d => {
-            if (!teams[d.team]) {
-                teams[d.team] = { team: d.team, points: 0, driversList: [] };
+            const teamName = d.team || 'Reserva';
+            if (!teams[teamName]) {
+                teams[teamName] = { team: teamName, points: 0, driversList: [] };
             }
-            teams[d.team].points += d.points;
-            if (!teams[d.team].driversList.includes(d.name)) {
-                teams[d.team].driversList.push(d.name);
+            teams[teamName].points += d.points;
+            if (d.name && !teams[teamName].driversList.includes(d.name)) {
+                teams[teamName].driversList.push(d.name);
             }
         });
         return Object.values(teams).sort((a, b) => b.points - a.points).map((t, i) => ({ ...t, pos: i + 1 }));
@@ -721,9 +743,18 @@ function Home() {
                                         </div>
                                         <div className="classification-team-content-mobile">
                                             <div className="classification-team-name-main">{team.team}</div>
-                                            <div className="classification-team-drivers-list">
-                                                {team.driversList && team.driversList.length > 0 ? team.driversList.join(' & ') : ""}
-                                            </div>
+                                        <div className="classification-team-drivers-list">
+                                            <span className="drivers-list-desktop">
+                                                {team.driversList && team.driversList.length > 0
+                                                    ? team.driversList.join(' & ')
+                                                    : ""}
+                                            </span>
+                                            <span className="drivers-list-mobile">
+                                                {team.driversList && team.driversList.length > 0
+                                                    ? team.driversList.map(abbreviateDriverName).join(' & ')
+                                                    : ""}
+                                            </span>
+                                        </div>
                                         </div>
                                     </div>
                                     <div className="classification-right">
