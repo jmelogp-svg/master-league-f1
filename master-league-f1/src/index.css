@@ -2832,8 +2832,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     opacity: 1 !important;
 }
 
-/* OCULTA completamente os nomes em caixa alta da lateral direita */
-.classification-team-info {
+/* OCULTA completamente os nomes em caixa alta da lateral direita (padrão para todas as telas) */
+.classification-team-info,
+.classification-team-info *,
+.classification-team-info .classification-team-name,
+.classification-team-info span,
+.drivers-list-desktop {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
@@ -2847,27 +2851,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 .classification-team-info *,
 .classification-team-info .classification-team-name,
 .classification-team-info span {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    position: absolute !important;
-    width: 0 !important;
-    overflow: hidden !important;
     font-size: 0 !important;
     line-height: 0 !important;
-}
-.drivers-list-desktop {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    position: absolute !important;
-    width: 0 !important;
 }
 .drivers-list-mobile {
     display: inline !important;
@@ -2878,41 +2863,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 /* Garantir que nomes abreviados apareçam em todas as telas */
 @media (min-width: 769px) {
     /* MANTÉM conteúdo mobile visível (nomes abreviados embaixo do nome) */
-    .classification-team-content-mobile {
-        display: flex !important;
-        flex-direction: column;
-        justify-content: center;
-        align-items: flex-start;
-        flex: 1;
-        min-width: 0;
-        gap: 2px;
-        visibility: visible !important;
-        opacity: 1 !important;
-        height: auto !important;
-    }
-    
-    .classification-team-drivers-list {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        height: auto !important;
-    }
+    /* Nota: display já está definido na regra padrão acima */
     
     .classification-team-name-main {
         font-size: 1.4rem !important;
         font-weight: 900 !important;
     }
     
-    .drivers-list-mobile {
-        display: inline !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    }
+    /* Nota: .drivers-list-mobile já está definido na regra padrão acima */
     
     /* OCULTA completamente os nomes duplicados da lateral direita no desktop */
-    /* Correção real: ocultar .classification-team-info dentro de .classification-right */
+    /* Nota: regra padrão acima já oculta .classification-team-info, aqui apenas reforça seletores específicos */
     .classification-right .classification-team-info,
-    .classification-team-info,
     .classification-team-drivers,
     .classification-drivers,
     [class*="drivers"]:not(.drivers-list-mobile):not(.classification-team-drivers-list) {
@@ -2926,47 +2888,10 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         width: 0 !important;
         overflow: hidden !important;
     }
-    
-    /* Ocultar todos os filhos dentro de classification-team-info */
-    .classification-right .classification-team-info *,
-    .classification-team-info *,
-    .classification-team-info .classification-team-name,
-    .classification-team-info span {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        position: absolute !important;
-        width: 0 !important;
-        overflow: hidden !important;
-        font-size: 0 !important;
-        line-height: 0 !important;
-    }
-    
-    .drivers-list-desktop {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        position: absolute !important;
-        width: 0 !important;
-    }
 }
 
 @media (max-width: 768px) {
-    .classification-team-content-mobile {
-        display: flex !important;
-        flex-direction: column;
-        justify-content: center;
-        align-items: flex-start;
-        flex: 1;
-        min-width: 0;
-        gap: 2px;
-    }
+    /* Nota: .classification-team-content-mobile já está definido na regra padrão acima */
 
     .classification-team-name-main {
         font-size: 1rem;
@@ -2984,60 +2909,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         font-weight: 400;
         white-space: normal;
         line-height: 1.2;
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
     }
 
     /* OCULTA conteúdo desktop no mobile (nomes em caixa alta) */
-    .classification-team-info {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        position: absolute !important;
-        width: 0 !important;
-    }
-
-    .classification-team-info .classification-team-name {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        position: absolute !important;
-        width: 0 !important;
-    }
-
-    .drivers-list-desktop {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        position: absolute !important;
-        width: 0 !important;
-    }
+    /* Nota: regra padrão acima já oculta, aqui apenas reforça para mobile */
     
     /* GARANTE que o conteúdo mobile apareça (nomes abreviados) */
     .drivers-list-mobile {
         display: inline !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        height: auto !important;
-    }
-    
-    .classification-team-content-mobile {
-        visibility: visible !important;
-        opacity: 1 !important;
-        height: auto !important;
-    }
-    
-    .classification-team-drivers-list {
         visibility: visible !important;
         opacity: 1 !important;
         height: auto !important;
@@ -3142,11 +3021,6 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         scroll-behavior: smooth;
     }
 
-    /* Melhor uso de espaço - reduzir gaps desnecessários */
-    .classification-section-new {
-        gap: 4px;
-    }
-
     /* Otimização de renderização */
     .classification-row-new,
     .top5-card-new,
@@ -3204,25 +3078,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         }
 
         /* 1. MANTÉM a lista que aparece ABAIXO do nome (nomes abreviados) */
-        .classification-team-content-mobile {
-            display: flex !important;
-            flex-direction: column;
-            justify-content: center;
-            align-items: flex-start;
-            flex: 1;
-            min-width: 0;
-            gap: 2px;
-            visibility: visible !important;
-            opacity: 1 !important;
-            height: auto !important;
-        }
-
-        .classification-team-drivers-list {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            height: auto !important;
-        }
+        /* Nota: display já está definido na regra padrão, apenas ajustes de tamanho aqui */
 
         .classification-team-name-main {
             font-size: 1.5rem !important;
@@ -3235,9 +3091,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         }
 
         /* 2. OCULTA completamente os nomes duplicados da lateral direita no desktop */
-        /* Correção real: ocultar .classification-team-info dentro de .classification-right */
+        /* Nota: regra padrão acima já oculta, aqui apenas reforça seletores específicos para desktop grande */
         .classification-right .classification-team-info,
-        .classification-team-info,
         .classification-team-drivers,
         .classification-drivers,
         [class*="drivers"]:not(.drivers-list-mobile):not(.classification-team-drivers-list) {
@@ -3250,23 +3105,6 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             position: absolute !important;
             width: 0 !important;
             overflow: hidden !important;
-        }
-
-        .classification-right .classification-team-info *,
-        .classification-team-info *,
-        .classification-team-info .classification-team-name,
-        .classification-team-info span {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            position: absolute !important;
-            width: 0 !important;
-            overflow: hidden !important;
-            font-size: 0 !important;
-            line-height: 0 !important;
         }
 
         /* 3. Garante que os nomes abreviados apareçam */
