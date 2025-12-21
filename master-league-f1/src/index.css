@@ -3223,6 +3223,8 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             height: auto !important;
         }
 
+        /* COR AMARELA - MÁXIMA ESPECIFICIDADE para desktop grande */
+        .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
         .classification-team-name-main {
             font-size: 1.5rem !important;
             font-weight: 900 !important;
@@ -3234,10 +3236,11 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             text-overflow: ellipsis;
         }
         
-        .classification-team-drivers-list {
-            color: #FFD700 !important;
-        }
-        
+        .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
+        .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list *,
+        .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list span,
+        .classification-row-new .classification-left .classification-team-content-mobile .drivers-list-mobile,
+        .classification-team-drivers-list,
         .classification-team-drivers-list *,
         .classification-team-drivers-list span {
             color: #FFD700 !important;
