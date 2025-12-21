@@ -2773,9 +2773,15 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         padding-top: 4px;
     }
 
-/* Padrão (desktop) */
+/* Padrão (desktop) - OCULTA conteúdo mobile por padrão */
 .classification-team-content-mobile {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
 }
 .classification-team-name-main {
     font-size: 1rem;
@@ -2786,16 +2792,20 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     text-overflow: ellipsis;
     line-height: 1.2;
 }
-    .classification-team-drivers-list {
-        font-size: 0.75rem;
-        color: rgba(255, 255, 255, 0.65);
-        font-weight: 400;
-        white-space: normal;
-        line-height: 1.2;
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-    }
+.classification-team-drivers-list {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-weight: 400;
+    white-space: normal;
+    line-height: 1.2;
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
 .classification-team-info {
     display: flex !important;
 }
@@ -2805,6 +2815,42 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 .drivers-list-mobile {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Garantir ocultação em telas acima de 768px (tablet e desktop) */
+@media (min-width: 769px) {
+    .classification-team-content-mobile,
+    .classification-team-drivers-list,
+    .classification-team-drivers-mobile,
+    .drivers-list-mobile {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+    }
+    
+    .classification-team-info {
+        display: flex !important;
+    }
+    
+    .classification-team-info .classification-team-name {
+        display: inline !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    .drivers-list-desktop {
+        display: inline !important;
+    }
 }
 
 @media (max-width: 768px) {
