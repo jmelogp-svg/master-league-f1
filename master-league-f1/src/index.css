@@ -2871,13 +2871,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-team-name-main {
         font-size: 1.4rem;
         font-weight: 900;
-        color: white;
+        color: #FFD700;
+    }
+    
+    .classification-team-drivers-list {
+        color: #FFD700 !important;
     }
     
     .drivers-list-mobile {
         display: inline !important;
         visibility: visible !important;
         opacity: 1 !important;
+        color: #FFD700 !important;
     }
     
     /* OCULTA completamente os nomes duplicados da lateral direita no desktop */
@@ -3198,12 +3203,20 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         .classification-team-name-main {
             font-size: 1.5rem;
             font-weight: 900;
-            color: white;
+            color: #FFD700;
             min-width: 280px;
             max-width: 280px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        
+        .classification-team-drivers-list {
+            color: #FFD700 !important;
+        }
+        
+        .drivers-list-mobile {
+            color: #FFD700 !important;
         }
 
         /* 2. OCULTA completamente os nomes duplicados da lateral direita no desktop */
