@@ -2812,8 +2812,11 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     padding: 0 !important;
     position: absolute !important;
     width: 0 !important;
+    overflow: hidden !important;
 }
-.classification-team-info .classification-team-name {
+.classification-team-info *,
+.classification-team-info .classification-team-name,
+.classification-team-info span {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
@@ -2822,6 +2825,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     padding: 0 !important;
     position: absolute !important;
     width: 0 !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
 }
 .drivers-list-desktop {
     display: none !important;
@@ -2884,9 +2890,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         padding: 0 !important;
         position: absolute !important;
         width: 0 !important;
+        overflow: hidden !important;
     }
     
-    .classification-team-info .classification-team-name {
+    .classification-team-info *,
+    .classification-team-info .classification-team-name,
+    .classification-team-info span {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;
@@ -2895,6 +2904,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         padding: 0 !important;
         position: absolute !important;
         width: 0 !important;
+        overflow: hidden !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
     }
     
     .drivers-list-desktop {
@@ -3197,9 +3209,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             padding: 0 !important;
             position: absolute !important;
             width: 0 !important;
+            overflow: hidden !important;
         }
 
-        .classification-team-info .classification-team-name {
+        .classification-team-info *,
+        .classification-team-info .classification-team-name,
+        .classification-team-info span {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
@@ -3208,6 +3223,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             padding: 0 !important;
             position: absolute !important;
             width: 0 !important;
+            overflow: hidden !important;
+            font-size: 0 !important;
+            line-height: 0 !important;
         }
 
         /* 3. Garante que os nomes abreviados apareçam */
