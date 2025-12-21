@@ -498,10 +498,10 @@ function Standings() {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="classification-driver-name">
-                                            {team.team}
-                                            <div className="classification-team-drivers-mobile">
-                                                <small>{team.driversList.join(' & ')}</small>
+                                        <div className="classification-team-content-mobile">
+                                            <div className="classification-team-name-main">{team.team}</div>
+                                            <div className="classification-team-drivers-list">
+                                                {team.driversList && team.driversList.length > 0 ? team.driversList.join(' & ') : ""}
                                             </div>
                                         </div>
                                     </div>

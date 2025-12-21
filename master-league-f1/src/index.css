@@ -2773,24 +2773,35 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         padding-top: 4px;
     }
 
-    .classification-row-new .classification-driver-name .classification-team-drivers-mobile {
-        display: block !important;
-        visibility: visible !important;
-        margin-top: 3px;
-        white-space: normal;
-        opacity: 1 !important;
+    .classification-team-content-mobile {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        flex: 1;
+        min-width: 0;
+        gap: 2px;
     }
 
-    .classification-row-new .classification-driver-name .classification-team-drivers-mobile small {
+    .classification-team-name-main {
+        font-size: 1rem;
+        font-weight: 700;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.2;
+    }
+
+    .classification-team-drivers-list {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.65);
+        font-weight: 400;
+        white-space: normal;
+        line-height: 1.2;
         display: block !important;
         visibility: visible !important;
-        font-size: 0.7rem !important;
-        opacity: 0.7 !important;
-        font-weight: 400 !important;
-        line-height: 1.3 !important;
-        margin-top: 2px !important;
-        white-space: normal !important;
-        color: rgba(255, 255, 255, 0.7) !important;
+        opacity: 1 !important;
     }
 
     .classification-team-info {
@@ -2955,10 +2966,23 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             object-fit: cover;
         }
 
-        .classification-driver-name {
+        .classification-team-content-mobile {
+            display: block !important;
+        }
+
+        .classification-team-name-main {
             font-size: 1.2rem;
+            font-weight: 700;
+            color: white;
             min-width: 280px;
             max-width: 280px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .classification-team-drivers-list {
+            display: none !important;
         }
 
         .classification-driver-name small {

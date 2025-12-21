@@ -719,7 +719,12 @@ function Home() {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="classification-driver-name">{team.team}</div>
+                                        <div className="classification-team-content-mobile">
+                                            <div className="classification-team-name-main">{team.team}</div>
+                                            <div className="classification-team-drivers-list">
+                                                {team.driversList && team.driversList.length > 0 ? team.driversList.join(' & ') : ""}
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="classification-right">
                                         <div className="classification-team-info">
