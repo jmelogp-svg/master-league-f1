@@ -2773,15 +2773,15 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         padding-top: 4px;
     }
 
-/* Padrão (desktop) - OCULTA conteúdo mobile por padrão */
+/* Padrão - Mostra nomes abreviados embaixo do nome da equipe em TODAS as telas */
 .classification-team-content-mobile {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    flex: 1;
+    min-width: 0;
+    gap: 2px;
 }
 .classification-team-name-main {
     font-size: 1rem;
@@ -2798,68 +2798,108 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     font-weight: 400;
     white-space: normal;
     line-height: 1.2;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+/* OCULTA completamente os nomes em caixa alta da lateral direita */
+.classification-team-info {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
+    position: absolute !important;
+    width: 0 !important;
 }
-.classification-team-info {
-    display: flex !important;
+.classification-team-info .classification-team-name {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: absolute !important;
+    width: 0 !important;
 }
 .drivers-list-desktop {
-    display: inline !important;
-    white-space: nowrap;
-}
-.drivers-list-mobile {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
+    position: absolute !important;
+    width: 0 !important;
+}
+.drivers-list-mobile {
+    display: inline !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
-/* Garantir ocultação em telas acima de 768px (tablet e desktop) */
+/* Garantir que nomes abreviados apareçam em todas as telas */
 @media (min-width: 769px) {
-    /* OCULTA conteúdo mobile */
-    .classification-team-content-mobile,
-    .classification-team-drivers-list,
-    .classification-team-drivers-mobile,
+    /* MANTÉM conteúdo mobile visível (nomes abreviados embaixo do nome) */
+    .classification-team-content-mobile {
+        display: flex !important;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        flex: 1;
+        min-width: 0;
+        gap: 2px;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+    }
+    
+    .classification-team-drivers-list {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+    }
+    
     .drivers-list-mobile {
+        display: inline !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* GARANTE que os nomes em caixa alta da lateral permaneçam ocultos */
+    .classification-team-info {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;
         height: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
-        overflow: hidden !important;
         position: absolute !important;
         width: 0 !important;
     }
     
-    /* GARANTE que o conteúdo desktop apareça */
-    .classification-team-info {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        height: auto !important;
-    }
-    
     .classification-team-info .classification-team-name {
-        display: inline !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        height: auto !important;
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        width: 0 !important;
     }
     
     .drivers-list-desktop {
-        display: inline !important;
-        visibility: visible !important;
-        opacity: 1 !important;
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        width: 0 !important;
     }
 }
 
@@ -2895,7 +2935,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         opacity: 1 !important;
     }
 
-    /* OCULTA conteúdo desktop no mobile */
+    /* OCULTA conteúdo desktop no mobile (nomes em caixa alta) */
     .classification-team-info {
         display: none !important;
         visibility: hidden !important;
@@ -2912,6 +2952,10 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         visibility: hidden !important;
         opacity: 0 !important;
         height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        width: 0 !important;
     }
 
     .drivers-list-desktop {
@@ -2925,7 +2969,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         width: 0 !important;
     }
     
-    /* GARANTE que o conteúdo mobile apareça */
+    /* GARANTE que o conteúdo mobile apareça (nomes abreviados) */
     .drivers-list-mobile {
         display: inline !important;
         visibility: visible !important;
@@ -3105,16 +3149,25 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             object-fit: cover;
         }
 
-        /* 1. Esconde a lista que aparece ABAIXO do nome (estilo mobile) */
-        .classification-team-drivers-list, 
-        .classification-team-content-mobile,
-        .classification-team-drivers-mobile {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-            opacity: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
+        /* 1. MANTÉM a lista que aparece ABAIXO do nome (nomes abreviados) */
+        .classification-team-content-mobile {
+            display: flex !important;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            flex: 1;
+            min-width: 0;
+            gap: 2px;
+            visibility: visible !important;
+            opacity: 1 !important;
+            height: auto !important;
+        }
+
+        .classification-team-drivers-list {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            height: auto !important;
         }
 
         .classification-team-name-main {
@@ -3128,30 +3181,36 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
             text-overflow: ellipsis;
         }
 
-        /* 2. Garante que o grupo da direita (onde os nomes devem ficar) esteja visível */
+        /* 2. OCULTA completamente os nomes em caixa alta da lateral direita */
         .classification-team-info {
-            display: flex !important;
-            align-items: center;
-            gap: 12px;
-            visibility: visible !important;
-            opacity: 1 !important;
-            height: auto !important;
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            position: absolute !important;
+            width: 0 !important;
         }
 
         .classification-team-info .classification-team-name {
-            display: inline !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            height: auto !important;
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            position: absolute !important;
+            width: 0 !important;
         }
 
-        /* 3. Garante que o span dos nomes na linha horizontal apareça */
-        .drivers-list-desktop {
+        /* 3. Garante que os nomes abreviados apareçam */
+        .drivers-list-mobile {
             display: inline !important;
             visibility: visible !important;
             opacity: 1 !important;
         }
-        .drivers-list-mobile {
+        .drivers-list-desktop {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
