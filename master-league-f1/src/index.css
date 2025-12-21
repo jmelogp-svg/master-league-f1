@@ -2798,14 +2798,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
    ÚNICA REGRA - ALTERE AQUI PARA MUDAR A COR
    ========================================= */
 @media (min-width: 769px) {
-    /* Nome da equipe - ALTERE #3B82F6 para a cor desejada */
+    /* Nome da equipe - Amarelo */
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-row-new .classification-team-name-main,
     .classification-team-content-mobile .classification-team-name-main {
-        color: #3B82F6 !important;
+        color: #FFD700 !important;
     }
     
-    /* Nomes dos pilotos - ALTERE #3B82F6 para a cor desejada */
+    /* Nomes dos pilotos - Amarelo */
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list *,
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list span,
@@ -2818,7 +2818,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-team-drivers-list *,
     .classification-team-drivers-list span,
     .drivers-list-mobile {
-        color: #3B82F6 !important;
+        color: #FFD700 !important;
     }
 }
 .classification-team-drivers-list {
