@@ -27,6 +27,7 @@ import PilotoAtivoOuEx from './pages/PilotoAtivoOuEx';
 import ExPilotoCadastro from './pages/ExPilotoCadastro';
 import ExPilotoLogin from './pages/ExPilotoLogin';
 import ExPilotoEscolha from './pages/ExPilotoEscolha';
+import ResultadosCorrida from './pages/ResultadosCorrida';
 // import Narrador from './pages/Narrador'; // ADIADO - Sistema de narrador
 
 function App() {
@@ -59,6 +60,7 @@ function App() {
                 <Route path="/defesa" element={<FormularioDefesa />} />
                 <Route path="/veredito" element={<PainelVeredito />} />
                 <Route path="/minicup" element={<Minicup />} />
+                <Route path="/resultados-corrida" element={<ResultadosCorrida />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>

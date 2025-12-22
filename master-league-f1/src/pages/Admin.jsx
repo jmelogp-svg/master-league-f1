@@ -1474,6 +1474,17 @@ function Admin() {
                     <button className={`adm-tab-btn ${activeTab === 'noticias' ? 'active' : ''}`} onClick={() => setActiveTab('noticias')}>
                         📰 NOTÍCIAS
                     </button>
+                    <button 
+                        className="adm-tab-btn"
+                        onClick={() => navigate('/resultados-corrida')}
+                        style={{
+                            background: 'linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%)',
+                            color: 'white',
+                            border: 'none'
+                        }}
+                    >
+                        🏁 RESULTADOS
+                    </button>
                 </div>
 
                 {activeTab === 'drivers' && (
