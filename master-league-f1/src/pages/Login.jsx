@@ -259,6 +259,24 @@ function Login() {
             setStep('login');
             return;
         }
+
+        // PRIMEIRO: Verificar se é jurado - se for, NÃO processar como piloto
+        const emailLower = email.toLowerCase().trim();
+        const { data: jurado } = await supabase
+            .from('jurados')
+            .select('*')
+            .eq('email_google', emailLower)
+            .eq('ativo', true)
+            .maybeSingle();
+        
+        if (jurado) {
+            console.log('⚠️ Email pertence a um jurado. Redirecionando para /veredito...');
+            // Se for jurado, redirecionar para veredito e NÃO processar como piloto
+            navigate('/veredito');
+            return;
+        }
+        
+        console.log('✅ Email não é de jurado. Continuando verificação como piloto...');
         
         setStep('verifying_email');
         setErrorMsg('');
@@ -349,6 +367,22 @@ function Login() {
         if (!user?.email || !pilotoData) {
             setErrorMsg('Erro: Sessão inválida. Faça login novamente.');
             setStep('login');
+            return;
+        }
+
+        // VERIFICAÇÃO CRÍTICA: Se o email é de jurado, NÃO processar como piloto
+        // Isso evita que jurados sejam processados como pilotos
+        const emailLower = user.email.toLowerCase().trim();
+        const { data: juradoCheck } = await supabase
+            .from('jurados')
+            .select('*')
+            .eq('email_google', emailLower)
+            .eq('ativo', true)
+            .maybeSingle();
+        
+        if (juradoCheck) {
+            console.log('⚠️ Email pertence a um jurado. Redirecionando para /veredito...');
+            navigate('/veredito');
             return;
         }
 
