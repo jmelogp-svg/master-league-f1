@@ -896,6 +896,12 @@ function Login() {
                             type="tel"
                             value={whatsappInput}
                             onChange={handleWhatsAppChange}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && whatsappInput.length >= 14 && !sendingCode) {
+                                    e.preventDefault();
+                                    handleSendCode();
+                                }
+                            }}
                             placeholder="(00) 00000-0000"
                             maxLength={15}
                             style={{
@@ -1004,6 +1010,12 @@ function Login() {
                                 const value = e.target.value.replace(/\D/g, '').slice(0, 6);
                                 setCodeInput(value);
                                 setErrorMsg(''); // Limpa erro ao digitar
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && codeInput.length === 6 && !verifyingCode) {
+                                    e.preventDefault();
+                                    handleVerifyCode();
+                                }
                             }}
                             placeholder="000000"
                             maxLength={6}
@@ -1189,6 +1201,12 @@ function Login() {
                                 onChange={(e) => {
                                     const formatted = formatWhatsApp(e.target.value);
                                     setInscricaoData({ ...inscricaoData, whatsapp: formatted });
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !loading && inscricaoData.nome && inscricaoData.gamertag && inscricaoData.nomePiloto && inscricaoData.whatsapp) {
+                                        e.preventDefault();
+                                        handleSubmitInscricao();
+                                    }
                                 }}
                                 placeholder="(00) 00000-0000"
                                 maxLength={15}
