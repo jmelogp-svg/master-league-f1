@@ -43,6 +43,10 @@ function Admin() {
     const [editingNarrador, setEditingNarrador] = useState(null); // { id, nome, email, whatsapp, senha }
     const [savingNarrador, setSavingNarrador] = useState(false);
 
+    // Estados para Notícias (Upload de Imagens)
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [selectedNewsId, setSelectedNewsId] = useState(1);
+
     // Estados para Edição de Usuários/Pilotos
     const [editingUser, setEditingUser] = useState(null); // { id, nome, email, grid, equipe, whatsapp, is_steward }
     const [savingUser, setSavingUser] = useState(false);
@@ -1467,6 +1471,9 @@ function Admin() {
                     <button className={`adm-tab-btn ${activeTab === 'narradores' ? 'active' : ''}`} onClick={() => setActiveTab('narradores')}>
                         🎙️ NARRADORES
                     </button>
+                    <button className={`adm-tab-btn ${activeTab === 'noticias' ? 'active' : ''}`} onClick={() => setActiveTab('noticias')}>
+                        📰 NOTÍCIAS
+                    </button>
                 </div>
 
                 {activeTab === 'drivers' && (
@@ -2600,6 +2607,192 @@ function Admin() {
                                 )}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {activeTab === 'noticias' && (
+                    <div className="adm-content">
+                        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ color: '#F59E0B', margin: 0 }}>📰 Upload de Imagens das Notícias</h3>
+                        </div>
+
+                        <p style={{ color: '#94A3B8', marginBottom: '25px', fontSize: '14px', lineHeight: '1.6' }}>
+                            Faça upload das imagens das notícias. As imagens serão nomeadas automaticamente como <strong>Noticia1.jpg</strong>, <strong>Noticia2.jpg</strong>, etc., 
+                            baseado no ID da notícia na planilha do Google Sheets.
+                            <br/><br/>
+                            <strong>⚠️ Importante:</strong> Após fazer upload, você precisará mover a imagem para a pasta:
+                            <br/><code style={{background: '#0F172A', padding: '4px 8px', borderRadius: '4px', fontSize: '12px'}}>public/noticias/</code>
+                            <br/><br/>
+                            <strong>Caminho completo:</strong>
+                            <br/><code style={{background: '#0F172A', padding: '4px 8px', borderRadius: '4px', fontSize: '11px'}}>C:\Users\Usuario\Documents\Master League F1\Projetos_React\master-league-f1\public\noticias</code>
+                        </p>
+
+                        <div style={{
+                            background: '#1E293B',
+                            borderRadius: '10px',
+                            padding: '25px',
+                            marginBottom: '20px',
+                            border: '2px solid #F59E0B'
+                        }}>
+                            <h4 style={{ color: '#F59E0B', margin: '0 0 15px 0' }}>📤 Upload de Imagem</h4>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        ID da Notícia *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={selectedNewsId}
+                                        onChange={(e) => setSelectedNewsId(parseInt(e.target.value) || 1)}
+                                        placeholder="Ex: 1"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                    <p style={{ color: '#64748B', fontSize: '11px', marginTop: '5px' }}>
+                                        A imagem será salva como: <strong>Noticia{selectedNewsId}.jpg</strong>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                    Selecione a Imagem *
+                                </label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    id="news-image-upload"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+
+                                        setUploadingImage(true);
+                                        try {
+                                            // Converter imagem para base64 para preview
+                                            const reader = new FileReader();
+                                            reader.onload = async (event) => {
+                                                const imageData = event.target?.result;
+                                                
+                                                // Criar um link de download com o nome correto
+                                                const blob = await fetch(imageData).then(r => r.blob());
+                                                const url = URL.createObjectURL(blob);
+                                                const link = document.createElement('a');
+                                                link.href = url;
+                                                link.download = `Noticia${selectedNewsId}.jpg`;
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                document.body.removeChild(link);
+                                                URL.revokeObjectURL(url);
+
+                                                alert(`✅ Imagem "Noticia${selectedNewsId}.jpg" baixada com sucesso!\n\nAgora mova o arquivo para a pasta:\npublic/noticias/\n\nCaminho completo:\nC:\\Users\\Usuario\\Documents\\Master League F1\\Projetos_React\\master-league-f1\\public\\noticias`);
+                                            };
+                                            reader.readAsDataURL(file);
+                                        } catch (err) {
+                                            console.error('Erro ao processar imagem:', err);
+                                            alert('❌ Erro ao processar imagem: ' + err.message);
+                                        } finally {
+                                            setUploadingImage(false);
+                                            // Limpar input
+                                            e.target.value = '';
+                                        }
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #475569',
+                                        background: '#0F172A',
+                                        color: '#F8FAFC',
+                                        fontSize: '14px',
+                                        cursor: 'pointer'
+                                    }}
+                                    disabled={uploadingImage}
+                                />
+                                {uploadingImage && (
+                                    <p style={{ color: '#F59E0B', fontSize: '12px', marginTop: '5px' }}>
+                                        ⏳ Processando...
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{ 
+                                marginTop: '20px', 
+                                padding: '15px', 
+                                background: 'rgba(245, 158, 11, 0.1)', 
+                                borderRadius: '6px',
+                                border: '1px solid rgba(245, 158, 11, 0.3)'
+                            }}>
+                                <h5 style={{ color: '#F59E0B', margin: '0 0 10px 0', fontSize: '14px' }}>📋 Instruções:</h5>
+                                <ol style={{ color: '#CBD5E1', fontSize: '12px', margin: 0, paddingLeft: '20px', lineHeight: '1.8' }}>
+                                    <li>Selecione o ID da notícia (1, 2, 3, etc.)</li>
+                                    <li>Escolha a imagem que deseja fazer upload</li>
+                                    <li>A imagem será baixada automaticamente com o nome correto</li>
+                                    <li>Mova o arquivo para a pasta <code>public/noticias/</code> do projeto</li>
+                                    <li>Recarregue a página do site para ver a imagem</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        {/* Preview das imagens existentes */}
+                        <div style={{
+                            background: '#1E293B',
+                            borderRadius: '10px',
+                            padding: '25px',
+                            border: '1px solid rgba(255,255,255,0.1)'
+                        }}>
+                            <h4 style={{ color: '#F59E0B', margin: '0 0 15px 0' }}>🖼️ Imagens Existentes</h4>
+                            <p style={{ color: '#94A3B8', fontSize: '12px', marginBottom: '15px' }}>
+                                Preview das imagens que estão na pasta <code>public/noticias/</code>:
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
+                                {[1, 2, 3, 4, 5, 6].map((id) => (
+                                    <div key={id} style={{
+                                        background: '#0F172A',
+                                        borderRadius: '8px',
+                                        padding: '10px',
+                                        border: '1px solid #475569'
+                                    }}>
+                                        <div style={{ 
+                                            width: '100%', 
+                                            aspectRatio: '16/9', 
+                                            background: '#1E293B',
+                                            borderRadius: '6px',
+                                            marginBottom: '8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <img 
+                                                src={`/noticias/Noticia${id}.jpg`}
+                                                alt={`Notícia ${id}`}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: 'cover'
+                                                }}
+                                                onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                    e.target.parentElement.innerHTML = '<span style="color: #64748B; font-size: 12px;">Sem imagem</span>';
+                                                }}
+                                            />
+                                        </div>
+                                        <p style={{ color: '#94A3B8', fontSize: '11px', margin: 0, textAlign: 'center' }}>
+                                            Noticia{id}.jpg
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 )}
 

@@ -508,8 +508,10 @@ function Login() {
             setCodeAttempts(0); // Resetar contador de tentativas
 
             // Marcar 2FA como validado para manter o piloto logado nas próximas visitas
+            // Esta flag permanece no localStorage até que o usuário faça logout manualmente
             if (user?.email) {
                 localStorage.setItem(get2FAKey(user.email), 'true');
+                console.log('💾 2FA salvo no localStorage - usuário permanecerá logado até fazer logout');
             }
             
             // SEMPRE atualizar WhatsApp do piloto no Supabase após validação bem-sucedida

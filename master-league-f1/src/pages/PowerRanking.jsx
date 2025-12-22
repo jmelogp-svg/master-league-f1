@@ -28,12 +28,17 @@ const getTeamLogo = (teamName) => {
     const t = teamName.toLowerCase().replace(/\s/g, ''); 
     if(t.includes("ferrari")) return "/team-logos/f1-ferrari.png"; 
     if(t.includes("mercedes")) return "/team-logos/f1-mercedes.png"; 
+    if(t.includes("renault")) return "/team-logos/f1-renault.png";
     if(t.includes("alpine")) return "/team-logos/f1-alpine.png"; 
+    if(t.includes("racingpoint") || (t.includes("racing") && t.includes("point"))) return "/team-logos/f1-racingpoint.png";
     if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls")) || t.includes("visa")) return "/team-logos/f1-racingbulls.png"; 
-    if(t.includes("redbull") || t.includes("oracle")) return "/team-logos/f1-redbull.png"; 
+    if(t.includes("redbull") || t.includes("oracle") || t.includes("red bull")) return "/team-logos/f1-redbull.png"; 
     if(t.includes("mclaren")) return "/team-logos/f1-mclaren.png"; 
     if(t.includes("aston")) return "/team-logos/f1-astonmartin.png"; 
     if(t.includes("haas")) return "/team-logos/f1-haas.png"; 
+    if(t.includes("alfaromeo") || t.includes("alfa romeo") || (t.includes("alfa") && !t.includes("tauri"))) return "/team-logos/f1-alfaromeo.png"; 
+    if(t.includes("alphatauri") || t.includes("alpha tauri")) return "/team-logos/f1-alphatauri.png"; 
+    if(t.includes("tororosso") || t.includes("toro rosso") || t.includes("toro")) return "/team-logos/f1-tororosso.png";
     if(t.includes("williams")) return "/team-logos/f1-williams.png"; 
     if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/team-logos/f1-sauber.png";
     return null;
@@ -42,17 +47,24 @@ const getTeamLogo = (teamName) => {
 const getTeamColor = (teamName) => {
     if(!teamName) return "#FF9900";
     const t = teamName.toLowerCase();
-    if(t.includes("red bull") || t.includes("oracle")) return "#3671C6"; 
-    if(t.includes("ferrari")) return "#E80020"; 
-    if(t.includes("mercedes")) return "#27F4D2"; 
-    if(t.includes("mclaren")) return "#FF8000"; 
-    if(t.includes("aston")) return "#229971"; 
-    if(t.includes("alpine")) return "#FF87BC"; 
-    if(t.includes("haas")) return "#B6BABD"; 
-    if(t.includes("williams")) return "#64C4FF"; 
-    if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "#52E252"; 
-    if(t.includes("vcarb") || t.includes("racing") && t.includes("bulls")) return "#6692FF";
-    return "#FF9900"; 
+    // Equipes antigas (verificar primeiro para evitar conflitos)
+    if(t.includes("alfa") && !t.includes("tauri")) return "#900000"; // Alfa Romeo
+    if(t.includes("alpha") || t.includes("tauri")) return "#FFFFFF"; // Alpha Tauri
+    if(t.includes("toro") || t.includes("rosso")) return "#469BFF"; // Toro Rosso
+    if(t.includes("racing point") || t.includes("bwt")) return "#F596C8"; // Racing Point
+    if(t.includes("renault")) return "#FFF500"; // Renault
+    // Equipes atuais
+    if(t.includes("red bull") || t.includes("oracle")) return "#3671C6"; // Red Bull
+    if(t.includes("ferrari")) return "#E8002D"; // Ferrari
+    if(t.includes("mercedes")) return "#27F4D2"; // Mercedes
+    if(t.includes("mclaren")) return "#FF8000"; // McLaren
+    if(t.includes("aston")) return "#229971"; // Aston Martin
+    if(t.includes("alpine")) return "#FD4BC7"; // Alpine
+    if(t.includes("haas")) return "#B6BABD"; // Haas
+    if(t.includes("williams")) return "#64C4FF"; // Williams
+    if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "#52E252"; // Sauber/Stake
+    if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls"))) return "#6692FF"; // VCARB/Racing Bulls
+    return "#FF9900"; // Cor padrão
 };
 
 const hexToRgb = (hex) => {
@@ -81,6 +93,27 @@ function PowerRanking() {
     const [rankingData, setRankingData] = useState([]);
     const [availableSeasons, setAvailableSeasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState("");
+    const [isPhone, setIsPhone] = useState(window.innerWidth <= 768);
+    
+    useEffect(() => {
+        const handleResize = () => {
+            setIsPhone(window.innerWidth <= 768);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+    
+    // Função para formatar nome: primeira letra maiúscula, resto minúscula (ex: "LUCAS RAIOL" -> "Lucas Raiol")
+    const formatNameMobile = (name) => {
+        if (!name) return { first: '', last: '' };
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return { first: '', last: '' };
+        // Primeiro nome: apenas primeira letra maiúscula, resto minúscula
+        const first = parts[0].charAt(0).toUpperCase() + (parts[0].slice(1) || '').toLowerCase();
+        // Sobrenome: primeira letra maiúscula, resto minúscula
+        const rest = parts.slice(1).map(word => word.charAt(0).toUpperCase() + (word.slice(1) || '').toLowerCase()).join(' ');
+        return { first, last: rest };
+    };
 
     useEffect(() => {
         if (loading || !rawPR || rawPR.length === 0) return;
@@ -128,8 +161,7 @@ function PowerRanking() {
         <div className="pr-new-wrapper">
             <header className="pr-new-header">
                 <h1 className="pr-new-title">
-                    <span className="white">POWER RANKING - </span>
-                    <span className="accent">MASTER LEAGUE F1</span>
+                    POWER RANKING
                 </h1>
                 <div style={{position: 'relative', display:'inline-block'}}>
                     <select 
@@ -157,7 +189,7 @@ function PowerRanking() {
                     >
                         <div className="pr-hero-rank-side">
                             <span className="pr-hero-pos-num">1</span>
-                            <span className="pr-hero-pos-label">TOP 1</span>
+                            <span className="pr-hero-pos-label hide-mobile">TOP 1</span>
                         </div>
                         
                         <div className="pr-hero-photo-center">
@@ -166,12 +198,24 @@ function PowerRanking() {
 
                         <div className="pr-hero-info-side">
                             <h2 className="pr-hero-driver-name">
-                                <span className="first">{leader.name?.split(' ')[0]}</span>
-                                <span className="last">{leader.name?.split(' ').slice(1).join(' ')}</span>
+                                {isPhone ? (() => {
+                                    const formatted = formatNameMobile(leader.name);
+                                    return (
+                                        <>
+                                            <span className="pr-hero-name-first-mobile">{formatted.first}</span>
+                                            {formatted.last && <span className="pr-hero-name-last-mobile"> {formatted.last}</span>}
+                                        </>
+                                    );
+                                })() : (
+                                    <>
+                                        <span className="first">{leader.name?.split(' ')[0]}</span>
+                                        <span className="last">{leader.name?.split(' ').slice(1).join(' ')}</span>
+                                    </>
+                                )}
                             </h2>
                             <div className="pr-hero-team-row">
-                                <span className="pr-hero-team-name">{leader.team}</span>
                                 {getTeamLogo(leader.team) && <img src={getTeamLogo(leader.team)} className="pr-hero-team-logo" alt="" />}
+                                <span className="pr-hero-team-name">{leader.team}</span>
                             </div>
                             <div className="pr-hero-points-box">
                                 <span className="pr-hero-points-text">{leader.displayScore} PONTOS</span>
@@ -182,7 +226,7 @@ function PowerRanking() {
 
                 <div className="pr-rankings-grid">
                     {rest.map((driver) => {
-                        const rankColor = driver.rank <= 5 ? getRankColor(driver.rank) : getTeamColor(driver.team);
+                        const rankColor = getTeamColor(driver.team);
                         const rankColorRgb = hexToRgb(rankColor);
                         return (
                             <div 
@@ -203,7 +247,7 @@ function PowerRanking() {
                                     <div className="pr-grid-info">
                                         <span className="pr-grid-name">{driver.name}</span>
                                         <span className="pr-grid-team">
-                                            <i className="fas fa-shield-alt" style={{marginRight:'5px', fontSize:'10px'}}></i>
+                                            {getTeamLogo(driver.team) && <img src={getTeamLogo(driver.team)} className="pr-grid-team-logo" alt="" />}
                                             {driver.team}
                                         </span>
                                     </div>

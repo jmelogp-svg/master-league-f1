@@ -425,7 +425,7 @@ const navTabStyle = (isActive) => ({
 // ALTERAÇÃO 2: Passando estilo para a imagem se ajustar ao círculo
 const HighlightCard = ({ title, driver, value, label, color, grid }) => (
     <div style={{background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)', border: `1px solid ${color}40`, borderRadius: '16px', padding: '25px', textAlign: 'center', position: 'relative', overflow: 'hidden'}}>
-        <div style={{fontSize: '0.7rem', fontWeight: '800', color: color, letterSpacing: '2px', marginBottom: '15px'}}>{title}</div>
+        <div className="hof-card-title" style={{fontSize: '0.7rem', fontWeight: '800', color: color, letterSpacing: '2px', marginBottom: '15px'}}>{title}</div>
         <div style={{width: '100px', height: '100px', margin: '0 auto 15px', borderRadius: '50%', border: `4px solid ${color}`, overflow: 'hidden', boxShadow: `0 0 20px ${color}40`, background:'#0F172A'}}>
             <DriverImage 
                 name={driver?.name} 
@@ -446,7 +446,7 @@ const TopList = ({ title, data, valueKey }) => {
     
     return (
         <div>
-            <h3 style={{borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '10px', marginBottom: '15px', fontSize: '1rem', color: '#94A3B8', letterSpacing: '1px'}}>{title}</h3>
+            <h3 className="hof-list-title" style={{borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '10px', marginBottom: '15px', fontSize: '1rem', color: '#94A3B8', letterSpacing: '1px'}}>{title}</h3>
             <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
                 {displayData.map((d, i) => (
                     <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: i === 0 ? 'rgba(255, 215, 0, 0.1)' : 'rgba(255,255,255,0.03)', padding: '10px 15px', borderRadius: '8px', border: i === 0 ? '1px solid rgba(255, 215, 0, 0.3)' : 'none'}}>

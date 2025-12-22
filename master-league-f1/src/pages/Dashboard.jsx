@@ -864,45 +864,85 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         }
 
         // Verificar sessão inicial (pilotos ativos)
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            console.log('🔍 Dashboard - Sessão inicial:', session ? 'Encontrada' : 'Não encontrada');
-            setSession(session);
-            if (!session) {
-                console.log('⚠️ Nenhuma sessão encontrada. Redirecionando para escolha de tipo...');
-                setLoadingAuth(false);
-                navigate('/dashboard/escolher-tipo');
-                return;
-            }
+        const checkAuth = async () => {
+            try {
+                // Primeiro, tentar recuperar sessão do localStorage
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    console.error('❌ Erro ao verificar sessão:', error);
+                    setLoadingAuth(false);
+                    navigate('/dashboard/escolher-tipo');
+                    return;
+                }
+                
+                console.log('🔍 Dashboard - Sessão inicial:', session ? 'Encontrada' : 'Não encontrada');
+                setSession(session);
+                
+                if (!session) {
+                    console.log('⚠️ Nenhuma sessão encontrada. Redirecionando para escolha de tipo...');
+                    setLoadingAuth(false);
+                    navigate('/dashboard/escolher-tipo');
+                    return;
+                }
 
-            // Se tem sessão, verificar 2FA
-            const has2FA = localStorage.getItem(get2FAKey(session.user?.email)) === 'true';
-            if (!has2FA) {
-                console.log('⚠️ Sessão ativa mas 2FA não validado. Redirecionando para escolha de tipo...');
-                setLoadingAuth(false);
-                navigate('/dashboard/escolher-tipo');
-                return;
-            }
-
-            // Se tem sessão E 2FA validado, continuar no dashboard (não redirecionar)
-            console.log('✅ Sessão válida e 2FA validado. Continuando no dashboard...');
-        });
-        
-        // Listener para mudanças de autenticação
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            console.log('🔄 Dashboard - Auth state changed:', event, session ? 'Sessão ativa' : 'Sem sessão');
-            setSession(session);
-            if (!session && event === 'SIGNED_OUT') {
-                console.log('🚪 Usuário deslogado. Redirecionando para escolha de tipo...');
-                setLoadingAuth(false);
-                navigate('/dashboard/escolher-tipo');
-            } else if (session) {
-                console.log('✅ Sessão ativa no Dashboard');
-
+                // Se tem sessão, verificar 2FA
                 const has2FA = localStorage.getItem(get2FAKey(session.user?.email)) === 'true';
                 if (!has2FA) {
                     console.log('⚠️ Sessão ativa mas 2FA não validado. Redirecionando para escolha de tipo...');
                     setLoadingAuth(false);
                     navigate('/dashboard/escolher-tipo');
+                    return;
+                }
+
+                // Se tem sessão E 2FA validado, continuar no dashboard (não redirecionar)
+                console.log('✅ Sessão válida e 2FA validado. Continuando no dashboard...');
+                setLoadingAuth(false);
+            } catch (err) {
+                console.error('❌ Erro ao verificar autenticação:', err);
+                setLoadingAuth(false);
+                navigate('/dashboard/escolher-tipo');
+            }
+        };
+        
+        checkAuth();
+        
+        // Listener para mudanças de autenticação
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('🔄 Dashboard - Auth state changed:', event, session ? 'Sessão ativa' : 'Sem sessão');
+            setSession(session);
+            
+            if (!session && event === 'SIGNED_OUT') {
+                console.log('🚪 Usuário deslogado. Redirecionando para escolha de tipo...');
+                // Limpar flag de 2FA ao fazer logout
+                const previousSession = await supabase.auth.getSession();
+                if (previousSession?.data?.session?.user?.email) {
+                    localStorage.removeItem(get2FAKey(previousSession.data.session.user.email));
+                }
+                setLoadingAuth(false);
+                navigate('/dashboard/escolher-tipo');
+            } else if (session && event === 'TOKEN_REFRESHED') {
+                console.log('🔄 Token renovado automaticamente - mantendo usuário logado');
+                // Token foi renovado, verificar 2FA e manter logado
+                const has2FA = localStorage.getItem(get2FAKey(session.user?.email)) === 'true';
+                if (has2FA) {
+                    console.log('✅ Token renovado e 2FA válido - mantendo sessão ativa');
+                    setLoadingAuth(false);
+                } else {
+                    console.log('⚠️ Token renovado mas 2FA não validado. Redirecionando...');
+                    setLoadingAuth(false);
+                    navigate('/dashboard/escolher-tipo');
+                }
+            } else if (session) {
+                console.log('✅ Sessão ativa no Dashboard');
+                const has2FA = localStorage.getItem(get2FAKey(session.user?.email)) === 'true';
+                if (!has2FA) {
+                    console.log('⚠️ Sessão ativa mas 2FA não validado. Redirecionando para escolha de tipo...');
+                    setLoadingAuth(false);
+                    navigate('/dashboard/escolher-tipo');
+                } else {
+                    // Sessão válida e 2FA ok - manter logado
+                    setLoadingAuth(false);
                 }
             }
         });

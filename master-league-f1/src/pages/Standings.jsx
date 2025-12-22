@@ -561,7 +561,10 @@ function Standings() {
                 <>
                     <div className="race-header-card">
                         <div className="rh-left">
-                            <div className="rh-flag-container">{gpInfo.flag && <img src={gpInfo.flag} className="rh-flag" alt="" />}</div>
+                            <div className="rh-flag-container">
+                                {gpInfo.flag && <img src={gpInfo.flag} className="rh-flag" alt="" />}
+                                {isPhone && gpInfo.circuit && <img src={gpInfo.circuit} className="rh-circuit-mobile" style={{filter:'invert(1)'}} alt="" />}
+                            </div>
                             <div className="rh-info">
                                 <div className="rh-gp">{data[0].gp}</div>
                                 <div className="rh-details-line">{gpInfo.circuitName}<span className="rh-divider">|</span><span className="rh-date">{data[0].date}</span></div>
@@ -569,6 +572,7 @@ function Standings() {
                         </div>
                         <div className="rh-right">
                             <div className="rh-record"><RecordIcon/> Recorde: <strong>{historicalRecord.time}</strong></div>
+                            {!isPhone && gpInfo.circuit && <img src={gpInfo.circuit} className="rh-circuit" style={{height:50, marginTop:5, filter:'invert(1)'}} alt="" />}
                         </div>
                     </div>
                     

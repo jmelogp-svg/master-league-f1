@@ -7,6 +7,10 @@ import Papa from 'papaparse';
 // URL do CSV da Minicup
 const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv';
 
+// URL do CSV de Notícias - SUBSTITUA PELA URL DA SUA PLANILHA
+// Para obter a URL: Compartilhar > Qualquer pessoa com o link > Publicar na web > CSV
+const NEWS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=197415613&single=true&output=csv';
+
 // --- ÍCONES ---
 const ArrowRightIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>);
 const CalendarIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>);
@@ -213,6 +217,7 @@ function Home() {
     const [topDriversLight, setTopDriversLight] = useState([]);
     const [seasonDrivers, setSeasonDrivers] = useState([]);
     const [minicupDrivers, setMinicupDrivers] = useState([]);
+    const [news, setNews] = useState([]);
 
     const scrollRef = useRef(null);
     const minicupScrollRef = useRef(null);
@@ -311,6 +316,118 @@ function Home() {
             }
         };
         fetchMinicup();
+    }, []);
+
+    // Buscar notícias do Google Sheets
+    useEffect(() => {
+        const fetchNews = async () => {
+            try {
+                const response = await fetch(NEWS_CSV_URL);
+                if (!response.ok) {
+                    console.warn('⚠️ Erro ao buscar notícias do Google Sheets, usando notícias padrão');
+                    // Notícias padrão caso a planilha não esteja disponível
+                    setNews([
+                        {
+                            id: 1,
+                            title: "GP de Abu Dhabi: Campeão é Coroado",
+                            excerpt: "Confira todos os detalhes da última etapa da temporada e a celebração do novo campeão da Master League F1.",
+                            date: "15 Jan 2025",
+                            category: "Corrida",
+                            image: "/banner-masterleague.png",
+                            featured: true
+                        },
+                        {
+                            id: 2,
+                            title: "Análise: Melhor Volta da Temporada",
+                            excerpt: "Relembre os recordes de volta rápida que marcaram a temporada e os pilotos que se destacaram.",
+                            date: "12 Jan 2025",
+                            category: "Análise",
+                            image: null,
+                            featured: false
+                        },
+                        {
+                            id: 3,
+                            title: "Grid Light: Novos Desafios",
+                            excerpt: "A competição no Grid Light está mais acirrada do que nunca. Veja quem está na briga pelo título.",
+                            date: "10 Jan 2025",
+                            category: "Grid Light",
+                            image: null,
+                            featured: false
+                        }
+                    ]);
+                    return;
+                }
+                
+                const csvText = await response.text();
+                
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        const data = results.data;
+                        const newsList = [];
+                        
+                        if (!data || data.length === 0) {
+                            console.warn('⚠️ Nenhuma notícia encontrada na planilha');
+                            return;
+                        }
+                        
+                        data.forEach((row, index) => {
+                            // Ignorar linhas com #REF! ou IDs inválidos
+                            const idStr = (row.id || row.ID || '').toString().trim();
+                            if (idStr.includes('#REF!') || idStr.includes('#') || idStr === '') {
+                                return; // Pular esta linha
+                            }
+                            
+                            // Colunas esperadas: id, title, excerpt, date, category, image, featured, link
+                            const newsId = parseInt(idStr) || (index + 1);
+                            const imageFromSheet = (row.image || row.Imagem || row.imagem || row.image_url || row.Image_URL || '').trim();
+                            
+                            // Se não tiver imagem na planilha, tenta buscar automaticamente por ID
+                            let imageUrl = imageFromSheet || null;
+                            if (!imageUrl) {
+                                // Tenta buscar imagem local: /noticias/Noticia1.jpg, Noticia2.jpg, etc.
+                                const imageExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+                                // Vamos tentar no código, mas a verificação real será no render
+                                imageUrl = `/noticias/Noticia${newsId}.jpg`; // Padrão, será verificado no render
+                            }
+                            
+                            const newsItem = {
+                                id: newsId,
+                                title: (row.title || row.Título || row.titulo || '').trim(),
+                                excerpt: (row.excerpt || row.Resumo || row.resumo || row.descricao || row.Descrição || '').trim(),
+                                date: (row.date || row.Data || row.data || '').trim(),
+                                category: (row.category || row.Categoria || row.categoria || 'Notícia').trim(),
+                                image: imageUrl,
+                                featured: (row.featured || row.Destaque || row.destaque || '').toString().toLowerCase() === 'true' || row.featured === '1' || row.Destaque === '1' || row.featured === 'TRUE',
+                                link: (row.link || row.Link || row.url || row.URL || row.href || row.Href || '').trim() || null
+                            };
+                            
+                            // Validar se tem título (obrigatório) e se não está vazio
+                            if (newsItem.title && newsItem.title.length > 0 && !newsItem.title.includes('|')) {
+                                newsList.push(newsItem);
+                            }
+                        });
+                        
+                        // Ordenar: featured primeiro, depois por data (mais recente primeiro)
+                        newsList.sort((a, b) => {
+                            if (a.featured && !b.featured) return -1;
+                            if (!a.featured && b.featured) return 1;
+                            return new Date(b.date) - new Date(a.date);
+                        });
+                        
+                        console.log('✅ Notícias carregadas do Google Sheets:', newsList.length);
+                        setNews(newsList);
+                    },
+                    error: (error) => {
+                        console.error('❌ Erro ao parsear CSV de notícias:', error);
+                    }
+                });
+            } catch (err) {
+                console.error('Erro ao carregar notícias:', err);
+            }
+        };
+        fetchNews();
     }, []);
 
     useEffect(() => { if (!loading && seasons.length > 0 && selectedSeason === 0) setSelectedSeason(seasons[0]); }, [seasons, loading]);
@@ -805,7 +922,10 @@ function Home() {
             return ( <> 
                 <div className="race-header-card">
                     <div className="rh-left">
-                        <div className="rh-flag-container">{gpInfo.flag && <img src={gpInfo.flag} className="rh-flag" alt="" />}</div>
+                        <div className="rh-flag-container">
+                            {gpInfo.flag && <img src={gpInfo.flag} className="rh-flag" alt="" />}
+                            {isPhone && gpInfo.circuit && <img src={gpInfo.circuit} className="rh-circuit-mobile" style={{filter:'invert(1)'}} alt="" />}
+                        </div>
                         <div className="rh-info">
                             <div className="rh-gp">{data[0].gp}</div>
                             <div className="rh-details-line">{gpInfo.circuitName} {gpInfo.circuit && <span className="hide-mobile" style={{marginLeft:10}}>• Pista</span>}<span className="rh-divider">|</span><span className="rh-date">{data[0].date}</span></div>
@@ -813,7 +933,7 @@ function Home() {
                     </div>
                     <div className="rh-right">
                         <div className="rh-record"><RecordIcon/> Recorde: <strong>{historicalRecord.time}</strong> <small style={{marginLeft:5, opacity:0.7}}>({historicalRecord.driver})</small></div>
-                        {gpInfo.circuit && <img src={gpInfo.circuit} className="rh-circuit" style={{height:50, marginTop:5, filter:'invert(1)'}} alt="" />}
+                        {!isPhone && gpInfo.circuit && <img src={gpInfo.circuit} className="rh-circuit" style={{height:50, marginTop:5, filter:'invert(1)'}} alt="" />}
                     </div>
                 </div> 
                 
@@ -1060,6 +1180,96 @@ function Home() {
                     </header>
 
                     <div className="hub-container">
+                        {/* FEED DE NOTÍCIAS */}
+                        <section className="hub-section news-feed-section">
+                            <div className="section-header-hub">
+                                <h2>ÚLTIMAS NOTÍCIAS</h2>
+                                <Link to="/noticias" className="btn-text">Ver Todas <ArrowRightIcon/></Link>
+                            </div>
+                            <div className="news-feed-grid">
+                                {news.length > 0 ? news.map((newsItem, idx) => (
+                                    <article 
+                                        key={newsItem.id} 
+                                        className={`news-feed-card ${newsItem.featured ? 'news-featured' : ''}`}
+                                        onClick={() => {
+                                            if (newsItem.link) {
+                                                // Se for link externo (http/https), abre em nova aba
+                                                if (newsItem.link.startsWith('http://') || newsItem.link.startsWith('https://')) {
+                                                    window.open(newsItem.link, '_blank', 'noopener,noreferrer');
+                                                } else {
+                                                    // Se for rota interna, navega normalmente
+                                                    navigate(newsItem.link);
+                                                }
+                                            } else {
+                                                // Fallback: navega para página de notícias
+                                                navigate('/noticias');
+                                            }
+                                        }}
+                                    >
+                                        {(() => {
+                                            // Se tiver imagem na planilha (URL externa), usa ela
+                                            if (newsItem.image && !newsItem.image.startsWith('/noticias/')) {
+                                                return (
+                                                    <div className="news-feed-image">
+                                                        <img 
+                                                            src={newsItem.image} 
+                                                            alt={newsItem.title} 
+                                                            onError={(e) => {
+                                                                // Se falhar, tenta buscar local
+                                                                e.target.src = `/noticias/Noticia${newsItem.id}.jpg`;
+                                                            }}
+                                                        />
+                                                        <div className="news-feed-overlay"></div>
+                                                    </div>
+                                                );
+                                            }
+                                            
+                                            // Se não tiver imagem na planilha, busca automaticamente por ID
+                                            const imageUrl = `/noticias/Noticia${newsItem.id}.jpg`;
+                                            let extensionIndex = 0;
+                                            const extensions = ['jpg', 'jpeg', 'png', 'webp'];
+                                            
+                                            const handleImageError = (e) => {
+                                                extensionIndex++;
+                                                if (extensionIndex < extensions.length) {
+                                                    e.target.src = `/noticias/Noticia${newsItem.id}.${extensions[extensionIndex]}`;
+                                                } else {
+                                                    // Se nenhuma extensão funcionar, esconde a imagem
+                                                    e.target.style.display = 'none';
+                                                }
+                                            };
+                                            
+                                            return (
+                                                <div className="news-feed-image">
+                                                    <img 
+                                                        src={imageUrl} 
+                                                        alt={newsItem.title} 
+                                                        onError={handleImageError}
+                                                    />
+                                                    <div className="news-feed-overlay"></div>
+                                                </div>
+                                            );
+                                        })()}
+                                        <div className="news-feed-content">
+                                            <div className="news-feed-meta">
+                                                <span className="news-feed-category">{newsItem.category}</span>
+                                                <span className="news-feed-date">{newsItem.date}</span>
+                                            </div>
+                                            <h3 className="news-feed-title">{newsItem.title}</h3>
+                                            <p className="news-feed-excerpt">{newsItem.excerpt}</p>
+                                            <div className="news-feed-link">
+                                                Ler mais <ArrowRightIcon/>
+                                            </div>
+                                        </div>
+                                    </article>
+                                )) : (
+                                    <div style={{gridColumn: 'span 2', textAlign: 'center', padding: '40px', color: '#94A3B8'}}>
+                                        <p>Carregando notícias...</p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
                         {/* GRID MINICUP */}
                         {minicupDrivers.length > 0 && (
                             <section className="hub-section minicup-section">

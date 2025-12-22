@@ -11,6 +11,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: {
         persistSession: true, // Garantir que a sessão seja persistida
         autoRefreshToken: true, // Auto-refresh do token
-        detectSessionInUrl: true // Detectar sessão na URL (importante para OAuth)
+        detectSessionInUrl: true, // Detectar sessão na URL (importante para OAuth)
+        storage: window.localStorage, // Usar localStorage para persistência (padrão, mas explícito)
+        storageKey: 'sb-ueqfmjwdijaeawvxhdtp-auth-token' // Chave específica para este projeto
     }
 })
