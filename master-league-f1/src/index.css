@@ -2136,7 +2136,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 .classification-team-name {
     font-size: 1.1rem;
-    font-weight: 700;
+    font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     display: flex;
@@ -2153,7 +2153,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     z-index: 1;
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     gap: 16px;
     align-self: stretch;
@@ -2785,7 +2785,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 .classification-team-name-main {
     font-size: 1rem;
-    font-weight: 700;
+    font-weight: 900;
     color: white;
     white-space: nowrap;
     overflow: hidden;
@@ -2798,32 +2798,96 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
    ÚNICA REGRA - ALTERE AQUI PARA MUDAR A COR
    ========================================= */
 @media (min-width: 769px) {
-    /* Nome da equipe - Amarelo */
+    /* Oculta melhor volta mobile no desktop */
+    .classification-fastest-lap-mobile {
+        display: none !important;
+    }
+    
+    /* Oculta pontuação mobile no desktop */
+    .classification-points-mobile {
+        display: none !important;
+    }
+    
+    /* Mostra pontuação normal no desktop */
+    .results-row .classification-right .classification-points {
+        display: flex !important;
+    }
+    
+    /* No desktop, o nome do piloto aparece normalmente (sem estrutura mobile) */
+    .results-row .results-mobile-driver-row {
+        display: block !important;
+    }
+    
+    .results-row .results-mobile-driver-name {
+        display: inline !important;
+    }
+    
+    /* Nome da equipe - Branco e Negrito */
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-name-main,
     .classification-row-new .classification-team-name-main,
     .classification-team-content-mobile .classification-team-name-main {
-        color: #FFD700 !important;
+        color: white !important;
+        font-weight: 900 !important;
     }
     
-    /* Nomes dos pilotos - Amarelo */
+    /* Nomes dos pilotos - Branco (apenas desktop - nomes completos) */
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list,
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list *,
     .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list span,
-    .classification-row-new .classification-left .classification-team-content-mobile .drivers-list-mobile,
     .classification-row-new .classification-team-drivers-list,
     .classification-team-content-mobile .classification-team-drivers-list,
-    .classification-row-new .drivers-list-mobile,
-    .classification-team-content-mobile .drivers-list-mobile,
     .classification-team-drivers-list,
     .classification-team-drivers-list *,
-    .classification-team-drivers-list span,
+    .classification-team-drivers-list span {
+        color: white !important;
+    }
+    
+    /* Desktop: Mostrar nomes completos, esconder abreviados */
+    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list .drivers-list-desktop,
+    .classification-team-content-mobile .classification-team-drivers-list .drivers-list-desktop,
+    .classification-team-drivers-list .drivers-list-desktop,
+    .drivers-list-desktop {
+        display: inline !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: static !important;
+        width: auto !important;
+        overflow: visible !important;
+        color: white !important;
+    }
+    
+    /* Desktop: OCULTAR completamente nomes abreviados */
+    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list .drivers-list-mobile,
+    .classification-team-content-mobile .classification-team-drivers-list .drivers-list-mobile,
+    .classification-team-drivers-list .drivers-list-mobile,
+    .classification-row-new .drivers-list-mobile,
+    .classification-team-content-mobile .drivers-list-mobile,
     .drivers-list-mobile {
-        color: #FFD700 !important;
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        overflow: hidden !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+        text-indent: -9999px !important;
     }
 }
+
+/* =========================================================
+   Mobile: RESULTADOS (lista 4+)
+   - Usa a mesma formatação da tabela de pilotos
+   ========================================================= */
 .classification-team-drivers-list {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.65);
+    color: white;
     font-weight: 400;
     white-space: normal;
     line-height: 1.2;
@@ -2854,10 +2918,13 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     font-size: 0 !important;
     line-height: 0 !important;
 }
-.drivers-list-mobile {
-    display: inline !important;
-    visibility: visible !important;
-    opacity: 1 !important;
+/* Regra padrão para mobile - será sobrescrita no desktop */
+@media (max-width: 768px) {
+    .drivers-list-mobile {
+        display: inline !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
 }
 
 /* =========================================
@@ -2920,7 +2987,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-right .classification-team-info,
     .classification-team-drivers,
     .classification-drivers,
-    [class*="drivers"]:not(.drivers-list-mobile):not(.classification-team-drivers-list) {
+    [class*="drivers"]:not(.drivers-list-mobile):not(.drivers-list-desktop):not(.classification-team-drivers-list) {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;
@@ -2930,6 +2997,44 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         position: absolute !important;
         width: 0 !important;
         overflow: hidden !important;
+    }
+    
+    /* GARANTE que nomes abreviados fiquem ocultos no desktop */
+    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list .drivers-list-mobile,
+    .classification-team-content-mobile .classification-team-drivers-list .drivers-list-mobile,
+    .classification-team-drivers-list .drivers-list-mobile,
+    .classification-row-new .drivers-list-mobile,
+    .classification-team-content-mobile .drivers-list-mobile,
+    .drivers-list-mobile {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        overflow: hidden !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+        text-indent: -9999px !important;
+    }
+    
+    /* GARANTE que nomes completos apareçam no desktop */
+    .classification-row-new .classification-left .classification-team-content-mobile .classification-team-drivers-list .drivers-list-desktop,
+    .classification-team-content-mobile .classification-team-drivers-list .drivers-list-desktop,
+    .classification-team-drivers-list .drivers-list-desktop,
+    .drivers-list-desktop {
+        display: inline !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: static !important;
+        width: auto !important;
+        overflow: visible !important;
+        color: white !important;
     }
 
     .classification-driver-name small {
@@ -2968,7 +3073,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .classification-team-name-main {
         font-size: 1rem;
-        font-weight: 700;
+        font-weight: 900;
         color: white;
         white-space: nowrap;
         overflow: hidden;
@@ -2978,7 +3083,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .classification-team-drivers-list {
         font-size: 0.75rem;
-        color: rgba(255, 255, 255, 0.65);
+        color: white;
         font-weight: 400;
         white-space: normal;
         line-height: 1.2;
@@ -3000,6 +3105,61 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         align-items: center;
         margin: 4px 0 0 0;
         gap: 4px;
+    }
+    
+    /* Na tabela de resultados mobile: nome do piloto e pontuação na mesma linha */
+    .results-row .results-mobile-driver-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 8px;
+    }
+    
+    .results-row .results-mobile-driver-name {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    /* Pontuação mobile na mesma linha do nome do piloto */
+    .results-row .classification-points-mobile {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0;
+        flex-shrink: 0;
+    }
+    
+    .results-row .classification-points-mobile .classification-points-value {
+        font-size: 1.1rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+    
+    .results-row .classification-points-mobile .classification-points-label {
+        font-size: 0.6rem;
+        opacity: 0.7;
+        line-height: 1;
+    }
+    
+    /* Ocultar pontos do classification-right no mobile */
+    .results-row .classification-right .classification-points {
+        display: none !important;
+    }
+    
+    /* Na tabela de resultados mobile, melhor volta na mesma linha do nome da equipe */
+    .results-row .classification-team-logo-mobile {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 8px;
+        margin-top: 4px;
+    }
+    
+    .results-row .classification-team-logo-mobile small {
+        flex: 1;
+        min-width: 0;
     }
 
     .classification-team-logo-mobile .classification-team-logo,
@@ -3045,6 +3205,66 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
     .classification-fastest-lap {
         display: none;
+    }
+    
+    /* Melhor volta no mobile - aparece no classification-right, abaixo dos pontos, alinhada à direita */
+    .results-row .classification-right {
+        display: flex !important;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 4px;
+    }
+    
+    .results-row .classification-team-info {
+        display: none !important;
+    }
+    
+    .results-row .classification-fastest-lap {
+        display: none !important;
+    }
+    
+    /* Melhor volta mobile na tabela de resultados - alinhada à direita, na mesma linha do nome da equipe */
+    .results-row .classification-fastest-lap-mobile {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        color: #FFD700 !important;
+        font-weight: 500;
+        justify-content: flex-end;
+        text-align: right;
+        margin-top: 0;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    .classification-fastest-lap-mobile {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        color: #FFD700 !important;
+        font-weight: 500;
+        justify-content: flex-end;
+        text-align: right;
+    }
+    
+    .classification-fastest-lap-mobile.best-lap {
+        font-size: 0.75rem;
+        font-weight: 900;
+        color: #A855F7 !important;
+        text-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
+    }
+    
+    .classification-fastest-lap-mobile .fl-icon {
+        width: 12px;
+        height: 12px;
+    }
+    
+    .classification-fastest-lap-mobile.best-lap .fl-icon {
+        fill: #A855F7;
+        filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.8));
     }
     
     .classification-points {
@@ -5380,7 +5600,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     min-height: 100vh;
     color: white;
     padding-bottom: 100px;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Montserrat', sans-serif;
 }
 
 .pr-new-header {
@@ -5686,6 +5906,93 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 .pr-nav-link:hover, .pr-nav-link.active {
     color: #FF9900;
+}
+
+/* =========================================================
+   FIX: CLASSIFICAÇÃO DE EQUIPES - REGRAS DE PC (>= 769px)
+   Objetivo: evitar que "tela cheia" sobrescreva regras do PC.
+   Regra única do projeto: mobile <= 768px, PC >= 769px.
+   ========================================================= */
+@media (min-width: 769px) {
+    /* Nome da equipe */
+    .classification-team-name-main {
+        color: white !important;
+        font-weight: 900 !important;
+    }
+
+    /* Nomes dos pilotos (no PC renderizamos o nome completo via JS) */
+    .classification-team-drivers-list {
+        color: white !important;
+    }
+
+    /* Pontuação sempre encostada à direita */
+    .classification-right {
+        justify-content: flex-end !important;
+    }
+
+    /* Classificação de equipes (PC): fotos à esquerda + pontos à direita no 2º container */
+    .classification-right-teams {
+        width: 100%;
+        justify-content: space-between !important;
+        gap: 12px;
+    }
+
+    .team-members-photos {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    /* Moldura estilo 3x4 (referência Minicup PC) */
+    .team-member-photo-frame {
+        width: 54px;
+        height: 72px; /* 3x4 */
+        border-radius: 12px;
+        overflow: hidden;
+        background: #0F172A;
+        border: 3px solid var(--team-color, rgba(255,255,255,0.25));
+        box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+        flex: 0 0 auto;
+    }
+
+    .team-member-photo-img {
+        flex: 0 0 auto;
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+/* PC: RESULTADOS (lista 4+) - restaurar layout antigo (mostrar info da equipe à direita) */
+@media (min-width: 769px) {
+    .results-row .classification-team-info {
+        display: flex !important;
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .results-row .classification-team-info * {
+        font-size: inherit !important;
+        line-height: inherit !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .results-row .classification-team-info .classification-team-name {
+        font-size: 1.1rem !important;
+        line-height: 1 !important;
+    }
 }
 
 @media (max-width: 1024px) {

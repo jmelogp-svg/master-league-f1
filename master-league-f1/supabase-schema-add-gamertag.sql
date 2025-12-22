@@ -31,3 +31,4 @@ COMMENT ON COLUMN pilotos.gamertag IS 'Gamertag ou ID do piloto (ex: Xbox Gamert
 
 
 
+

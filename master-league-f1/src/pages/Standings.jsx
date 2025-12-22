@@ -233,10 +233,14 @@ function Standings() {
         return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 }));
     };
 
-    // Função para verificar se é mobile
-    const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+    // Regra única para responsividade: "mobile" = até 768px; "PC" = acima disso
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+    const [isPhone, setIsPhone] = useState(window.innerWidth <= 768);
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+        const handleResize = () => {
+            setIsMobile(window.innerWidth <= 768);
+            setIsPhone(window.innerWidth <= 768);
+        };
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
@@ -501,20 +505,30 @@ function Standings() {
                                         <div className="classification-team-content-mobile">
                                             <div className="classification-team-name-main">{team.team}</div>
                                             <div className="classification-team-drivers-list">
-                                                <span className="drivers-list-mobile">
-                                                    {team.driversList && team.driversList.length > 0
+                                                {team.driversList && team.driversList.length > 0
+                                                    ? (isPhone
                                                         ? team.driversList.map(abbreviateDriverName).join(' & ')
-                                                        : ""}
-                                                </span>
+                                                        : team.driversList.join(' & '))
+                                                    : ""}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="classification-right">
-                                        <div className="classification-team-info">
-                                            <span className="classification-team-name" style={{color: '#94A3B8', fontSize: '0.85rem'}}>
-                                                {team.driversList.join(' & ')}
-                                            </span>
-                                        </div>
+                                    <div className="classification-right classification-right-teams">
+                                        {!isPhone && (
+                                            <div className="team-members-photos" aria-label="Pilotos da equipe">
+                                                {(team.driversList || []).map((driverName) => (
+                                                    <div key={`${team.team}-${driverName}`} className="team-member-photo-frame">
+                                                        <DriverImage
+                                                            name={driverName}
+                                                            gridType={gridType}
+                                                            season={selectedSeason}
+                                                            className="team-member-photo-img"
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                         <div className="classification-points">
                                             <span className="classification-points-value">{team.points.toFixed(0)}</span>
                                             <span className="classification-points-label">PTS</span>
@@ -680,7 +694,7 @@ function Standings() {
                             return (
                                 <div 
                                     key={r.pos} 
-                                    className="classification-row-new" 
+                                    className="classification-row-new results-row" 
                                     style={{"--team-color": teamColor}}
                                     onClick={() => handleDriverClick(r)}
                                 >
@@ -695,7 +709,15 @@ function Standings() {
                                             />
                                         </div>
                                         <div className="classification-driver-name">
-                                            {formatDriverNameOneLine(r.name)}
+                                            <div className="results-mobile-driver-row">
+                                                <span className="results-mobile-driver-name">{formatDriverNameOneLine(r.name)}</span>
+                                                {isPhone && (
+                                                    <div className="classification-points-mobile">
+                                                        <span className="classification-points-value">+{r.totalPoints}</span>
+                                                        <span className="classification-points-label">PTS</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div className="classification-team-logo-mobile">
                                                 {teamLogo ? (
                                                     <img src={teamLogo} className="classification-team-logo" alt={r.team} />
@@ -705,6 +727,12 @@ function Standings() {
                                                     </div>
                                                 )}
                                                 <small style={{fontSize: '0.65rem', opacity: 0.7, fontWeight: 400}}>{r.team}</small>
+                                                {isPhone && r.fastestLap && r.fastestLap !== '-' && (
+                                                    <div className={`classification-fastest-lap-mobile ${r.fastestLap === bestLap ? 'best-lap' : ''}`}>
+                                                        <FastLapIcon />
+                                                        {r.fastestLap}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -717,9 +745,7 @@ function Standings() {
                                                     {r.team.charAt(0).toUpperCase()}
                                                 </div>
                                             )}
-                                            <span className="classification-team-name">
-                                                {r.team}
-                                            </span>
+                                            <span className="classification-team-name">{r.team}</span>
                                         </div>
                                         {r.fastestLap && r.fastestLap !== '-' && (
                                             <div className={`classification-fastest-lap ${r.fastestLap === bestLap ? 'best-lap' : ''}`}>
