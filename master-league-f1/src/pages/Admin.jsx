@@ -144,22 +144,18 @@ function Admin() {
     // 1. INICIALIZAÇÃO E VERIFICAÇÃO DE LOGIN SALVO
     useEffect(() => {
         const init = async () => {
-            // Busca senha real
-            const { data } = await supabase.from('app_config').select('value').eq('key', 'admin_password').single();
-            if (data) setRealPassword(data.value);
-
-            // Verifica sessão Google (Opcional, mas mantido)
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (!sessionData.session) {
-                navigate('/login');
-                return;
-            }
-
-            // --- AQUI ESTÁ A MÁGICA DA PERSISTÊNCIA ---
+            // PRIMEIRO: Verificar localStorage ANTES de qualquer outra coisa
+            // Isso garante que se o usuário marcou "Manter conectado", ele permanece logado
             const savedAuth = localStorage.getItem('ml_admin_auth');
             if (savedAuth === 'true') {
                 setIsAuthenticated(true);
+                setLoading(false);
+                return; // Se está autenticado via localStorage, não precisa verificar mais nada
             }
+
+            // Busca senha real (apenas se não estiver autenticado)
+            const { data } = await supabase.from('app_config').select('value').eq('key', 'admin_password').single();
+            if (data) setRealPassword(data.value);
             
             setLoading(false);
         };
@@ -248,9 +244,15 @@ function Admin() {
         e.preventDefault();
         if (passwordInput === realPassword) {
             setIsAuthenticated(true);
-            // Salva no localStorage se o checkbox estiver marcado
+            // SEMPRE salva no localStorage se o checkbox estiver marcado
+            // Isso garante persistência entre recarregamentos
             if (keepConnected) {
                 localStorage.setItem('ml_admin_auth', 'true');
+                console.log('✅ Autenticação salva no localStorage (Manter conectado ativado)');
+            } else {
+                // Se não marcou "Manter conectado", limpa o localStorage
+                localStorage.removeItem('ml_admin_auth');
+                console.log('ℹ️ Autenticação não salva (Manter conectado desativado)');
             }
         } else {
             alert('Senha incorreta.');
