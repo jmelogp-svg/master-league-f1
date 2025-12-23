@@ -1377,8 +1377,8 @@ function Home() {
                                                     .single();
                                                 
                                                 if (noticiaCompleta) {
-                                                    // Se existe no Supabase, vai para página completa
-                                                    navigate(`/noticias/${newsItem.id}`);
+                                                    // Se existe no Supabase, vai para portal e rola até a notícia
+                                                    navigate(`/noticias#noticia-${newsItem.id}`);
                                                     return;
                                                 }
                                             } catch (err) {

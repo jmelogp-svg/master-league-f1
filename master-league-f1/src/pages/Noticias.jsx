@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 const Noticias = () => {
@@ -7,11 +7,24 @@ const Noticias = () => {
     const [loading, setLoading] = useState(true);
     const [filtroCategoria, setFiltroCategoria] = useState('todas');
     const [categorias, setCategorias] = useState(['todas']);
+    const location = useLocation();
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         carregarNoticias();
     }, []);
+
+    // Scroll para notícia específica se vier com hash (#noticia-1)
+    useEffect(() => {
+        if (location.hash && noticias.length > 0) {
+            setTimeout(() => {
+                const element = document.querySelector(location.hash);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 500);
+        }
+    }, [location.hash, noticias]);
 
     const carregarNoticias = async () => {
         setLoading(true);
@@ -44,6 +57,29 @@ const Noticias = () => {
         } catch {
             return null;
         }
+    };
+
+    // Função para processar o conteúdo e aplicar formatação
+    const processarConteudo = (texto) => {
+        if (!texto) return '';
+        
+        let processado = texto;
+        
+        // Substituir ## Título por <h3>
+        processado = processado.replace(/## (.*?)(\n|$)/g, '<h3 class="noticia-section-title">$1</h3>');
+        
+        // Substituir **texto** por <strong>texto</strong>
+        processado = processado.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        // Converter parágrafos
+        processado = processado.replace(/\n\n/g, '</p><p>');
+        processado = processado.replace(/\n/g, '<br/>');
+        
+        if (!processado.startsWith('<')) {
+            processado = '<p>' + processado + '</p>';
+        }
+        
+        return processado;
     };
 
     const noticiasFiltradas = filtroCategoria === 'todas' 
@@ -80,7 +116,7 @@ const Noticias = () => {
                 ))}
             </div>
 
-            {/* Grid de Notícias */}
+            {/* Feed de Notícias Completas */}
             <div className="noticias-portal-container">
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94A3B8' }}>
@@ -91,52 +127,98 @@ const Noticias = () => {
                         <p>📭 Nenhuma notícia encontrada nesta categoria</p>
                     </div>
                 ) : (
-                    <div className="noticias-portal-grid">
+                    <div className="noticias-feed-completo">
                         {noticiasFiltradas.map((noticia, idx) => {
                             const imageUrl = getSupabaseImageUrl(noticia.id);
-                            const isFeatured = idx === 0 || noticia.featured;
                             
                             return (
-                                <Link
-                                    key={noticia.id}
-                                    to={`/noticias/${noticia.id}`}
-                                    className={`noticia-portal-card ${isFeatured ? 'featured' : ''}`}
+                                <article 
+                                    key={noticia.id} 
+                                    id={`noticia-${noticia.id}`}
+                                    className="noticia-artigo-completo"
                                 >
-                                    <div className="noticia-portal-image">
-                                        {imageUrl ? (
+                                    {/* Header da Notícia */}
+                                    <div className="noticia-artigo-header">
+                                        <div className="noticia-artigo-meta">
+                                            <span className="noticia-artigo-category">{noticia.category}</span>
+                                            <span className="noticia-artigo-date">📅 {noticia.date}</span>
+                                        </div>
+                                        <h2 className="noticia-artigo-title">{noticia.title}</h2>
+                                    </div>
+
+                                    {/* Imagem com Subtítulo e Compartilhamento */}
+                                    {imageUrl && (
+                                        <div className="noticia-artigo-image-container">
                                             <img 
                                                 src={imageUrl} 
                                                 alt={noticia.title}
-                                                onError={(e) => {
-                                                    e.target.style.display = 'none';
-                                                }}
+                                                onError={(e) => e.target.parentElement.style.display = 'none'}
+                                            />
+                                            <div className="noticia-artigo-overlay"></div>
+                                            
+                                            {/* Botões de Compartilhamento */}
+                                            <div className="noticia-artigo-share">
+                                                <button 
+                                                    onClick={() => {
+                                                        const url = `${window.location.origin}/noticias#noticia-${noticia.id}`;
+                                                        const text = `${noticia.title} - Master League F1`;
+                                                        window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank');
+                                                    }}
+                                                    className="share-btn-small whatsapp"
+                                                    title="Compartilhar no WhatsApp"
+                                                >
+                                                    WhatsApp
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        const url = `${window.location.origin}/noticias#noticia-${noticia.id}`;
+                                                        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(noticia.title)}&url=${encodeURIComponent(url)}`, '_blank');
+                                                    }}
+                                                    className="share-btn-small twitter"
+                                                    title="Compartilhar no Twitter"
+                                                >
+                                                    Twitter
+                                                </button>
+                                            </div>
+                                            
+                                            {/* Subtítulo sobre a foto */}
+                                            {noticia.subtitle && (
+                                                <div className="noticia-artigo-subtitle-overlay">
+                                                    <p>{noticia.subtitle}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Conteúdo da Matéria */}
+                                    <div className="noticia-artigo-content">
+                                        {noticia.content ? (
+                                            <div 
+                                                className="noticia-artigo-body" 
+                                                dangerouslySetInnerHTML={{ __html: processarConteudo(noticia.content) }}
                                             />
                                         ) : (
-                                            <div className="noticia-portal-placeholder">
-                                                <span>📰</span>
-                                            </div>
-                                        )}
-                                        <div className="noticia-portal-overlay"></div>
-                                    </div>
-                                    <div className="noticia-portal-content">
-                                        <div className="noticia-portal-meta">
-                                            <span className="noticia-portal-category">{noticia.category}</span>
-                                            <span className="noticia-portal-date">{noticia.date}</span>
-                                        </div>
-                                        <h3 className="noticia-portal-title">{noticia.title}</h3>
-                                        {noticia.subtitle && (
-                                            <p className="noticia-portal-subtitle">{noticia.subtitle}</p>
-                                        )}
-                                        {noticia.excerpt && (
-                                            <p className="noticia-portal-excerpt">
-                                                {noticia.excerpt.substring(0, 120)}...
+                                            <p style={{ color: '#64748B', textAlign: 'center', padding: '20px' }}>
+                                                📝 Conteúdo ainda não adicionado
                                             </p>
                                         )}
-                                        <div className="noticia-portal-link">
-                                            Ler matéria completa →
-                                        </div>
+
+                                        {/* Link externo se houver */}
+                                        {noticia.link && (
+                                            <div className="noticia-artigo-link-externo">
+                                                <h4>🔗 Links da Matéria</h4>
+                                                <a href={noticia.link} target="_blank" rel="noopener noreferrer">
+                                                    {noticia.link}
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
-                                </Link>
+
+                                    {/* Separador entre notícias */}
+                                    {idx < noticiasFiltradas.length - 1 && (
+                                        <div className="noticia-separador"></div>
+                                    )}
+                                </article>
                             );
                         })}
                     </div>

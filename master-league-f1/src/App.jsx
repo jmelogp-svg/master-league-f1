@@ -29,7 +29,6 @@ import ExPilotoLogin from './pages/ExPilotoLogin';
 import ExPilotoEscolha from './pages/ExPilotoEscolha';
 import ResultadosCorrida from './pages/ResultadosCorrida';
 import Noticias from './pages/Noticias';
-import NoticiaCompleta from './pages/NoticiaCompleta';
 // import Narrador from './pages/Narrador'; // ADIADO - Sistema de narrador
 
 function App() {
@@ -64,7 +63,6 @@ function App() {
                 <Route path="/minicup" element={<Minicup />} />
                 <Route path="/resultados-corrida" element={<ResultadosCorrida />} />
                 <Route path="/noticias" element={<Noticias />} />
-                <Route path="/noticias/:id" element={<NoticiaCompleta />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>
