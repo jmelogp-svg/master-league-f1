@@ -176,7 +176,6 @@ function Admin() {
                     id: parseInt(editingNoticia.id),
                     title: editingNoticia.title,
                     subtitle: editingNoticia.subtitle || null,
-                    excerpt: editingNoticia.excerpt || '',
                     content: editingNoticia.content || null,
                     date: editingNoticia.date || new Date().toLocaleDateString('pt-BR'),
                     category: editingNoticia.category || 'Notícia',
@@ -2999,7 +2998,6 @@ function Admin() {
                                             id: (noticias.length > 0 ? Math.max(...noticias.map(n => n.id)) + 1 : 1),
                                             title: '',
                                             subtitle: '',
-                                            excerpt: '',
                                             content: '',
                                             date: new Date().toLocaleDateString('pt-BR'),
                                             category: 'Notícia',
@@ -3178,43 +3176,137 @@ function Admin() {
 
                                     <div style={{ marginBottom: '15px' }}>
                                         <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
-                                            Resumo (para exibir na Home) *
+                                            Matéria Completa
                                         </label>
                                         <p style={{ color: '#64748B', fontSize: '11px', marginBottom: '8px' }}>
-                                            💡 Texto curto que aparecerá no card da home (2-3 linhas)
+                                            💡 <strong>Resumo virá da planilha do Google Sheets.</strong> Aqui você escreve apenas o conteúdo completo da matéria.
                                         </p>
-                                        <textarea
-                                            value={editingNoticia.excerpt}
-                                            onChange={(e) => setEditingNoticia({ ...editingNoticia, excerpt: e.target.value })}
-                                            placeholder="Ex: O Campeonato de pré-temporada da Master League F1 foi decidido por apenas dois pontos após seis corridas disputadas."
-                                            rows={3}
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px',
-                                                borderRadius: '6px',
-                                                border: '1px solid #475569',
-                                                background: '#0F172A',
-                                                color: '#F8FAFC',
-                                                fontSize: '14px',
-                                                lineHeight: '1.6',
-                                                fontFamily: 'inherit',
-                                                resize: 'vertical'
-                                            }}
-                                        />
-                                    </div>
+                                        
+                                        {/* Ferramentas de Formatação */}
+                                        <div style={{
+                                            display: 'flex',
+                                            gap: '8px',
+                                            marginBottom: '10px',
+                                            padding: '10px',
+                                            background: '#0F172A',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            flexWrap: 'wrap'
+                                        }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const textarea = document.getElementById('content-textarea');
+                                                    const start = textarea.selectionStart;
+                                                    const end = textarea.selectionEnd;
+                                                    const selectedText = textarea.value.substring(start, end);
+                                                    const newText = textarea.value.substring(0, start) + 
+                                                        `**${selectedText || 'texto'}**` + 
+                                                        textarea.value.substring(end);
+                                                    setEditingNoticia({ ...editingNoticia, content: newText });
+                                                }}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    background: '#1E293B',
+                                                    border: '1px solid #475569',
+                                                    borderRadius: '4px',
+                                                    color: '#F8FAFC',
+                                                    fontSize: '12px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: 'bold'
+                                                }}
+                                                title="Negrito (selecione o texto e clique)"
+                                            >
+                                                <strong>B</strong> Negrito
+                                            </button>
+                                            
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const textarea = document.getElementById('content-textarea');
+                                                    const start = textarea.selectionStart;
+                                                    const end = textarea.selectionEnd;
+                                                    const selectedText = textarea.value.substring(start, end);
+                                                    const newText = textarea.value.substring(0, start) + 
+                                                        `## ${selectedText || 'Título da Seção'}` + 
+                                                        textarea.value.substring(end);
+                                                    setEditingNoticia({ ...editingNoticia, content: newText });
+                                                }}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    background: '#1E293B',
+                                                    border: '1px solid #475569',
+                                                    borderRadius: '4px',
+                                                    color: '#F8FAFC',
+                                                    fontSize: '12px',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Criar título de seção"
+                                            >
+                                                📌 Título
+                                            </button>
 
-                                    <div style={{ marginBottom: '15px' }}>
-                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
-                                            Conteúdo Completo (Matéria Completa)
-                                        </label>
-                                        <p style={{ color: '#64748B', fontSize: '11px', marginBottom: '8px' }}>
-                                            💡 Use **texto** para <strong>negrito</strong>. Shift+Enter para parágrafos. Será exibido na página /noticias/{editingNoticia.id}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const currentContent = editingNoticia.content || '';
+                                                    setEditingNoticia({ 
+                                                        ...editingNoticia, 
+                                                        content: currentContent + '\n\n' 
+                                                    });
+                                                }}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    background: '#1E293B',
+                                                    border: '1px solid #475569',
+                                                    borderRadius: '4px',
+                                                    color: '#F8FAFC',
+                                                    fontSize: '12px',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Adicionar parágrafo"
+                                            >
+                                                ¶ Parágrafo
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (window.confirm('Isso vai limpar todo o conteúdo. Confirmar?')) {
+                                                        setEditingNoticia({ ...editingNoticia, content: '' });
+                                                    }
+                                                }}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    background: '#1E293B',
+                                                    border: '1px solid #EF4444',
+                                                    borderRadius: '4px',
+                                                    color: '#EF4444',
+                                                    fontSize: '12px',
+                                                    cursor: 'pointer',
+                                                    marginLeft: 'auto'
+                                                }}
+                                                title="Limpar tudo"
+                                            >
+                                                🗑️ Limpar
+                                            </button>
+                                        </div>
+
+                                        <p style={{ color: '#64748B', fontSize: '11px', marginBottom: '8px', padding: '8px', background: 'rgba(6, 182, 212, 0.1)', borderRadius: '4px' }}>
+                                            📖 <strong>Formatação Suportada:</strong><br/>
+                                            • <code>**texto**</code> = <strong>negrito</strong><br/>
+                                            • <code>## Título</code> = Título de seção (maior e destacado)<br/>
+                                            • Shift+Enter = Nova linha<br/>
+                                            • Linha em branco = Novo parágrafo<br/>
+                                            • Cole texto já formatado do Google Docs/Word
                                         </p>
+                                        
                                         <textarea
+                                            id="content-textarea"
                                             value={editingNoticia.content || ''}
                                             onChange={(e) => setEditingNoticia({ ...editingNoticia, content: e.target.value })}
-                                            placeholder="Digite o conteúdo completo aqui...&#10;&#10;**O Caminho para o Título**&#10;A Minicup foi dividida em três etapas duplas...&#10;&#10;**Rodadas 1 e 2 (Áustria e Austrália)**&#10;O torneio começou com equilíbrio..."
-                                            rows={15}
+                                            placeholder="Digite ou cole o conteúdo completo aqui...&#10;&#10;Exemplo:&#10;&#10;## O Caminho para o Título&#10;&#10;A Minicup foi dividida em três etapas duplas, testando a versatilidade dos pilotos...&#10;&#10;**Rodadas 1 e 2 (Áustria e Austrália)**&#10;&#10;O torneio começou com equilíbrio..."
+                                            rows={18}
                                             style={{
                                                 width: '100%',
                                                 padding: '12px',
@@ -3228,6 +3320,37 @@ function Admin() {
                                                 resize: 'vertical'
                                             }}
                                         />
+                                        
+                                        {/* Preview da formatação */}
+                                        {editingNoticia.content && (
+                                            <details style={{ marginTop: '10px' }}>
+                                                <summary style={{ color: '#94A3B8', cursor: 'pointer', fontSize: '12px' }}>
+                                                    👁️ Visualizar prévia da formatação
+                                                </summary>
+                                                <div style={{
+                                                    marginTop: '10px',
+                                                    padding: '16px',
+                                                    background: '#0F172A',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #475569',
+                                                    color: '#CBD5E1',
+                                                    fontSize: '14px',
+                                                    lineHeight: '1.8',
+                                                    textAlign: 'justify',
+                                                    maxHeight: '300px',
+                                                    overflowY: 'auto'
+                                                }}
+                                                dangerouslySetInnerHTML={{
+                                                    __html: editingNoticia.content
+                                                        .replace(/## (.*?)(\n|$)/g, '<h3 style="color: #F59E0B; font-size: 1.2rem; margin: 20px 0 10px 0;">$1</h3>')
+                                                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: white;">$1</strong>')
+                                                        .replace(/\n\n/g, '</p><p style="margin: 12px 0;">')
+                                                        .replace(/^(.+)/, '<p style="margin: 12px 0;">$1')
+                                                        .replace(/(.+)$/, '$1</p>')
+                                                }}
+                                                />
+                                            </details>
+                                        )}
                                     </div>
 
                                     <div style={{ marginBottom: '15px' }}>

@@ -6912,6 +6912,21 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     font-weight: 700;
 }
 
+.noticia-body p {
+    margin: 16px 0;
+}
+
+.noticia-section-title {
+    color: var(--carreira-wine);
+    font-size: 1.5rem;
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    margin: 32px 0 16px 0;
+    padding-bottom: 12px;
+    border-bottom: 2px solid rgba(139, 33, 50, 0.3);
+}
+
 .noticia-external-link {
     margin-top: 40px;
     padding: 20px;
