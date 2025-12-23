@@ -88,13 +88,6 @@ const Noticias = () => {
 
     return (
         <div className="noticias-portal-page">
-            {/* Botão Ir para Home */}
-            <div className="noticias-top-bar">
-                <Link to="/" className="btn-home-top">
-                    🏠 Ir para Home
-                </Link>
-            </div>
-
             {/* Header */}
             <header className="noticias-portal-header">
                 <div className="noticias-portal-hero">
