@@ -383,12 +383,37 @@ function Home() {
                             const newsId = parseInt(idStr) || (index + 1);
                             const imageFromSheet = (row.image || row.Imagem || row.imagem || row.image_url || row.Image_URL || '').trim();
                             
+                            // Função para converter link do Google Drive para formato direto
+                            const convertGoogleDriveLink = (url) => {
+                                if (!url || url.trim() === '') return null;
+                                
+                                // Se já está no formato correto, retorna como está
+                                if (url.includes('drive.google.com/uc?export=view&id=')) {
+                                    return url;
+                                }
+                                
+                                // Se é um link do Google Drive no formato padrão, converte
+                                const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                                if (driveMatch) {
+                                    const fileId = driveMatch[1];
+                                    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+                                }
+                                
+                                // Se é um link compartilhado do Google Drive, tenta extrair o ID
+                                const shareMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                                if (shareMatch) {
+                                    const fileId = shareMatch[1];
+                                    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+                                }
+                                
+                                // Se não é Google Drive, retorna como está (pode ser outra URL)
+                                return url;
+                            };
+                            
                             // Se não tiver imagem na planilha, tenta buscar automaticamente por ID
-                            let imageUrl = imageFromSheet || null;
+                            let imageUrl = imageFromSheet ? convertGoogleDriveLink(imageFromSheet) : null;
                             if (!imageUrl) {
                                 // Tenta buscar imagem local: /noticias/Noticia1.jpg, Noticia2.jpg, etc.
-                                const imageExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-                                // Vamos tentar no código, mas a verificação real será no render
                                 imageUrl = `/noticias/Noticia${newsId}.jpg`; // Padrão, será verificado no render
                             }
                             
@@ -1209,15 +1234,38 @@ function Home() {
                                         {(() => {
                                             // Se tiver imagem na planilha (URL externa), usa ela
                                             if (newsItem.image && !newsItem.image.startsWith('/noticias/')) {
+                                                let extensionIndex = 0;
+                                                const extensions = ['jpg', 'jpeg', 'png', 'webp'];
+                                                
+                                                const handleExternalImageError = (e) => {
+                                                    console.warn(`⚠️ Erro ao carregar imagem externa para notícia ${newsItem.id}:`, newsItem.image);
+                                                    
+                                                    // Tenta primeiro a imagem local padrão
+                                                    extensionIndex = 0;
+                                                    e.target.src = `/noticias/Noticia${newsItem.id}.${extensions[extensionIndex]}`;
+                                                    
+                                                    // Se falhar, tenta outras extensões
+                                                    const handleLocalImageError = (err) => {
+                                                        extensionIndex++;
+                                                        if (extensionIndex < extensions.length) {
+                                                            err.target.src = `/noticias/Noticia${newsItem.id}.${extensions[extensionIndex]}`;
+                                                        } else {
+                                                            // Se nenhuma extensão funcionar, esconde a imagem
+                                                            err.target.style.display = 'none';
+                                                            console.warn(`⚠️ Nenhuma imagem encontrada para notícia ${newsItem.id}`);
+                                                        }
+                                                    };
+                                                    
+                                                    e.target.onerror = handleLocalImageError;
+                                                };
+                                                
                                                 return (
                                                     <div className="news-feed-image">
                                                         <img 
                                                             src={newsItem.image} 
                                                             alt={newsItem.title} 
-                                                            onError={(e) => {
-                                                                // Se falhar, tenta buscar local
-                                                                e.target.src = `/noticias/Noticia${newsItem.id}.jpg`;
-                                                            }}
+                                                            onError={handleExternalImageError}
+                                                            loading="lazy"
                                                         />
                                                         <div className="news-feed-overlay"></div>
                                                     </div>
@@ -1245,6 +1293,7 @@ function Home() {
                                                         src={imageUrl} 
                                                         alt={newsItem.title} 
                                                         onError={handleImageError}
+                                                        loading="lazy"
                                                     />
                                                     <div className="news-feed-overlay"></div>
                                                 </div>
