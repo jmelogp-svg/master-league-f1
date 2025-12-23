@@ -319,38 +319,14 @@ function Home() {
         fetchMinicup();
     }, []);
 
-    // Buscar notícias: Prioridade Supabase > Google Sheets > Padrão
+    // Buscar notícias do Google Sheets (feed de resumos na home)
     useEffect(() => {
         const fetchNews = async () => {
             try {
-                // 1. Tentar buscar do Supabase primeiro
-                console.log('📰 Buscando notícias do Supabase...');
-                const { data: supabaseNews, error: supabaseError } = await supabase
-                    .from('noticias')
-                    .select('*')
-                    .order('id', { ascending: false });
-                
-                if (!supabaseError && supabaseNews && supabaseNews.length > 0) {
-                    console.log(`✅ ${supabaseNews.length} notícias carregadas do Supabase`);
-                    // Ordenar: featured primeiro, depois por ID (mais recente primeiro)
-                    const sortedNews = [...supabaseNews].sort((a, b) => {
-                        if (a.featured && !b.featured) return -1;
-                        if (!a.featured && b.featured) return 1;
-                        return b.id - a.id;
-                    });
-                    setNews(sortedNews.map(n => ({
-                        ...n,
-                        image: n.image || null
-                    })));
-                    return; // Se encontrou no Supabase, não busca do Sheets
-                }
-                
-                // 2. Se não há notícias no Supabase, tentar buscar do Google Sheets
-                console.log('📋 Nenhuma notícia no Supabase, buscando do Google Sheets...');
                 const response = await fetch(NEWS_CSV_URL);
                 if (!response.ok) {
                     console.warn('⚠️ Erro ao buscar notícias do Google Sheets, usando notícias padrão');
-                    // Notícias padrão caso nem Supabase nem Sheets estejam disponíveis
+                    // Notícias padrão caso a planilha não esteja disponível
                     setNews([
                         {
                             id: 1,
@@ -1391,13 +1367,26 @@ function Home() {
                                     <article 
                                         key={newsItem.id} 
                                         className={`news-feed-card ${newsItem.featured ? 'news-featured' : ''}`}
-                                        onClick={() => {
-                                            // Prioridade: 1) Página da notícia completa 2) Link externo 3) Portal de notícias
-                                            if (newsItem.content || (newsItem.id && !newsItem.link)) {
-                                                // Se tem conteúdo completo OU tem ID sem link, vai para página da notícia
-                                                navigate(`/noticias/${newsItem.id}`);
-                                            } else if (newsItem.link) {
-                                                // Se tem link externo, usa ele
+                                        onClick={async () => {
+                                            // Verificar se existe notícia completa no Supabase com esse ID
+                                            try {
+                                                const { data: noticiaCompleta } = await supabase
+                                                    .from('noticias')
+                                                    .select('id')
+                                                    .eq('id', newsItem.id)
+                                                    .single();
+                                                
+                                                if (noticiaCompleta) {
+                                                    // Se existe no Supabase, vai para página completa
+                                                    navigate(`/noticias/${newsItem.id}`);
+                                                    return;
+                                                }
+                                            } catch (err) {
+                                                // Sem notícia no Supabase, continua com a lógica normal
+                                            }
+
+                                            // Se não tem no Supabase, usa link da planilha
+                                            if (newsItem.link) {
                                                 if (newsItem.link.startsWith('http://') || newsItem.link.startsWith('https://')) {
                                                     window.open(newsItem.link, '_blank', 'noopener,noreferrer');
                                                 } else {
