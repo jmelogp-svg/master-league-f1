@@ -218,6 +218,7 @@ function Home() {
     const [seasonDrivers, setSeasonDrivers] = useState([]);
     const [minicupDrivers, setMinicupDrivers] = useState([]);
     const [news, setNews] = useState([]);
+    const [newsImageVersions, setNewsImageVersions] = useState({}); // { [slot:number]: updated_at:string }
 
     const scrollRef = useRef(null);
     const minicupScrollRef = useRef(null);
@@ -387,27 +388,34 @@ function Home() {
                             const convertGoogleDriveLink = (url) => {
                                 if (!url || url.trim() === '') return null;
                                 
+                                const originalUrl = url.trim();
+                                
                                 // Se já está no formato correto, retorna como está
-                                if (url.includes('drive.google.com/uc?export=view&id=')) {
-                                    return url;
+                                if (originalUrl.includes('drive.google.com/uc?export=view&id=')) {
+                                    return originalUrl;
                                 }
                                 
-                                // Se é um link do Google Drive no formato padrão, converte
-                                const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-                                if (driveMatch) {
-                                    const fileId = driveMatch[1];
-                                    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+                                // Padrão 1: drive.google.com/file/d/ID/view?usp=...
+                                const driveMatch1 = originalUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                                if (driveMatch1) {
+                                    const fileId = driveMatch1[1];
+                                    const converted = `https://drive.google.com/uc?export=view&id=${fileId}`;
+                                    console.log(`🔄 Convertendo link do Google Drive: ${originalUrl.substring(0, 60)}... → ${converted}`);
+                                    return converted;
                                 }
                                 
-                                // Se é um link compartilhado do Google Drive, tenta extrair o ID
-                                const shareMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                                // Padrão 2: /d/ID/ (link compartilhado)
+                                const shareMatch = originalUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
                                 if (shareMatch) {
                                     const fileId = shareMatch[1];
-                                    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+                                    const converted = `https://drive.google.com/uc?export=view&id=${fileId}`;
+                                    console.log(`🔄 Convertendo link compartilhado: ${originalUrl.substring(0, 60)}... → ${converted}`);
+                                    return converted;
                                 }
                                 
                                 // Se não é Google Drive, retorna como está (pode ser outra URL)
-                                return url;
+                                console.log(`ℹ️ Link não é do Google Drive, usando como está: ${originalUrl.substring(0, 60)}...`);
+                                return originalUrl;
                             };
                             
                             // Se não tiver imagem na planilha, tenta buscar automaticamente por ID
@@ -454,6 +462,149 @@ function Home() {
         };
         fetchNews();
     }, []);
+
+    // Componente para gerenciar o carregamento de imagens das notícias com múltiplos fallbacks
+    const NewsImage = ({ newsItem, supaUrl }) => {
+        const [imgSrc, setImgSrc] = useState(null);
+        const [extensionIndex, setExtensionIndex] = useState(-1);
+        const extensions = ['png', 'jpg', 'jpeg', 'webp'];
+        const [triedSupa, setTriedSupa] = useState(false);
+        const [triedExternal, setTriedExternal] = useState(false);
+
+        useEffect(() => {
+            const hasExternalUrl =
+                newsItem.image &&
+                (newsItem.image.startsWith('http://') || newsItem.image.startsWith('https://'));
+
+            if (hasExternalUrl) {
+                setImgSrc(newsItem.image);
+                setTriedExternal(true);
+            } else if (supaUrl) {
+                setImgSrc(supaUrl);
+                setTriedSupa(true);
+            } else {
+                // Inicia tentativa local
+                setExtensionIndex(0);
+                setImgSrc(`/noticias/Noticia${newsItem.id}.${extensions[0]}`);
+            }
+        }, [newsItem.image, newsItem.id, supaUrl]);
+
+        const handleError = () => {
+            // 1. Se falhou a imagem externa, tenta Supabase
+            if (triedExternal && !triedSupa) {
+                if (supaUrl) {
+                    setImgSrc(supaUrl);
+                    setTriedSupa(true);
+                    return;
+                }
+                // Se não tem supaUrl, pula para local
+                setExtensionIndex(0);
+                setImgSrc(`/noticias/Noticia${newsItem.id}.${extensions[0]}`);
+                setTriedSupa(true);
+                return;
+            }
+
+            // 2. Se falhou Supabase, tenta local
+            if (triedSupa && extensionIndex === -1) {
+                setExtensionIndex(0);
+                setImgSrc(`/noticias/Noticia${newsItem.id}.${extensions[0]}`);
+                return;
+            }
+
+            // 3. Tentativas locais sequenciais
+            if (extensionIndex !== -1 && extensionIndex < extensions.length - 1) {
+                const nextIndex = extensionIndex + 1;
+                setExtensionIndex(nextIndex);
+                setImgSrc(`/noticias/Noticia${newsItem.id}.${extensions[nextIndex]}`);
+                return;
+            }
+
+            // 4. Se tudo falhou, tenta banner padrão ou esconde
+            if (imgSrc !== '/banner-masterleague.png') {
+                setImgSrc('/banner-masterleague.png');
+            } else {
+                setImgSrc('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'); // Transparente
+            }
+        };
+
+        return (
+            <div className="news-feed-image">
+                <img 
+                    src={imgSrc || '/banner-masterleague.png'} 
+                    alt={newsItem.title} 
+                    onError={handleError}
+                    loading="lazy"
+                    style={{ opacity: imgSrc ? 1 : 0, transition: 'opacity 0.3s' }}
+                />
+                <div className="news-feed-overlay"></div>
+            </div>
+        );
+    };
+
+    // Versões das imagens das notícias no Supabase (para carregar imagem nova sem redeploy)
+    useEffect(() => {
+        let channel = null;
+
+        const loadVersions = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('news_images')
+                    .select('slot, updated_at');
+
+                if (error) throw error;
+
+                const map = {};
+                (data || []).forEach((row) => {
+                    if (row?.slot != null) map[Number(row.slot)] = row.updated_at || '';
+                });
+                setNewsImageVersions(map);
+            } catch (e) {
+                // Se não existir tabela/política, mantém fallback (Drive/local)
+                console.warn('ℹ️ news_images não disponível (ok):', e?.message || e);
+            }
+        };
+
+        loadVersions();
+
+        // Realtime (se habilitado)
+        try {
+            channel = supabase
+                .channel('news_images_changes')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'news_images' },
+                    (payload) => {
+                        const row = payload?.new || payload?.old;
+                        const slot = row?.slot;
+                        const updatedAt = row?.updated_at || new Date().toISOString();
+                        if (slot == null) return;
+                        setNewsImageVersions((prev) => ({ ...prev, [Number(slot)]: updatedAt }));
+                    }
+                )
+                .subscribe();
+        } catch {
+            // sem realtime, sem problema
+        }
+
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, []);
+
+    const getSupabaseNewsImageUrl = (slot) => {
+        try {
+            const key = `noticia${slot}`; // nome fixo no Storage
+            const { data } = supabase.storage.from('noticias').getPublicUrl(key);
+            const publicUrl = data?.publicUrl || '';
+            if (!publicUrl) return null;
+            const v = newsImageVersions?.[Number(slot)];
+            if (!v) return publicUrl;
+            const sep = publicUrl.includes('?') ? '&' : '?';
+            return `${publicUrl}${sep}v=${encodeURIComponent(v)}`;
+        } catch {
+            return null;
+        }
+    };
 
     useEffect(() => { if (!loading && seasons.length > 0 && selectedSeason === 0) setSelectedSeason(seasons[0]); }, [seasons, loading]);
 
@@ -1231,74 +1382,10 @@ function Home() {
                                             }
                                         }}
                                     >
-                                        {(() => {
-                                            // Se tiver imagem na planilha (URL externa), usa ela
-                                            if (newsItem.image && !newsItem.image.startsWith('/noticias/')) {
-                                                let extensionIndex = 0;
-                                                const extensions = ['jpg', 'jpeg', 'png', 'webp'];
-                                                
-                                                const handleExternalImageError = (e) => {
-                                                    console.warn(`⚠️ Erro ao carregar imagem externa para notícia ${newsItem.id}:`, newsItem.image);
-                                                    
-                                                    // Tenta primeiro a imagem local padrão
-                                                    extensionIndex = 0;
-                                                    e.target.src = `/noticias/Noticia${newsItem.id}.${extensions[extensionIndex]}`;
-                                                    
-                                                    // Se falhar, tenta outras extensões
-                                                    const handleLocalImageError = (err) => {
-                                                        extensionIndex++;
-                                                        if (extensionIndex < extensions.length) {
-                                                            err.target.src = `/noticias/Noticia${newsItem.id}.${extensions[extensionIndex]}`;
-                                                        } else {
-                                                            // Se nenhuma extensão funcionar, esconde a imagem
-                                                            err.target.style.display = 'none';
-                                                            console.warn(`⚠️ Nenhuma imagem encontrada para notícia ${newsItem.id}`);
-                                                        }
-                                                    };
-                                                    
-                                                    e.target.onerror = handleLocalImageError;
-                                                };
-                                                
-                                                return (
-                                                    <div className="news-feed-image">
-                                                        <img 
-                                                            src={newsItem.image} 
-                                                            alt={newsItem.title} 
-                                                            onError={handleExternalImageError}
-                                                            loading="lazy"
-                                                        />
-                                                        <div className="news-feed-overlay"></div>
-                                                    </div>
-                                                );
-                                            }
-                                            
-                                            // Se não tiver imagem na planilha, busca automaticamente por ID
-                                            const imageUrl = `/noticias/Noticia${newsItem.id}.jpg`;
-                                            let extensionIndex = 0;
-                                            const extensions = ['jpg', 'jpeg', 'png', 'webp'];
-                                            
-                                            const handleImageError = (e) => {
-                                                extensionIndex++;
-                                                if (extensionIndex < extensions.length) {
-                                                    e.target.src = `/noticias/Noticia${newsItem.id}.${extensions[extensionIndex]}`;
-                                                } else {
-                                                    // Se nenhuma extensão funcionar, esconde a imagem
-                                                    e.target.style.display = 'none';
-                                                }
-                                            };
-                                            
-                                            return (
-                                                <div className="news-feed-image">
-                                                    <img 
-                                                        src={imageUrl} 
-                                                        alt={newsItem.title} 
-                                                        onError={handleImageError}
-                                                        loading="lazy"
-                                                    />
-                                                    <div className="news-feed-overlay"></div>
-                                                </div>
-                                            );
-                                        })()}
+                                        <NewsImage 
+                                            newsItem={newsItem} 
+                                            supaUrl={getSupabaseNewsImageUrl(newsItem.id)} 
+                                        />
                                         <div className="news-feed-content">
                                             <div className="news-feed-meta">
                                                 <span className="news-feed-category">{newsItem.category}</span>

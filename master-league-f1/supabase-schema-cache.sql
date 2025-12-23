@@ -137,3 +137,7 @@ COMMENT ON TABLE sync_log IS 'Log de todas as sincronizações realizadas para a
 
 
 
+
+
+
+

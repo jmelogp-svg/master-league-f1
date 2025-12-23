@@ -7,7 +7,42 @@
 - Imagens inseridas no Google Sheets não são incluídas no CSV
 - O CSV não suporta imagens
 
-## ✅ Solução: Usar Links do Google Drive
+## ✅ Solução Recomendada (Melhor): Upload direto no site via Supabase Storage
+
+Se você quer **atualizar imagens sem redeploy no Netlify** e sem copiar link, use **Supabase Storage**.
+
+### O que você ganha
+
+- **Sem deploy**: trocou a imagem, ela aparece no site.
+- **Sem link**: você só faz upload.
+- **Nome fixo**: `noticia1`, `noticia2`, `noticia3`… (substitui a anterior).
+
+### Pré-requisitos no Supabase (1 vez só)
+
+1. **Storage > Create bucket**: crie o bucket `noticias` (pode ser public).
+2. **Database**: crie a tabela `news_images` para “versão” de cache:
+
+```sql
+create table if not exists public.news_images (
+  slot int primary key,
+  updated_at timestamptz not null default now()
+);
+```
+
+3. **Permissões (RLS/Policies)**:
+- Para o site conseguir **ler**: permita `select` na tabela `news_images` e acesso público ao bucket `noticias`.
+- Para o admin conseguir **enviar**: permita `insert/update` em `news_images` e `upload` no bucket (ideal: só para admin/autenticado).
+
+### Como usar (no site)
+
+1. Vá em **Admin > aba NOTÍCIAS**
+2. Coloque o **ID da notícia** (1, 2, 3…)
+3. Selecione a imagem e envie
+4. Pronto — o feed usa `noticia{ID}` automaticamente.
+
+---
+
+## ✅ Solução Alternativa (Legado): Usar Links do Google Drive
 
 ### Passo a Passo Simples
 
@@ -99,4 +134,6 @@ Abra o link no navegador. Se a imagem aparecer diretamente, está correto! ✅
 ---
 
 **Pronto! Agora você sabe como adicionar imagens nas notícias!** 🎉
+
+
 

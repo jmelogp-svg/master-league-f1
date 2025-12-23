@@ -46,6 +46,93 @@ function Admin() {
     // Estados para Notícias (Upload de Imagens)
     const [uploadingImage, setUploadingImage] = useState(false);
     const [selectedNewsId, setSelectedNewsId] = useState(1);
+    const [newsImageRefreshKey, setNewsImageRefreshKey] = useState(Date.now());
+
+    const getSupabaseNewsImageUrl = (slot) => {
+        try {
+            const key = `noticia${slot}`; // nome fixo no Storage
+            const { data } = supabase.storage.from('noticias').getPublicUrl(key);
+            const publicUrl = data?.publicUrl || '';
+            if (!publicUrl) return '';
+            const sep = publicUrl.includes('?') ? '&' : '?';
+            return `${publicUrl}${sep}v=${newsImageRefreshKey}`;
+        } catch {
+            return '';
+        }
+    };
+
+    // Componente auxiliar para o preview de imagens com fallback no Admin
+    const AdminNewsImagePreview = ({ id, getSupaUrl }) => {
+        const [imgSrc, setImgSrc] = useState(getSupaUrl(id));
+        const [extensionIndex, setExtensionIndex] = useState(-1);
+        const extensions = ['png', 'jpg', 'jpeg', 'webp'];
+        const [triedSupa, setTriedSupa] = useState(true);
+
+        useEffect(() => {
+            setImgSrc(getSupaUrl(id));
+            setExtensionIndex(-1);
+            setTriedSupa(true);
+        }, [id, newsImageRefreshKey, getSupaUrl]);
+
+        const handleError = () => {
+            if (triedSupa) {
+                setTriedSupa(false);
+                setExtensionIndex(0);
+                setImgSrc(`/noticias/Noticia${id}.${extensions[0]}`);
+                return;
+            }
+
+            if (extensionIndex !== -1 && extensionIndex < extensions.length - 1) {
+                const nextIndex = extensionIndex + 1;
+                setExtensionIndex(nextIndex);
+                setImgSrc(`/noticias/Noticia${id}.${extensions[nextIndex]}`);
+                return;
+            }
+
+            // Se tudo falhar
+            setImgSrc(null);
+        };
+
+        return (
+            <div style={{
+                background: '#0F172A',
+                borderRadius: '8px',
+                padding: '10px',
+                border: '1px solid #475569'
+            }}>
+                <div style={{ 
+                    width: '100%', 
+                    aspectRatio: '16/9', 
+                    background: '#1E293B',
+                    borderRadius: '6px',
+                    marginBottom: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    position: 'relative'
+                }}>
+                    {imgSrc ? (
+                        <img 
+                            src={imgSrc}
+                            alt={`Notícia ${id}`}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                            }}
+                            onError={handleError}
+                        />
+                    ) : (
+                        <span style={{ color: '#64748B', fontSize: '10px' }}>Sem imagem</span>
+                    )}
+                </div>
+                <p style={{ color: '#94A3B8', fontSize: '11px', margin: 0, textAlign: 'center' }}>
+                    noticia{id}
+                </p>
+            </div>
+        );
+    };
 
     // Estados para Edição de Usuários/Pilotos
     const [editingUser, setEditingUser] = useState(null); // { id, nome, email, grid, equipe, whatsapp, is_steward }
@@ -2630,14 +2717,12 @@ function Admin() {
                         </div>
 
                         <p style={{ color: '#94A3B8', marginBottom: '25px', fontSize: '14px', lineHeight: '1.6' }}>
-                            Faça upload das imagens das notícias. As imagens serão nomeadas automaticamente como <strong>Noticia1.jpg</strong>, <strong>Noticia2.jpg</strong>, etc., 
-                            baseado no ID da notícia na planilha do Google Sheets.
+                            Faça upload das imagens das notícias direto aqui no site. A imagem é salva no <strong>Supabase Storage</strong> com nome fixo
+                            (<strong>noticia1</strong>, <strong>noticia2</strong>, etc.) baseado no ID da notícia na planilha.
                             <br/><br/>
-                            <strong>⚠️ Importante:</strong> Após fazer upload, você precisará mover a imagem para a pasta:
-                            <br/><code style={{background: '#0F172A', padding: '4px 8px', borderRadius: '4px', fontSize: '12px'}}>public/noticias/</code>
-                            <br/><br/>
-                            <strong>Caminho completo:</strong>
-                            <br/><code style={{background: '#0F172A', padding: '4px 8px', borderRadius: '4px', fontSize: '11px'}}>C:\Users\Usuario\Documents\Master League F1\Projetos_React\master-league-f1\public\noticias</code>
+                            ✅ <strong>Vantagem:</strong> não precisa mover arquivo pra <code>public/</code> e nem fazer deploy no Netlify — a imagem atualiza no site automaticamente.
+                            <br/>
+                            ⚠️ <strong>Pré-requisito:</strong> bucket <code>noticias</code> no Supabase + tabela <code>news_images</code> (ver docs do projeto).
                         </p>
 
                         <div style={{
@@ -2671,7 +2756,7 @@ function Admin() {
                                         }}
                                     />
                                     <p style={{ color: '#64748B', fontSize: '11px', marginTop: '5px' }}>
-                                        A imagem será salva como: <strong>Noticia{selectedNewsId}.jpg</strong>
+                                        A imagem será salva no Supabase como: <strong>noticia{selectedNewsId}</strong> (substitui a anterior)
                                     </p>
                                 </div>
                             </div>
@@ -2690,28 +2775,62 @@ function Admin() {
 
                                         setUploadingImage(true);
                                         try {
-                                            // Converter imagem para base64 para preview
-                                            const reader = new FileReader();
-                                            reader.onload = async (event) => {
-                                                const imageData = event.target?.result;
-                                                
-                                                // Criar um link de download com o nome correto
-                                                const blob = await fetch(imageData).then(r => r.blob());
-                                                const url = URL.createObjectURL(blob);
-                                                const link = document.createElement('a');
-                                                link.href = url;
-                                                link.download = `Noticia${selectedNewsId}.jpg`;
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                document.body.removeChild(link);
-                                                URL.revokeObjectURL(url);
+                                            const slot = Number(selectedNewsId) || 1;
+                                            const key = `noticia${slot}`;
 
-                                                alert(`✅ Imagem "Noticia${selectedNewsId}.jpg" baixada com sucesso!\n\nAgora mova o arquivo para a pasta:\npublic/noticias/\n\nCaminho completo:\nC:\\Users\\Usuario\\Documents\\Master League F1\\Projetos_React\\master-league-f1\\public\\noticias`);
-                                            };
-                                            reader.readAsDataURL(file);
+                                            // Upload (substitui sempre)
+                                            const { error: uploadError } = await supabase
+                                                .storage
+                                                .from('noticias')
+                                                .upload(key, file, {
+                                                    upsert: true,
+                                                    cacheControl: '0',
+                                                    contentType: file.type || 'image/jpeg'
+                                                });
+
+                                            if (uploadError) throw uploadError;
+
+                                            // Atualiza a versão (para quebrar cache no front)
+                                            const now = new Date().toISOString();
+                                            const { error: dbError } = await supabase
+                                                .from('news_images')
+                                                .upsert({ slot, updated_at: now }, { onConflict: 'slot' });
+
+                                            if (dbError) throw dbError;
+
+                                            setNewsImageRefreshKey(Date.now());
+                                            alert(`✅ Imagem da Notícia ${slot} atualizada com sucesso!`);
                                         } catch (err) {
                                             console.error('Erro ao processar imagem:', err);
-                                            alert('❌ Erro ao processar imagem: ' + err.message);
+                                            let errorMessage = err.message || 'Erro desconhecido';
+                                            
+                                            // Mensagem mais clara para erro de bucket não encontrado
+                                            if (errorMessage.includes('Bucket not found') || (errorMessage.includes('not found') && errorMessage.includes('bucket'))) {
+                                                errorMessage = 'Bucket "noticias" não encontrado no Supabase Storage.\n\n' +
+                                                    '📋 Para resolver:\n' +
+                                                    '1. Acesse https://app.supabase.com\n' +
+                                                    '2. Vá em Storage → "+ New bucket"\n' +
+                                                    '3. Crie o bucket com nome: "noticias" (minúsculo)\n' +
+                                                    '4. Marque como "Public bucket"\n' +
+                                                    '5. Configure as policies de leitura e escrita\n\n' +
+                                                    '📖 Veja o guia completo: GUIA_NOTICIAS_SUPABASE_STORAGE.md';
+                                            }
+                                            // Mensagem para erro de RLS (Row Level Security)
+                                            else if (errorMessage.includes('row-level security') || errorMessage.includes('violates row-level security')) {
+                                                errorMessage = 'Erro de permissão: Política RLS bloqueando inserção.\n\n' +
+                                                    '📋 Para resolver:\n' +
+                                                    '1. Acesse https://app.supabase.com\n' +
+                                                    '2. Vá em SQL Editor\n' +
+                                                    '3. Execute o script: setup-noticias-supabase.sql\n' +
+                                                    '   (ou copie o conteúdo do arquivo)\n' +
+                                                    '4. Verifique se as políticas foram criadas:\n' +
+                                                    '   - "public can read news_images" (SELECT)\n' +
+                                                    '   - "public can insert news_images" (INSERT)\n' +
+                                                    '   - "public can update news_images" (UPDATE)\n\n' +
+                                                    '📖 Veja o guia completo: GUIA_NOTICIAS_SUPABASE_STORAGE.md';
+                                            }
+                                            
+                                            alert('❌ Erro ao processar imagem: ' + errorMessage);
                                         } finally {
                                             setUploadingImage(false);
                                             // Limpar input
@@ -2748,9 +2867,8 @@ function Admin() {
                                 <ol style={{ color: '#CBD5E1', fontSize: '12px', margin: 0, paddingLeft: '20px', lineHeight: '1.8' }}>
                                     <li>Selecione o ID da notícia (1, 2, 3, etc.)</li>
                                     <li>Escolha a imagem que deseja fazer upload</li>
-                                    <li>A imagem será baixada automaticamente com o nome correto</li>
-                                    <li>Mova o arquivo para a pasta <code>public/noticias/</code> do projeto</li>
-                                    <li>Recarregue a página do site para ver a imagem</li>
+                                    <li>O site faz upload no Supabase e substitui a imagem anterior</li>
+                                    <li>Pronto — a imagem aparece no feed sem precisar publicar no Netlify</li>
                                 </ol>
                             </div>
                         </div>
@@ -2764,45 +2882,11 @@ function Admin() {
                         }}>
                             <h4 style={{ color: '#F59E0B', margin: '0 0 15px 0' }}>🖼️ Imagens Existentes</h4>
                             <p style={{ color: '#94A3B8', fontSize: '12px', marginBottom: '15px' }}>
-                                Preview das imagens que estão na pasta <code>public/noticias/</code>:
+                                Preview das imagens no Supabase Storage (bucket <code>noticias</code>):
                             </p>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
                                 {[1, 2, 3, 4, 5, 6].map((id) => (
-                                    <div key={id} style={{
-                                        background: '#0F172A',
-                                        borderRadius: '8px',
-                                        padding: '10px',
-                                        border: '1px solid #475569'
-                                    }}>
-                                        <div style={{ 
-                                            width: '100%', 
-                                            aspectRatio: '16/9', 
-                                            background: '#1E293B',
-                                            borderRadius: '6px',
-                                            marginBottom: '8px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            overflow: 'hidden'
-                                        }}>
-                                            <img 
-                                                src={`/noticias/Noticia${id}.jpg`}
-                                                alt={`Notícia ${id}`}
-                                                style={{
-                                                    width: '100%',
-                                                    height: '100%',
-                                                    objectFit: 'cover'
-                                                }}
-                                                onError={(e) => {
-                                                    e.target.style.display = 'none';
-                                                    e.target.parentElement.innerHTML = '<span style="color: #64748B; font-size: 12px;">Sem imagem</span>';
-                                                }}
-                                            />
-                                        </div>
-                                        <p style={{ color: '#94A3B8', fontSize: '11px', margin: 0, textAlign: 'center' }}>
-                                            Noticia{id}.jpg
-                                        </p>
-                                    </div>
+                                    <AdminNewsImagePreview key={id} id={id} getSupaUrl={getSupabaseNewsImageUrl} />
                                 ))}
                             </div>
                         </div>

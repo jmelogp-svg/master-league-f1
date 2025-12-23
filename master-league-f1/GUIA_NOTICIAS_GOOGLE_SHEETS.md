@@ -26,7 +26,8 @@ Na primeira linha (cabeçalho), crie as seguintes colunas:
 - **excerpt**: Resumo/descrição da notícia
 - **date**: Data no formato "DD MMM YYYY" (ex: "15 Jan 2025")
 - **category**: Categoria (ex: "Corrida", "Análise", "Grid Light", "Minicup")
-- **image**: URL da imagem (pode ser do Google Drive ou qualquer URL). Deixe vazio para usar imagem automática (Noticia1.jpg, Noticia2.jpg, etc.)
+- **image**: URL da imagem (opcional). Se você preencher, o site tenta carregar essa URL primeiro (Google Drive/URL externa).
+  - **Recomendado**: deixe vazio e use upload no site (Supabase Storage) com nome fixo `noticia1`, `noticia2`, etc. (sem deploy no Netlify).
 - **featured**: `true` ou `1` para destacar, `false` ou `0` para normal
 - **link**: URL para onde o botão "Ler mais" deve direcionar (pode ser link externo ou rota interna). Deixe vazio para ir para `/noticias`
 
@@ -69,6 +70,17 @@ https://docs.google.com/spreadsheets/d/e/2PACX-1v.../pub?gid=0&single=true&outpu
 ### ⚠️ Importante: Imagens Coladas no Google Sheets
 
 **Não é possível usar imagens coladas diretamente na planilha** porque quando exportamos como CSV, apenas os dados de texto são incluídos. As imagens inseridas no Google Sheets não são exportadas.
+
+### ✅ Solução Recomendada: Upload direto no site (Supabase Storage)
+
+Você consegue subir a imagem no seu próprio painel (Admin > NOTÍCIAS) e ela aparece no feed sem precisar publicar no Netlify.
+
+**Como funciona:**
+- Você escolhe o **ID da notícia** (1, 2, 3…)
+- Faz upload da imagem
+- O site salva no Supabase Storage como `noticia{ID}` e substitui a anterior
+
+> Para configurar o Supabase (bucket `noticias` + tabela `news_images`), veja `COMO_ADICIONAR_IMAGENS_NOTICIAS.md`.
 
 ### ✅ Solução Recomendada: Google Drive
 

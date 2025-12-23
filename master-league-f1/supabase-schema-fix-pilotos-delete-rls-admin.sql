@@ -40,3 +40,7 @@ WHERE tablename = 'pilotos' AND cmd = 'DELETE';
 
 
 
+
+
+
+
