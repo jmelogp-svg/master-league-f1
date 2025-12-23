@@ -130,11 +130,22 @@ export const useLeagueData = () => {
                         .select('data')
                         .single();
 
-                // Buscar Power Ranking do Supabase
-                const { data: prData } = await supabase
-                    .from('power_ranking_cache')
-                    .select('data')
-                    .single();
+                // Buscar Power Ranking do Supabase (com tratamento de erro específico)
+                let prData = null;
+                try {
+                    const { data, error } = await supabase
+                        .from('power_ranking_cache')
+                        .select('data')
+                        .single();
+                    
+                    if (!error && data) {
+                        prData = { data };
+                    }
+                } catch (prError) {
+                    // Ignora erro 406 ou outros erros do Supabase para power_ranking_cache
+                    // Vai fazer fallback para Google Sheets
+                    prData = null;
+                }
 
                 if (carreiraData?.data?.rows && lightData?.data?.rows) {
                     rowsC = carreiraData.data.rows;
