@@ -170,6 +170,14 @@ function Admin() {
 
         setSavingNoticia(true);
         try {
+            // Se está marcando como principal, desmarcar outras
+            if (editingNoticia.principal) {
+                await supabase
+                    .from('noticias')
+                    .update({ principal: false })
+                    .neq('id', parseInt(editingNoticia.id));
+            }
+
             const { error } = await supabase
                 .from('noticias')
                 .upsert({
@@ -180,6 +188,7 @@ function Admin() {
                     date: editingNoticia.date || new Date().toLocaleDateString('pt-BR'),
                     category: editingNoticia.category || 'Notícia',
                     featured: editingNoticia.featured || false,
+                    principal: editingNoticia.principal || false,
                     link: editingNoticia.link || null
                 }, { onConflict: 'id' });
 
@@ -3002,6 +3011,7 @@ function Admin() {
                                             date: new Date().toLocaleDateString('pt-BR'),
                                             category: 'Notícia',
                                             featured: false,
+                                            principal: false,
                                             link: ''
                                         });
                                     }}
@@ -3113,7 +3123,7 @@ function Admin() {
 
                                         <div>
                                             <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
-                                                Destaque?
+                                                Opções de Destaque
                                             </label>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '10px' }}>
                                                 <input
@@ -3126,6 +3136,20 @@ function Admin() {
                                                     {editingNoticia.featured ? '⭐ Notícia em destaque' : 'Notícia normal'}
                                                 </span>
                                             </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '10px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editingNoticia.principal}
+                                                    onChange={(e) => setEditingNoticia({ ...editingNoticia, principal: e.target.checked })}
+                                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                                />
+                                                <span style={{ color: '#F59E0B', fontSize: '13px', fontWeight: 'bold' }}>
+                                                    {editingNoticia.principal ? '📌 PRINCIPAL (fixada no topo)' : 'Fixar como principal'}
+                                                </span>
+                                            </label>
+                                            <p style={{ color: '#64748B', fontSize: '11px', marginTop: '8px' }}>
+                                                💡 Apenas 1 notícia deve ser marcada como principal
+                                            </p>
                                         </div>
                                     </div>
 

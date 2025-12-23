@@ -37,7 +37,14 @@ const Noticias = () => {
             if (error) throw error;
             
             if (data && data.length > 0) {
-                setNoticias(data);
+                // Ordenar: principal primeiro, depois por ID decrescente
+                const sorted = [...data].sort((a, b) => {
+                    if (a.principal && !b.principal) return -1;
+                    if (!a.principal && b.principal) return 1;
+                    return b.id - a.id;
+                });
+                
+                setNoticias(sorted);
                 
                 // Extrair categorias únicas
                 const cats = ['todas', ...new Set(data.map(n => n.category).filter(Boolean))];
@@ -122,6 +129,9 @@ const Noticias = () => {
                                     {/* Header da Notícia */}
                                     <div className="noticia-artigo-header">
                                         <div className="noticia-artigo-meta">
+                                            {noticia.principal && (
+                                                <span className="noticia-badge-principal">📌 PRINCIPAL</span>
+                                            )}
                                             <span className="noticia-artigo-category">{noticia.category}</span>
                                             <span className="noticia-artigo-date">📅 {noticia.date}</span>
                                         </div>

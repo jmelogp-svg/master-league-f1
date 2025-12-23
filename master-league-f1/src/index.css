@@ -6670,6 +6670,23 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     margin-bottom: 12px;
 }
 
+.noticia-badge-principal {
+    background: #F59E0B;
+    color: #0F172A;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.75rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
 .noticia-artigo-category {
     background: var(--carreira-wine);
     color: white;
