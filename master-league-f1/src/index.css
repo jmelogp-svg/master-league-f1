@@ -6539,7 +6539,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 .noticias-portal-page {
     min-height: 100vh;
     background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-    padding: 80px 20px 60px;
+    padding: 80px 20px 40px;
 }
 
 /* Barra superior com botão Home (Portal e Notícia Completa) */
@@ -6576,30 +6576,30 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 
 .noticias-portal-header {
-    max-width: 1400px;
-    margin: 0 auto 40px;
+    max-width: 1000px;
+    margin: 0 auto 30px;
 }
 
 .noticias-portal-hero {
     text-align: center;
-    padding: 60px 20px;
+    padding: 30px 20px;
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
-    border-radius: 16px;
+    border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .noticias-portal-hero h1 {
-    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-size: clamp(1.5rem, 4vw, 2.2rem);
     font-weight: 900;
     font-style: italic;
     text-transform: uppercase;
     color: white;
-    margin: 0 0 15px 0;
+    margin: 0 0 8px 0;
     letter-spacing: -1px;
 }
 
 .noticias-portal-hero p {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     color: #94A3B8;
     margin: 0;
 }
@@ -6648,54 +6648,54 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 .noticias-feed-completo {
     display: flex;
     flex-direction: column;
-    gap: 60px;
+    gap: 40px;
 }
 
 .noticia-artigo-completo {
     background: #1E293B;
-    border-radius: 16px;
+    border-radius: 12px;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.05);
     scroll-margin-top: 100px;
 }
 
 .noticia-artigo-header {
-    padding: 40px 40px 20px;
+    padding: 24px 30px 16px;
 }
 
 .noticia-artigo-meta {
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 20px;
+    gap: 12px;
+    margin-bottom: 12px;
 }
 
 .noticia-artigo-category {
     background: var(--carreira-wine);
     color: white;
-    padding: 6px 16px;
-    border-radius: 8px;
+    padding: 4px 12px;
+    border-radius: 6px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
 }
 
 .noticia-artigo-date {
     color: #94A3B8;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
 }
 
 .noticia-artigo-title {
-    font-size: clamp(2rem, 5vw, 3rem);
+    font-size: clamp(1.4rem, 4vw, 2rem);
     font-weight: 900;
     font-style: italic;
     text-transform: uppercase;
     color: white;
     margin: 0;
     line-height: 1.2;
-    letter-spacing: -1px;
+    letter-spacing: -0.5px;
 }
 
 .noticia-artigo-image-container {
@@ -6728,14 +6728,14 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 30px 40px;
+    padding: 20px 30px;
     z-index: 2;
 }
 
 .noticia-artigo-subtitle-overlay p {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     color: white;
-    line-height: 1.4;
+    line-height: 1.3;
     margin: 0;
     font-weight: 600;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
@@ -6743,21 +6743,21 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 .noticia-artigo-share {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 16px;
+    right: 16px;
     z-index: 3;
     display: flex;
-    gap: 8px;
+    gap: 6px;
 }
 
 .share-btn-small {
-    padding: 8px 16px;
+    padding: 6px 12px;
     border: none;
     border-radius: 6px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     backdrop-filter: blur(10px);
 }
 
@@ -6782,7 +6782,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 
 .noticia-artigo-content {
-    padding: 40px;
+    padding: 24px 30px 30px;
 }
 
 .noticia-artigo-body {
@@ -6828,12 +6828,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 
 .noticia-separador {
-    height: 2px;
+    height: 1px;
     background: linear-gradient(90deg, 
         transparent, 
         rgba(139, 33, 50, 0.3) 50%, 
         transparent);
-    margin: 60px 0;
+    margin: 40px 0;
 }
 
 /* =========================================
@@ -7055,12 +7055,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 .noticia-section-title {
     color: var(--carreira-wine);
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     font-weight: 800;
     font-style: italic;
     text-transform: uppercase;
-    margin: 32px 0 16px 0;
-    padding-bottom: 12px;
+    margin: 24px 0 12px 0;
+    padding-bottom: 8px;
     border-bottom: 2px solid rgba(139, 33, 50, 0.3);
 }
 

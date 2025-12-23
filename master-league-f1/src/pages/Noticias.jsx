@@ -103,18 +103,7 @@ const Noticias = () => {
                 </div>
             </header>
 
-            {/* Filtros de Categoria */}
-            <div className="noticias-filters">
-                {categorias.map(cat => (
-                    <button
-                        key={cat}
-                        onClick={() => setFiltroCategoria(cat)}
-                        className={`filter-btn ${filtroCategoria === cat ? 'active' : ''}`}
-                    >
-                        {cat === 'todas' ? '🏁 Todas' : cat}
-                    </button>
-                ))}
-            </div>
+            {/* Filtros removidos para otimizar espaço */}
 
             {/* Feed de Notícias Completas */}
             <div className="noticias-portal-container">
