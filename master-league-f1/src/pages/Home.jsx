@@ -319,14 +319,38 @@ function Home() {
         fetchMinicup();
     }, []);
 
-    // Buscar notícias do Google Sheets
+    // Buscar notícias: Prioridade Supabase > Google Sheets > Padrão
     useEffect(() => {
         const fetchNews = async () => {
             try {
+                // 1. Tentar buscar do Supabase primeiro
+                console.log('📰 Buscando notícias do Supabase...');
+                const { data: supabaseNews, error: supabaseError } = await supabase
+                    .from('noticias')
+                    .select('*')
+                    .order('id', { ascending: false });
+                
+                if (!supabaseError && supabaseNews && supabaseNews.length > 0) {
+                    console.log(`✅ ${supabaseNews.length} notícias carregadas do Supabase`);
+                    // Ordenar: featured primeiro, depois por ID (mais recente primeiro)
+                    const sortedNews = [...supabaseNews].sort((a, b) => {
+                        if (a.featured && !b.featured) return -1;
+                        if (!a.featured && b.featured) return 1;
+                        return b.id - a.id;
+                    });
+                    setNews(sortedNews.map(n => ({
+                        ...n,
+                        image: n.image || null
+                    })));
+                    return; // Se encontrou no Supabase, não busca do Sheets
+                }
+                
+                // 2. Se não há notícias no Supabase, tentar buscar do Google Sheets
+                console.log('📋 Nenhuma notícia no Supabase, buscando do Google Sheets...');
                 const response = await fetch(NEWS_CSV_URL);
                 if (!response.ok) {
                     console.warn('⚠️ Erro ao buscar notícias do Google Sheets, usando notícias padrão');
-                    // Notícias padrão caso a planilha não esteja disponível
+                    // Notícias padrão caso nem Supabase nem Sheets estejam disponíveis
                     setNews([
                         {
                             id: 1,
@@ -1368,16 +1392,19 @@ function Home() {
                                         key={newsItem.id} 
                                         className={`news-feed-card ${newsItem.featured ? 'news-featured' : ''}`}
                                         onClick={() => {
-                                            if (newsItem.link) {
-                                                // Se for link externo (http/https), abre em nova aba
+                                            // Prioridade: 1) Página da notícia completa 2) Link externo 3) Portal de notícias
+                                            if (newsItem.content || (newsItem.id && !newsItem.link)) {
+                                                // Se tem conteúdo completo OU tem ID sem link, vai para página da notícia
+                                                navigate(`/noticias/${newsItem.id}`);
+                                            } else if (newsItem.link) {
+                                                // Se tem link externo, usa ele
                                                 if (newsItem.link.startsWith('http://') || newsItem.link.startsWith('https://')) {
                                                     window.open(newsItem.link, '_blank', 'noopener,noreferrer');
                                                 } else {
-                                                    // Se for rota interna, navega normalmente
                                                     navigate(newsItem.link);
                                                 }
                                             } else {
-                                                // Fallback: navega para página de notícias
+                                                // Fallback: vai para o portal de notícias
                                                 navigate('/noticias');
                                             }
                                         }}

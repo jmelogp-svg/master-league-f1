@@ -47,6 +47,13 @@ function Admin() {
     const [uploadingImage, setUploadingImage] = useState(false);
     const [selectedNewsId, setSelectedNewsId] = useState(1);
     const [newsImageRefreshKey, setNewsImageRefreshKey] = useState(Date.now());
+    
+    // Estados para CMS de Notícias
+    const [noticias, setNoticias] = useState([]);
+    const [loadingNoticias, setLoadingNoticias] = useState(false);
+    const [editingNoticia, setEditingNoticia] = useState(null);
+    const [savingNoticia, setSavingNoticia] = useState(false);
+    const [showNovaNoticia, setShowNovaNoticia] = useState(false);
 
     const getSupabaseNewsImageUrl = (slot) => {
         try {
@@ -133,6 +140,91 @@ function Admin() {
             </div>
         );
     };
+
+    // Funções do CMS de Notícias
+    const carregarNoticias = async () => {
+        setLoadingNoticias(true);
+        try {
+            const { data, error } = await supabase
+                .from('noticias')
+                .select('*')
+                .order('id', { ascending: false });
+            
+            if (error) throw error;
+            setNoticias(data || []);
+        } catch (err) {
+            console.error('Erro ao carregar notícias:', err);
+            alert('❌ Erro ao carregar notícias: ' + (err.message || 'Erro desconhecido'));
+        } finally {
+            setLoadingNoticias(false);
+        }
+    };
+
+    const handleSaveNoticia = async () => {
+        if (!editingNoticia) return;
+        
+        if (!editingNoticia.title || !editingNoticia.id) {
+            alert('❌ Preencha pelo menos o ID e o Título da notícia');
+            return;
+        }
+
+        setSavingNoticia(true);
+        try {
+            const { error } = await supabase
+                .from('noticias')
+                .upsert({
+                    id: parseInt(editingNoticia.id),
+                    title: editingNoticia.title,
+                    subtitle: editingNoticia.subtitle || null,
+                    excerpt: editingNoticia.excerpt || '',
+                    content: editingNoticia.content || null,
+                    date: editingNoticia.date || new Date().toLocaleDateString('pt-BR'),
+                    category: editingNoticia.category || 'Notícia',
+                    featured: editingNoticia.featured || false,
+                    link: editingNoticia.link || null
+                }, { onConflict: 'id' });
+
+            if (error) throw error;
+
+            alert('✅ Notícia salva com sucesso!');
+            setEditingNoticia(null);
+            setShowNovaNoticia(false);
+            await carregarNoticias();
+        } catch (err) {
+            console.error('Erro ao salvar notícia:', err);
+            alert('❌ Erro ao salvar notícia: ' + (err.message || 'Erro desconhecido'));
+        } finally {
+            setSavingNoticia(false);
+        }
+    };
+
+    const handleDeleteNoticia = async (id) => {
+        if (!window.confirm('❌ Tem certeza que deseja excluir esta notícia? Esta ação não pode ser desfeita.')) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('noticias')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            alert('✅ Notícia excluída com sucesso!');
+            await carregarNoticias();
+        } catch (err) {
+            console.error('Erro ao excluir notícia:', err);
+            alert('❌ Erro ao excluir notícia: ' + (err.message || 'Erro desconhecido'));
+        }
+    };
+
+    // useEffect para carregar notícias quando a aba for aberta
+    useEffect(() => {
+        if (activeTab === 'noticias') {
+            carregarNoticias();
+        }
+    }, [activeTab]);
 
     // Estados para Edição de Usuários/Pilotos
     const [editingUser, setEditingUser] = useState(null); // { id, nome, email, grid, equipe, whatsapp, is_steward }
@@ -2888,6 +2980,431 @@ function Admin() {
                                 {[1, 2, 3, 4, 5, 6].map((id) => (
                                     <AdminNewsImagePreview key={id} id={id} getSupaUrl={getSupabaseNewsImageUrl} />
                                 ))}
+                            </div>
+                        </div>
+
+                        {/* ===== CMS DE NOTÍCIAS ===== */}
+                        <div style={{ marginTop: '40px', paddingTop: '40px', borderTop: '2px solid rgba(245, 158, 11, 0.3)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <div>
+                                    <h3 style={{ color: '#F59E0B', margin: 0 }}>📝 Gerenciar Notícias (CMS)</h3>
+                                    <p style={{ color: '#94A3B8', fontSize: '13px', marginTop: '5px' }}>
+                                        Crie e edite notícias diretamente aqui. As notícias do Supabase têm prioridade sobre a planilha do Google Sheets.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setShowNovaNoticia(true);
+                                        setEditingNoticia({
+                                            id: (noticias.length > 0 ? Math.max(...noticias.map(n => n.id)) + 1 : 1),
+                                            title: '',
+                                            subtitle: '',
+                                            excerpt: '',
+                                            content: '',
+                                            date: new Date().toLocaleDateString('pt-BR'),
+                                            category: 'Notícia',
+                                            featured: false,
+                                            link: ''
+                                        });
+                                    }}
+                                    style={{
+                                        padding: '12px 24px',
+                                        background: '#F59E0B',
+                                        color: '#0F172A',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold',
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    ➕ Nova Notícia
+                                </button>
+                            </div>
+
+                            {/* Formulário de Nova/Editar Notícia */}
+                            {(showNovaNoticia || editingNoticia) && editingNoticia && (
+                                <div style={{
+                                    background: '#1E293B',
+                                    borderRadius: '10px',
+                                    padding: '25px',
+                                    marginBottom: '20px',
+                                    border: '2px solid #F59E0B'
+                                }}>
+                                    <h4 style={{ color: '#F59E0B', margin: '0 0 20px 0' }}>
+                                        {showNovaNoticia ? '✨ Nova Notícia' : `✏️ Editando Notícia #${editingNoticia.id}`}
+                                    </h4>
+                                    
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                                        <div>
+                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                                ID * (usado para referência da imagem)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={editingNoticia.id}
+                                                onChange={(e) => setEditingNoticia({ ...editingNoticia, id: parseInt(e.target.value) || 1 })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #475569',
+                                                    background: '#0F172A',
+                                                    color: '#F8FAFC',
+                                                    fontSize: '14px'
+                                                }}
+                                                disabled={!showNovaNoticia}
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                                Data *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editingNoticia.date}
+                                                onChange={(e) => setEditingNoticia({ ...editingNoticia, date: e.target.value })}
+                                                placeholder="Ex: 23/12/2025"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #475569',
+                                                    background: '#0F172A',
+                                                    color: '#F8FAFC',
+                                                    fontSize: '14px'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                                Categoria * (selecione ou crie uma nova)
+                                            </label>
+                                            <input
+                                                list="categorias-sugestoes"
+                                                value={editingNoticia.category}
+                                                onChange={(e) => setEditingNoticia({ ...editingNoticia, category: e.target.value })}
+                                                placeholder="Digite ou selecione uma categoria"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #475569',
+                                                    background: '#0F172A',
+                                                    color: '#F8FAFC',
+                                                    fontSize: '14px'
+                                                }}
+                                            />
+                                            <datalist id="categorias-sugestoes">
+                                                <option value="Notícia" />
+                                                <option value="Corrida" />
+                                                <option value="Análise" />
+                                                <option value="Grid Light" />
+                                                <option value="Minicup" />
+                                                <option value="Regulamento" />
+                                                <option value="Mercado" />
+                                                <option value="Power Ranking" />
+                                            </datalist>
+                                            <p style={{ color: '#64748B', fontSize: '11px', marginTop: '5px' }}>
+                                                💡 Você pode digitar uma categoria personalizada
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                                Destaque?
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '10px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editingNoticia.featured}
+                                                    onChange={(e) => setEditingNoticia({ ...editingNoticia, featured: e.target.checked })}
+                                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                                />
+                                                <span style={{ color: '#CBD5E1', fontSize: '13px' }}>
+                                                    {editingNoticia.featured ? '⭐ Notícia em destaque' : 'Notícia normal'}
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                            Título *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editingNoticia.title}
+                                            onChange={(e) => setEditingNoticia({ ...editingNoticia, title: e.target.value })}
+                                            placeholder="Ex: Yuri Rodrigues conquista o título da Minicup ML1"
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px',
+                                                borderRadius: '6px',
+                                                border: '1px solid #475569',
+                                                background: '#0F172A',
+                                                color: '#F8FAFC',
+                                                fontSize: '14px'
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                            Subtítulo / Linha Fina
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editingNoticia.subtitle || ''}
+                                            onChange={(e) => setEditingNoticia({ ...editingNoticia, subtitle: e.target.value })}
+                                            placeholder="Ex: Piloto vence por apenas 2 pontos após disputa eletrizante"
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px',
+                                                borderRadius: '6px',
+                                                border: '1px solid #475569',
+                                                background: '#0F172A',
+                                                color: '#F8FAFC',
+                                                fontSize: '14px'
+                                            }}
+                                        />
+                                        <p style={{ color: '#64748B', fontSize: '11px', marginTop: '5px' }}>
+                                            Linha secundária que aparece abaixo do título principal
+                                        </p>
+                                    </div>
+
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                            Resumo (para exibir na Home) *
+                                        </label>
+                                        <p style={{ color: '#64748B', fontSize: '11px', marginBottom: '8px' }}>
+                                            💡 Texto curto que aparecerá no card da home (2-3 linhas)
+                                        </p>
+                                        <textarea
+                                            value={editingNoticia.excerpt}
+                                            onChange={(e) => setEditingNoticia({ ...editingNoticia, excerpt: e.target.value })}
+                                            placeholder="Ex: O Campeonato de pré-temporada da Master League F1 foi decidido por apenas dois pontos após seis corridas disputadas."
+                                            rows={3}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px',
+                                                borderRadius: '6px',
+                                                border: '1px solid #475569',
+                                                background: '#0F172A',
+                                                color: '#F8FAFC',
+                                                fontSize: '14px',
+                                                lineHeight: '1.6',
+                                                fontFamily: 'inherit',
+                                                resize: 'vertical'
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                            Conteúdo Completo (Matéria Completa)
+                                        </label>
+                                        <p style={{ color: '#64748B', fontSize: '11px', marginBottom: '8px' }}>
+                                            💡 Use **texto** para <strong>negrito</strong>. Shift+Enter para parágrafos. Será exibido na página /noticias/{editingNoticia.id}
+                                        </p>
+                                        <textarea
+                                            value={editingNoticia.content || ''}
+                                            onChange={(e) => setEditingNoticia({ ...editingNoticia, content: e.target.value })}
+                                            placeholder="Digite o conteúdo completo aqui...&#10;&#10;**O Caminho para o Título**&#10;A Minicup foi dividida em três etapas duplas...&#10;&#10;**Rodadas 1 e 2 (Áustria e Austrália)**&#10;O torneio começou com equilíbrio..."
+                                            rows={15}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px',
+                                                borderRadius: '6px',
+                                                border: '1px solid #475569',
+                                                background: '#0F172A',
+                                                color: '#F8FAFC',
+                                                fontSize: '14px',
+                                                lineHeight: '1.6',
+                                                fontFamily: 'inherit',
+                                                resize: 'vertical'
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                            Link Externo (opcional)
+                                        </label>
+                                        <input
+                                            type="url"
+                                            value={editingNoticia.link}
+                                            onChange={(e) => setEditingNoticia({ ...editingNoticia, link: e.target.value })}
+                                            placeholder="Ex: https://exemplo.com/materia-completa"
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px',
+                                                borderRadius: '6px',
+                                                border: '1px solid #475569',
+                                                background: '#0F172A',
+                                                color: '#F8FAFC',
+                                                fontSize: '14px'
+                                            }}
+                                        />
+                                        <p style={{ color: '#64748B', fontSize: '11px', marginTop: '5px' }}>
+                                            Se preencher, o botão "Ler mais" irá abrir este link em nova aba
+                                        </p>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                                        <button
+                                            onClick={() => {
+                                                setEditingNoticia(null);
+                                                setShowNovaNoticia(false);
+                                            }}
+                                            style={{
+                                                padding: '10px 20px',
+                                                background: 'transparent',
+                                                color: '#94A3B8',
+                                                border: '1px solid #475569',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleSaveNoticia}
+                                            disabled={savingNoticia}
+                                            style={{
+                                                padding: '10px 24px',
+                                                background: savingNoticia ? '#475569' : '#F59E0B',
+                                                color: savingNoticia ? '#94A3B8' : '#0F172A',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                cursor: savingNoticia ? 'not-allowed' : 'pointer',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            {savingNoticia ? '⏳ Salvando...' : '💾 Salvar Notícia'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Lista de Notícias */}
+                            <div style={{
+                                background: '#1E293B',
+                                borderRadius: '10px',
+                                padding: '25px',
+                                border: '1px solid rgba(255,255,255,0.1)'
+                            }}>
+                                <h4 style={{ color: '#F59E0B', margin: '0 0 15px 0' }}>📋 Notícias Cadastradas</h4>
+                                
+                                {loadingNoticias ? (
+                                    <p style={{ color: '#94A3B8', textAlign: 'center', padding: '20px' }}>
+                                        ⏳ Carregando notícias...
+                                    </p>
+                                ) : noticias.length === 0 ? (
+                                    <p style={{ color: '#94A3B8', textAlign: 'center', padding: '20px' }}>
+                                        📭 Nenhuma notícia cadastrada ainda. Clique em "Nova Notícia" para começar.
+                                    </p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {noticias.map((noticia) => (
+                                            <div
+                                                key={noticia.id}
+                                                style={{
+                                                    background: '#0F172A',
+                                                    padding: '15px',
+                                                    borderRadius: '8px',
+                                                    border: noticia.featured ? '2px solid #F59E0B' : '1px solid #475569',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    gap: '15px'
+                                                }}
+                                            >
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                                                        <span style={{
+                                                            background: '#475569',
+                                                            color: '#F8FAFC',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '11px',
+                                                            fontWeight: 'bold'
+                                                        }}>
+                                                            #{noticia.id}
+                                                        </span>
+                                                        <span style={{
+                                                            background: 'var(--carreira-wine)',
+                                                            color: 'white',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '11px',
+                                                            fontWeight: 'bold'
+                                                        }}>
+                                                            {noticia.category}
+                                                        </span>
+                                                        {noticia.featured && (
+                                                            <span style={{
+                                                                background: '#F59E0B',
+                                                                color: '#0F172A',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '4px',
+                                                                fontSize: '11px',
+                                                                fontWeight: 'bold'
+                                                            }}>
+                                                                ⭐ DESTAQUE
+                                                            </span>
+                                                        )}
+                                                        <span style={{ color: '#64748B', fontSize: '12px' }}>
+                                                            {noticia.date}
+                                                        </span>
+                                                    </div>
+                                                    <h5 style={{ color: '#F8FAFC', margin: '0 0 5px 0', fontSize: '14px', fontWeight: 'bold' }}>
+                                                        {noticia.title}
+                                                    </h5>
+                                                    <p style={{ color: '#94A3B8', margin: 0, fontSize: '12px', lineHeight: '1.5' }}>
+                                                        {noticia.excerpt ? noticia.excerpt.substring(0, 120) + '...' : 'Sem descrição'}
+                                                    </p>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingNoticia(noticia);
+                                                            setShowNovaNoticia(false);
+                                                        }}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            background: '#3B82F6',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '12px'
+                                                        }}
+                                                    >
+                                                        ✏️ Editar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteNoticia(noticia.id)}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            background: '#EF4444',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '12px'
+                                                        }}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
