@@ -74,18 +74,26 @@ export function getDeviceInfo() {
 }
 
 /**
+ * Obtém o tipo de dispositivo para fins de 2FA (estável, ignora largura da tela)
+ * @returns {string} - 'mobile' ou 'desktop'
+ */
+export function get2FADeviceType() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    // Regex simplificada focada em sistemas operacionais móveis
+    const isMobileOS = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    return isMobileOS ? 'mobile' : 'desktop';
+}
+
+/**
  * Obtém a chave de 2FA específica para o dispositivo
- * No mobile, adiciona sufixo para diferenciar do PC
+ * Usa get2FADeviceType para garantir estabilidade (ignora resize)
  * @param {string} email - Email do usuário
  * @returns {string} - Chave de 2FA específica para o dispositivo
  */
 export function get2FAKeyForDevice(email) {
     const baseKey = `ml_pilot_2fa_ok:${(email || '').toLowerCase().trim()}`;
-    const isMobile = isMobileDevice();
-    
-    // No mobile, adiciona sufixo para diferenciar do PC
-    // Isso permite que o usuário tenha sessões diferentes em PC e celular
-    return isMobile ? `${baseKey}:mobile` : `${baseKey}:desktop`;
+    const deviceType = get2FADeviceType();
+    return `${baseKey}:${deviceType}`;
 }
 
 /**
@@ -95,7 +103,9 @@ export function get2FAKeyForDevice(email) {
  */
 export function is2FAValidatedForDevice(email) {
     const key = get2FAKeyForDevice(email);
-    return localStorage.getItem(key) === 'true';
+    const value = localStorage.getItem(key);
+    console.log(`[DEBUG_LOGIN] is2FAValidatedForDevice - key: ${key}, value: ${value}`);
+    return value === 'true';
 }
 
 /**

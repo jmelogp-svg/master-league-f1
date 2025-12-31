@@ -12,25 +12,6 @@ const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP
 // Para obter a URL: Compartilhar > Qualquer pessoa com o link > Publicar na web > CSV
 const NEWS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=197415613&single=true&output=csv';
 
-// #region agent log
-const logDebug = (id, msg, data) => {
-    const payload = {
-        location: 'Home.jsx',
-        message: msg,
-        data: data,
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        hypothesisId: id
-    };
-    console.log(`[DEBUG][${id}] ${msg}`, data);
-    fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    }).catch(() => {});
-};
-// #endregion
-
 const fetchWithProxy = async (url) => {
     try {
         const response = await fetch(url);
@@ -203,15 +184,6 @@ const DriverModal = ({ driver, gridType, season, onClose, teamColor, teamLogo })
 };
 
 function Home() {
-    // #region agent log
-    useEffect(() => {
-        logDebug('MOUNT', 'Home component mounted', { 
-            MINICUP_CSV_URL, 
-            NEWS_CSV_URL,
-            location: window.location.href 
-        });
-    }, []);
-    // #endregion
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -278,25 +250,6 @@ function Home() {
 
     const { rawCarreira, rawLight, rawGridsT20, draftCarreira, draftLight, tracks, seasons, loading } = useLeagueData();
     
-    // #region agent log
-    const logDebug = (id, msg, data) => {
-        const payload = {
-            location: 'Home.jsx',
-            message: msg,
-            data: data,
-            timestamp: Date.now(),
-            sessionId: 'debug-session',
-            hypothesisId: id
-        };
-        console.log(`[DEBUG][${id}] ${msg}`, data);
-        fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).catch(() => {});
-    };
-    // #endregion
-
     const [viewType, setViewType] = useState('hub'); 
     const [gridType, setGridType] = useState('carreira');
     const [selectedSeason, setSelectedSeason] = useState(0);
@@ -386,10 +339,8 @@ function Home() {
     // Buscar dados da Minicup
     useEffect(() => {
         const fetchMinicup = async () => {
-            logDebug('MINI-1', 'fetchMinicup start', { url: MINICUP_CSV_URL });
             try {
                 const csvText = await fetchWithProxy(MINICUP_CSV_URL);
-                logDebug('MINI-2', 'csv length', { length: csvText.length });
                 
                 Papa.parse(csvText, {
                     header: false,
@@ -398,7 +349,6 @@ function Home() {
                         const data = results.data;
                         const drivers = [];
                         
-                        logDebug('MINI-3', 'parse complete', { rows: data?.length });
 
                         // Verificar se os dados foram parseados corretamente
                         if (!data || data.length === 0) {
@@ -429,17 +379,14 @@ function Home() {
 
                         // Ordenar por pontos (pilotos com pontos primeiro, depois os sem pontos)
                         drivers.sort((a, b) => b.points - a.points);
-                        logDebug('MINI-4', 'processed drivers', { count: drivers.length });
                         setMinicupDrivers(drivers);
                     },
                     error: (error) => {
                         console.error('❌ Erro ao parsear CSV da Minicup:', error);
-                        logDebug('MINI-ERR', 'parse error', { error: error.message });
                     }
                 });
             } catch (err) {
                 console.error('Erro ao carregar Minicup:', err);
-                logDebug('MINI-FATAL', 'fetch error', { error: err.message });
             }
         };
         fetchMinicup();
@@ -448,10 +395,8 @@ function Home() {
     // Buscar notícias do Google Sheets (feed de resumos na home)
     useEffect(() => {
         const fetchNews = async () => {
-            logDebug('NEWS-1', 'fetchNews start', { url: NEWS_CSV_URL });
             
             const setFallbackNews = () => {
-                logDebug('NEWS-FALLBACK', 'using fallback news');
                 setNews([
                     {
                         id: 1,
@@ -485,7 +430,6 @@ function Home() {
 
             try {
                 const csvText = await fetchWithProxy(NEWS_CSV_URL);
-                logDebug('NEWS-2', 'csv length', { length: csvText.length });
                 
                 Papa.parse(csvText, {
                     header: true,
@@ -494,7 +438,6 @@ function Home() {
                         const data = results.data;
                         const newsList = [];
                         
-                        logDebug('NEWS-3', 'parse complete', { rows: data?.length });
 
                         if (!data || data.length === 0) {
                             console.warn('⚠️ Nenhuma notícia encontrada na planilha');
@@ -575,28 +518,21 @@ function Home() {
                         };
                         
                         // REGRA: A notícia com número (ID) maior sempre será a principal
-                        // Ordenar por ID decrescente
-                        newsList.sort((a, b) => b.id - a.id);
-                        
-                        logDebug('NEWS-4', 'processed news', { 
-                            count: newsList.length, 
-                            firstId: newsList[0]?.id,
-                            firstTitle: newsList[0]?.title 
-                        });
-                        setNews(newsList);
-                    },
-                    error: (error) => {
-                        console.error('❌ Erro ao parsear CSV de notícias:', error);
-                        logDebug('NEWS-ERR', 'parse error', { error: error.message });
-                        setFallbackNews();
-                    }
-                });
-            } catch (err) {
-                console.error('Erro ao carregar notícias:', err);
-                logDebug('NEWS-FATAL', 'fetch error', { error: err.message });
-                setFallbackNews();
-            }
-        };
+                            // Ordenar por ID decrescente
+                            newsList.sort((a, b) => b.id - a.id);
+                            
+                            setNews(newsList);
+                        },
+                        error: (error) => {
+                            console.error('❌ Erro ao parsear CSV de notícias:', error);
+                            setFallbackNews();
+                        }
+                    });
+                } catch (err) {
+                    console.error('Erro ao carregar notícias:', err);
+                    setFallbackNews();
+                }
+            };
         fetchNews();
     }, []);
 
@@ -796,7 +732,6 @@ function Home() {
         // FALLBACK: Se não houver dados de resultados para S20 (temporada não começou), 
         // usar os dados dos DRAFTS conforme GIDs informados
         if (sorted.length === 0 && draftCarreira && draftCarreira.length > 0) {
-            logDebug('HUB-DRAFT', 'Using Draft Carreira');
             draftCarreira.forEach(row => {
                 const name = (row[0] || '').toString().trim();
                 // Ignorar cabeçalhos comuns
@@ -808,7 +743,6 @@ function Home() {
         }
 
         if (sortedLightFull.length === 0 && draftLight && draftLight.length > 0) {
-            logDebug('HUB-DRAFT', 'Using Draft Light');
             draftLight.forEach(row => {
                 const name = (row[0] || '').toString().trim();
                 if (name && name !== 'Piloto' && name !== 'NOME' && name !== 'Nome' && !name.includes('#')) {
@@ -1478,17 +1412,6 @@ function Home() {
     };
 
     const nextGPInfo = nextRaceData && tracks ? (tracks[normalizeStr(nextRaceData.gp)] || {}) : {};
-
-    // #region agent log
-    logDebug('RENDER-1', 'Home render', { 
-        viewType, 
-        newsCount: news?.length || 0, 
-        minicupCount: minicupDrivers?.length || 0,
-        loading,
-        hasNextRace: !!nextRaceData,
-        hasTracks: !!tracks
-    });
-    // #endregion
 
     return (
         <div className="page-wrapper">

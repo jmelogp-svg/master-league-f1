@@ -10,7 +10,6 @@ headers = []
 publish = "C:\\Users\\Usuario\\Documents\\Master League F1\\Projetos_React\\master-league-f1\\dist"
 publishOrigin = "ui"
 commandOrigin = "ui"
-base = "C:\\Users\\Usuario\\Documents\\Master League F1\\Projetos_React\\master-league-f1"
 command = "npm run build"
 
 [build.environment]

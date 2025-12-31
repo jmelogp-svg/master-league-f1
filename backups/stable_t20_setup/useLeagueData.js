@@ -92,19 +92,6 @@ export const useLeagueData = () => {
     useEffect(() => {
         const fetchAll = async () => {
             try {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        location: 'useLeagueData.js',
-                        message: 'fetchAll start',
-                        timestamp: Date.now(),
-                        sessionId: 'debug-session',
-                        hypothesisId: 'LEAGUE-1'
-                    })
-                }).catch(() => {});
-                // #endregion
                 // Verifica cache
                 const now = Date.now();
                 if (cacheData.rawCarreira && (now - cacheData.lastFetch) < CACHE_DURATION) {
@@ -372,26 +359,6 @@ export const useLeagueData = () => {
                 cacheData.lastFetch = now;
 
                 if (isMounted.current) {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            location: 'useLeagueData.js',
-                            message: 'fetchAll success',
-                            data: {
-                                seasons: newData.seasons,
-                                tracksCount: Object.keys(newData.tracks).length,
-                                hasGridsT20: !!newData.rawGridsT20,
-                                hasDraftCarreira: !!newData.draftCarreira,
-                                hasDraftLight: !!newData.draftLight
-                            },
-                            timestamp: Date.now(),
-                            sessionId: 'debug-session',
-                            hypothesisId: 'LEAGUE-2'
-                        })
-                    }).catch(() => {});
-                    // #endregion
                     setData({
                         ...newData,
                         loading: false

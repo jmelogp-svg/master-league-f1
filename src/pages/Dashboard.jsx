@@ -685,6 +685,11 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             .join(' ');
     };
 
+    const formatGridWithStatus = (targetGrid) => {
+        const target = (targetGrid || '').toLowerCase();
+        return target === 'light' ? 'Grid LIGHT' : 'Grid CARREIRA';
+    };
+
     // Parse de data (dd/mm/aaaa, dd/mm/aa ou ISO) e comparação por "dia" (ignora hora)
     const parseDateAny = (dateStr) => {
         if (!dateStr || typeof dateStr !== 'string') return null;
@@ -2056,8 +2061,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             introducao = 'A Scuderia Ferrari, com sua rica história italiana e legado de grandes campeões como Michael Schumacher, busca um piloto que honre o Cavallino Rampante. Nossa torcida apaixonada espera por resultados que reflitam a tradição de excelência da equipe mais icônica da Fórmula 1.';
             objetivos = [
                 'Lutar pelo título de pilotos e construtores, honrando a tradição vermelha',
-                'Conquistar pelo menos 3 vitórias durante a temporada',
-                'Conquistar pelo menos 3 pódios durante a temporada',
+                'Conquistar pelo menos 3 Vitórias (1º lugar) durante a temporada',
+                'Nas corridas em que a vitória não vier, conquistar pelo menos 3 Pódios (2º ou 3º lugar)',
                 'Terminar a temporada entre os 2 primeiros do campeonato',
                 'Representar com excelência a marca Ferrari e seus valores italianos'
             ];
@@ -2071,8 +2076,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             introducao = 'A McLaren, casa de lendas como Ayrton Senna e Alain Prost, busca um piloto que continue essa tradição de grandeza. Com nossa história de rivalidades épicas e títulos memoráveis, esperamos um piloto que se comprometa com a excelência técnica e a busca pela vitória.';
             objetivos = [
                 'Lutar pelo título de pilotos e construtores, seguindo os passos de Senna e Prost',
-                'Conquistar pelo menos 5 vitórias durante a temporada',
-                'Conquistar pelo menos 2 pódios durante a temporada',
+                'Conquistar pelo menos 5 Vitórias (1º lugar) durante a temporada',
+                'Nas corridas em que a vitória não vier, conquistar pelo menos 2 Pódios (2º ou 3º lugar)',
                 'Terminar a temporada entre os 3 primeiros do campeonato',
                 'Desenvolver o carro ao longo da temporada para maximizar performance'
             ];
@@ -2086,8 +2091,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             introducao = 'A Red Bull Racing, com títulos conquistados por grandes pilotos como Sebastian Vettel e Max Verstappen, busca um piloto que se alinhe com nossa filosofia de agressividade e busca pela vitória. Nossa equipe valoriza pilotos que não têm medo de ultrapassar limites.';
             objetivos = [
                 'Lutar pelo título de pilotos e construtores com determinação',
-                'Conquistar pelo menos 3 vitórias durante a temporada',
-                'Conquistar pelo menos 3 pódios durante a temporada',
+                'Conquistar pelo menos 3 Vitórias (1º lugar) durante a temporada',
+                'Nas corridas em que a vitória não vier, conquistar pelo menos 3 Pódios (2º ou 3º lugar)',
                 'Terminar a temporada entre os 3 primeiros do campeonato',
                 'Demonstrar agressividade controlada e vontade de vencer'
             ];
@@ -2101,8 +2106,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             introducao = 'A Mercedes-AMG Petronas, com sua era de domínio e múltiplos títulos de construtores e pilotos, busca um piloto que continue essa tradição de excelência. Nossa equipe valoriza precisão técnica, consistência e trabalho em equipe.';
             objetivos = [
                 'Lutar pelo título de pilotos e construtores com precisão técnica',
-                'Conquistar pelo menos 2 vitórias durante a temporada',
-                'Conquistar pelo menos 4 pódios durante a temporada',
+                'Conquistar pelo menos 2 Vitórias (1º lugar) durante a temporada',
+                'Nas corridas em que a vitória não vier, conquistar pelo menos 4 Pódios (2º ou 3º lugar)',
                 'Terminar a temporada entre os 3 primeiros do campeonato',
                 'Demonstrar consistência e confiabilidade em todas as corridas'
             ];
@@ -2115,8 +2120,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         } else if (teamName.includes('aston')) {
             introducao = 'A Aston Martin, com sua elegância britânica e busca por resultados consistentes, oferece uma oportunidade única para pilotos que buscam crescer e conquistar pódios. Nossa equipe valoriza desenvolvimento constante e aproveitamento de oportunidades.';
             objetivos = [
-                'Conquistar pelo menos 3 pódios durante a temporada',
-                'Conquistar pelo menos 2 top 5 durante a temporada',
+                'Conquistar pelo menos 3 Pódios (2º ou 3º lugar) durante a temporada',
+                'Nas corridas em que o pódio não vier, conquistar pelo menos 2 Top 5 (4º ou 5º lugar)',
                 'Pontuar na maioria das corridas com consistência',
                 'Terminar a temporada entre os 5 primeiros do campeonato',
                 'Contribuir para uma posição sólida no campeonato de construtores'
@@ -2130,8 +2135,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         } else if (teamName.includes('alpine')) {
             introducao = 'A Alpine, com sua herança francesa e busca por resultados consistentes, oferece uma oportunidade para pilotos que valorizam desenvolvimento técnico e crescimento constante. Nossa equipe busca aproveitar cada oportunidade para pontuar e subir no grid.';
             objetivos = [
-                'Conquistar pelo menos 2 pódios durante a temporada',
-                'Conquistar pelo menos 3 top 5 durante a temporada',
+                'Conquistar pelo menos 2 Pódios (2º ou 3º lugar) durante a temporada',
+                'Nas corridas em que o pódio não vier, conquistar pelo menos 3 Top 5 (4º ou 5º lugar)',
                 'Pontuar na maioria das corridas com consistência',
                 'Terminar a temporada entre os 5 primeiros do campeonato',
                 'Contribuir para melhorias constantes no desenvolvimento do carro'
@@ -2145,8 +2150,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         } else if (teamName.includes('racing') && teamName.includes('bulls')) {
             introducao = 'A Racing Bulls, com sua filosofia de desenvolvimento de talentos e busca por resultados consistentes, oferece uma oportunidade para pilotos que buscam crescer e demonstrar seu potencial. Nossa equipe valoriza desenvolvimento constante e aproveitamento de oportunidades.';
             objetivos = [
-                'Conquistar pelo menos 1 pódio durante a temporada',
-                'Conquistar pelo menos 2 top 5 durante a temporada',
+                'Conquistar pelo menos 1 Pódio (2º ou 3º lugar) durante a temporada',
+                'Nas corridas em que o pódio não vier, conquistar pelo menos 2 Top 5 (4º ou 5º lugar)',
                 'Pontuar em pelo menos 3 corridas adicionais durante a temporada',
                 'Terminar corridas de forma consistente e confiável',
                 'Contribuir para o desenvolvimento e crescimento da equipe'
@@ -2160,8 +2165,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         } else if (teamName.includes('williams')) {
             introducao = 'A Williams, com sua rica história de títulos e busca por retornar ao topo da Fórmula 1, oferece uma oportunidade única para pilotos que compartilham nossa paixão por superar desafios. Estamos em uma jornada de reconstrução e buscamos um piloto que faça parte dessa história.';
             objetivos = [
-                'Conquistar pelo menos 1 pódio durante a temporada',
-                'Conquistar pelo menos 2 top 5 durante a temporada',
+                'Conquistar pelo menos 1 Pódio (2º ou 3º lugar) durante a temporada',
+                'Nas corridas em que o pódio não vier, conquistar pelo menos 2 Top 5 (4º ou 5º lugar)',
                 'Pontuar em pelo menos 2 corridas adicionais durante a temporada',
                 'Terminar corridas de forma consistente e confiável',
                 'Contribuir para o retorno da Williams ao topo da Fórmula 1'
@@ -2175,8 +2180,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         } else if (teamName.includes('haas')) {
             introducao = 'A Haas F1 Team, com sua abordagem pragmática e busca por resultados consistentes, oferece uma oportunidade para pilotos que valorizam aproveitamento de oportunidades e desenvolvimento constante. Nossa equipe busca maximizar cada chance de pontuação.';
             objetivos = [
-                'Conquistar pelo menos 3 top 5 durante a temporada',
-                'Pontuar em pelo menos 2 corridas adicionais durante a temporada',
+                'Conquistar pelo menos 3 Top 5 (4º ou 5º lugar) durante a temporada',
+                'Nas corridas em que o top 5 não vier, pontuar em pelo menos 2 corridas adicionais',
                 'Terminar corridas de forma consistente',
                 'Desenvolver o carro ao longo da temporada',
                 'Contribuir para melhorias na classificação da equipe'
@@ -2190,8 +2195,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         } else if (teamName.includes('sauber') || teamName.includes('stake') || teamName.includes('kick')) {
             introducao = 'A Sauber, com sua tradição suíça de precisão e busca por resultados consistentes, oferece uma oportunidade para pilotos que valorizam desenvolvimento técnico e crescimento constante. Nossa equipe busca aproveitar cada oportunidade para melhorar.';
             objetivos = [
-                'Conquistar pelo menos 2 top 5 durante a temporada',
-                'Pontuar em pelo menos 2 corridas adicionais durante a temporada',
+                'Conquistar pelo menos 2 Top 5 (4º ou 5º lugar) durante a temporada',
+                'Nas corridas em que o top 5 não vier, pontuar em pelo menos 2 corridas adicionais',
                 'Terminar corridas de forma consistente',
                 'Desenvolver o carro ao longo da temporada',
                 'Contribuir para melhorias na classificação da equipe'
@@ -2209,8 +2214,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                 objetivos = [
                     'Lutar pelo título de pilotos da Master League F1',
                     'Conquistar o título de construtores',
-                    'Buscar vitórias em pelo menos 5 corridas da temporada',
-                    'Manter-se no pódio em pelo menos 70% das corridas',
+                    'Conquistar pelo menos 5 Vitórias (1º lugar) durante a temporada',
+                    'Nas corridas em que a vitória não vier, manter-se no Pódio (2º ou 3º lugar) em pelo menos 70% das provas',
                     'Terminar a temporada entre os 3 primeiros do campeonato'
                 ];
                 expectativas = [
@@ -2222,10 +2227,10 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             } else if (tier === 'silver') {
                 introducao = 'Nossa equipe busca um piloto que se comprometa com resultados consistentes e crescimento constante. Valorizamos pilotos que aproveitem oportunidades e contribuam para o desenvolvimento da equipe.';
                 objetivos = [
-                    'Conquistar pódios regularmente durante a temporada',
-                    'Pontuar na maioria das corridas',
+                    'Conquistar Pódios (2º ou 3º lugar) regularmente durante a temporada',
+                    'Nas corridas em que o pódio não vier, pontuar na maioria das provas',
                     'Terminar a temporada entre os 5 primeiros do campeonato',
-                    'Buscar pelo menos 3 pódios durante a temporada',
+                    'Buscar pelo menos 3 Pódios (2º ou 3º lugar) durante a temporada',
                     'Contribuir para uma posição sólida no campeonato de construtores'
                 ];
                 expectativas = [
@@ -2237,8 +2242,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             } else {
                 introducao = 'Nossa equipe busca um piloto que se comprometa com o desenvolvimento e crescimento. Valorizamos pilotos que aproveitem cada oportunidade e contribuam para o progresso da equipe.';
                 objetivos = [
-                    'Conquistar pontos regularmente nas corridas',
-                    'Buscar pelo menos 3 pódios durante a temporada',
+                    'Conquistar Pontos (Top 10) regularmente nas corridas',
+                    'Buscar pelo menos 3 Pódios (2º ou 3º lugar) durante a temporada',
                     'Terminar corridas de forma consistente',
                     'Desenvolver o carro ao longo da temporada',
                     'Contribuir para melhorias na classificação da equipe'
@@ -3207,7 +3212,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                         STATUS DO CONTRATO
                                                     </div>
                                                     <div style={{ fontSize: '2rem', fontWeight: '900', color: '#FFF', letterSpacing: '1px' }}>EM VIGOR</div>
-                                                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginTop: '8px', fontWeight: '600' }}>Temporada 20 • Master League F1</div>
+                                                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginTop: '8px', fontWeight: '600' }}>Temporada 20 • {formatGridWithStatus(contratoFechado?.grid)} • Master League F1</div>
                                                 </div>
 
                                                 <div style={{
@@ -3535,7 +3540,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                                     fontSize: deviceInfo.isMobile ? '0.8rem' : '0.85rem', 
                                                                     fontWeight: 500 
                                                                 }}>
-                                                                    Proposta #{idx + 1}
+                                                                    Proposta #{idx + 1} • {formatGridWithStatus(proposta.grid)}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -3563,7 +3568,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                                         pilot_cod_idml_normalizado: pilotCodIdmlNormalizado,
                                                                         team_id: equipe.id,
                                                                         team_name: equipe.name,
-                                                                        grid: dashData?.currentGrid || 'carreira',
+                                                                        grid: proposta.grid || dashData?.currentGrid || 'carreira',
                                                                         season: 20
                                                                     });
 
@@ -3574,7 +3579,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                                             .insert({
                                                                                 pilot_cod_idml: pilotCodIdmlNormalizado,
                                                                                 team_id: equipe.id,
-                                                                                grid: dashData?.currentGrid || 'carreira',
+                                                                                grid: (proposta.grid || dashData?.currentGrid || 'carreira').toLowerCase(),
                                                                                 season: 20,
                                                                                 signed_at: new Date().toISOString()
                                                                             })
@@ -4109,7 +4114,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                     fontWeight: '600',
                                     opacity: 0.9
                                 }}>
-                                    Temporada 20 • Grid {dashData?.currentGrid?.toUpperCase() || 'CARREIRA'}
+                                    Temporada 20 • {formatGridWithStatus(contratoFechado?.grid)}
                                 </div>
                             </div>
                         </div>
@@ -4195,7 +4200,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                     </p>
                                     <p style={{ marginBottom: '15px', textIndent: '30px' }}>
                                         Estamos muito felizes em te dar as boas-vindas à <strong style={{ color: teamColor, fontSize: deviceInfo.isMobile ? '1.05rem' : '1.15rem', fontWeight: '800' }}>{effectiveTeamName}</strong>! 
-                                        É uma honra ter você conosco para correr no <strong>Grid {dashData?.currentGrid?.toUpperCase() || 'CARREIRA'}</strong> da <strong>Temporada 20</strong> da Master League F1.
+                                        É uma honra ter você conosco para correr no <strong>{formatGridWithStatus(contratoFechado?.grid)}</strong> da <strong>Temporada 20</strong> da Master League F1.
                                     </p>
                                     <p style={{ marginBottom: '15px', textIndent: '30px' }}>
                                         Sabemos que você tem muito talento e estamos animados para ver o que vamos conquistar juntos nesta temporada. 
@@ -4222,23 +4227,42 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                     }}>
                                         📋 Cláusulas do Contrato
                                     </div>
-                                    <div style={{ paddingLeft: '20px' }}>
-                                        <p style={{ marginBottom: '12px' }}>
-                                            <strong style={{ color: teamColor }}>1. OBJETO:</strong> O presente contrato tem por objeto a participação do PILOTO pela EQUIPE no Grid {dashData?.currentGrid?.toUpperCase() || 'CARREIRA'} da Temporada 20 da Master League F1.
-                                        </p>
-                                        <p style={{ marginBottom: '12px' }}>
-                                            <strong style={{ color: teamColor }}>2. COMPROMISSOS DO PILOTO:</strong> O PILOTO compromete-se a representar a EQUIPE com dedicação, profissionalismo e ética, seguindo os regulamentos da Master League F1 e os valores da EQUIPE.
-                                        </p>
-                                        <p style={{ marginBottom: '12px' }}>
-                                            <strong style={{ color: teamColor }}>3. COMPROMISSOS DA EQUIPE:</strong> A EQUIPE compromete-se a fornecer todo o suporte necessário para o desempenho do PILOTO, incluindo estratégias, desenvolvimento técnico e ambiente de trabalho adequado.
-                                        </p>
-                                        <p style={{ marginBottom: '12px' }}>
-                                            <strong style={{ color: teamColor }}>4. TEMPORADA:</strong> Este contrato é válido exclusivamente para a Temporada 20 da Master League F1, no Grid {dashData?.currentGrid?.toUpperCase() || 'CARREIRA'}.
-                                        </p>
-                                        <p>
-                                            <strong style={{ color: teamColor }}>5. VIGÊNCIA:</strong> O presente contrato entra em vigor na data de assinatura e permanece válido até o término da Temporada 20.
-                                        </p>
-                                    </div>
+                                    {(() => {
+                                        const contractData = generateContractText(contratoFechado.equipes?.name || effectiveTeamName, getPilotRanking());
+                                        return (
+                                            <div style={{ paddingLeft: '20px' }}>
+                                                <p style={{ marginBottom: '12px' }}>
+                                                    <strong style={{ color: teamColor }}>1. OBJETO:</strong> O presente contrato tem por objeto a participação do PILOTO pela EQUIPE no {formatGridWithStatus(contratoFechado?.grid)} da Temporada 20 da Master League F1.
+                                                </p>
+                                                <p style={{ marginBottom: '12px' }}>
+                                                    <strong style={{ color: teamColor }}>2. COMPROMISSOS DO PILOTO:</strong> O PILOTO compromete-se a representar a EQUIPE com dedicação, profissionalismo e ética, seguindo os regulamentos da Master League F1 e os valores da EQUIPE.
+                                                </p>
+                                                <p style={{ marginBottom: '12px' }}>
+                                                    <strong style={{ color: teamColor }}>3. COMPROMISSOS DA EQUIPE:</strong> A EQUIPE compromete-se a fornecer todo o suporte necessário para o desempenho do PILOTO, incluindo estratégias, desenvolvimento técnico e ambiente de trabalho adequado.
+                                                </p>
+                                                <p style={{ marginBottom: '12px' }}>
+                                                    <strong style={{ color: teamColor }}>4. TEMPORADA:</strong> Este contrato é válido exclusivamente para a Temporada 20 da Master League F1, no {formatGridWithStatus(contratoFechado?.grid)}.
+                                                </p>
+                                                <p style={{ marginBottom: '12px' }}>
+                                                    <strong style={{ color: teamColor }}>5. VIGÊNCIA:</strong> O presente contrato entra em vigor na data de assinatura e permanece válido até o término da Temporada 20.
+                                                </p>
+                                                <p style={{ marginBottom: '12px' }}>
+                                                    <strong style={{ color: teamColor }}>6. OBJETIVOS DA TEMPORADA:</strong> O PILOTO concorda em empenhar-se para atingir os seguintes objetivos estabelecidos pela EQUIPE:
+                                                    <ul style={{ marginTop: '8px', paddingLeft: '20px', listStyleType: 'circle' }}>
+                                                        {contractData.objetivos?.map((obj, i) => (
+                                                            <li key={i} style={{ marginBottom: '4px', fontSize: '0.9rem' }}>{obj}</li>
+                                                        ))}
+                                                    </ul>
+                                                    <span style={{ fontSize: '0.85rem', fontStyle: 'italic', display: 'block', marginTop: '8px', color: '#64748B' }}>
+                                                        * O não cumprimento dos objetivos estipulados pode acarretar na não renovação do contrato com a equipe para a temporada seguinte.
+                                                    </span>
+                                                </p>
+                                                <p>
+                                                    <strong style={{ color: teamColor }}>7. ASSIDUIDADE:</strong> Caso o PILOTO apresente faltas excessivas ou ausências injustificadas nas etapas oficiais, a EQUIPE reserva-se o direito de substituí-lo definitivamente durante a temporada ou rebaixá-lo de equipe conforme as diretrizes da liga.
+                                                </p>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* Assinaturas */}
@@ -4339,15 +4363,51 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                     })}
                                 </div>
 
-                                {/* Botão de Fechar no Final do Contrato */}
+                                {/* Botões de Ação no Final do Contrato */}
                                 <div style={{
                                     display: 'flex',
+                                    flexDirection: deviceInfo.isMobile ? 'column' : 'row',
+                                    gap: '15px',
                                     justifyContent: 'center',
+                                    alignItems: 'center',
                                     marginTop: deviceInfo.isMobile ? '30px' : '40px',
                                     marginBottom: deviceInfo.isMobile ? '20px' : '30px',
                                     paddingTop: deviceInfo.isMobile ? '20px' : '30px',
                                     borderTop: `1px solid ${teamColor}20`
                                 }}>
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            window.print();
+                                        }}
+                                        style={{
+                                            background: '#1F2937',
+                                            color: '#FFFFFF',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            padding: deviceInfo.isMobile ? '14px 32px' : '16px 40px',
+                                            fontSize: deviceInfo.isMobile ? '0.9rem' : '1rem',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '1px',
+                                            transition: 'all 0.2s',
+                                            touchAction: 'manipulation',
+                                            WebkitTapHighlightColor: 'transparent',
+                                            minHeight: deviceInfo.isMobile ? '48px' : '52px',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            width: deviceInfo.isMobile ? '100%' : 'auto',
+                                            justifyContent: 'center'
+                                        }}
+                                        className="no-print"
+                                    >
+                                        🖨️ Imprimir / PDF
+                                    </button>
+
                                     <button
                                         onClick={(e) => {
                                             e.preventDefault();
@@ -4369,7 +4429,9 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             touchAction: 'manipulation',
                                             WebkitTapHighlightColor: 'transparent',
                                             minHeight: deviceInfo.isMobile ? '48px' : '52px',
-                                            boxShadow: `0 4px 12px ${teamColor}40`
+                                            boxShadow: `0 4px 12px ${teamColor}40`,
+                                            width: deviceInfo.isMobile ? '100%' : 'auto',
+                                            justifyContent: 'center'
                                         }}
                                         onMouseEnter={(e) => {
                                             e.target.style.transform = 'translateY(-2px)';
@@ -4379,12 +4441,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             e.target.style.transform = 'translateY(0)';
                                             e.target.style.boxShadow = `0 4px 12px ${teamColor}40`;
                                         }}
-                                        onTouchStart={(e) => {
-                                            e.target.style.transform = 'scale(0.98)';
-                                        }}
-                                        onTouchEnd={(e) => {
-                                            e.target.style.transform = 'scale(1)';
-                                        }}
+                                        className="no-print"
                                     >
                                         FECHAR
                                     </button>

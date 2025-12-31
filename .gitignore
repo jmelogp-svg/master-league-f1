@@ -29,3 +29,6 @@ backup_*.zip
 
 .vercel
 .env*.local
+
+# Local Netlify folder
+.netlify
