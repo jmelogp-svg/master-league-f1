@@ -288,6 +288,16 @@ function Home() {
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 
+    // Extrai número seguro de string (ex: "Etapa 8" => 8)
+    const extrairNumero = (str) => {
+        if (str === null || str === undefined) return 0;
+        const texto = String(str).trim();
+        const direto = parseInt(texto);
+        if (!isNaN(direto)) return direto;
+        const match = texto.match(/\d+/);
+        return match ? parseInt(match[0]) : 0;
+    };
+
     // URL Sync
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -538,7 +548,7 @@ function Home() {
     }, []);
 
     // Componente para gerenciar o carregamento de imagens das notícias com múltiplos fallbacks
-    const NewsImage = ({ newsItem, supaUrl, title, category, date }) => {
+    const NewsImage = ({ newsItem, supaUrl, title, subtitle, category, date }) => {
         const [imgSrc, setImgSrc] = useState(null);
         const [extensionIndex, setExtensionIndex] = useState(-1);
         const extensions = ['png', 'jpg', 'jpeg', 'webp'];
@@ -618,6 +628,7 @@ function Home() {
                         </div>
                     )}
                     {title && <h3 className="news-feed-title-overlay">{title}</h3>}
+                    {subtitle && <p className="news-feed-subtitle-overlay">{subtitle}</p>}
                 </div>
             </div>
         );
@@ -688,7 +699,11 @@ function Home() {
         }
     };
 
-    useEffect(() => { if (!loading && seasons.length > 0 && selectedSeason === 0) setSelectedSeason(seasons[0]); }, [seasons, loading]);
+    useEffect(() => {
+        if (!loading && seasons.length > 0 && selectedSeason === 0) {
+            setSelectedSeason(seasons[0]);
+        }
+    }, [seasons, loading]);
 
     // Hub Data
     useEffect(() => {
@@ -770,31 +785,41 @@ function Home() {
     useEffect(() => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
         const roundSet = new Set();
-        let maxRound = 0; 
+        let maxRoundPast = 0; // maior etapa com data <= hoje
+        let maxRoundAll = 0;  // maior etapa existente (independente de data)
         const today = new Date().getTime();
         const parseDate = (dateStr) => { if (!dateStr) return 0; if (dateStr.includes('/')) { const [d, m, y] = dateStr.split('/'); return new Date(`${y}-${m}-${d}`).getTime(); } return new Date(dateStr).getTime(); };
+        const targetSeason = extrairNumero(selectedSeason);
+
         rawData.forEach(row => {
-            const s = parseInt(row[3]);
-            if (s === parseInt(selectedSeason)) {
-                const r = parseInt(row[4]); const dateStr = row[0];
+            const s = extrairNumero(row[3]);
+            if (s === targetSeason) {
+                const r = extrairNumero(row[4]); 
+                const dateStr = row[0];
                 if (!isNaN(r)) {
                     roundSet.add(r);
+                    if (r > maxRoundAll) maxRoundAll = r;
                     const rDate = parseDate(dateStr);
-                    if (rDate <= today) { if (r > maxRound) maxRound = r; }
+                    if (rDate <= today && r > maxRoundPast) maxRoundPast = r;
                 }
             }
         });
+
         const sortedRounds = Array.from(roundSet).sort((a, b) => a - b);
         setRounds(sortedRounds);
+
         if (sortedRounds.length > 0) {
              if (selectedRound === 0 || !sortedRounds.includes(selectedRound)) {
-                 const newRound = maxRound > 0 ? maxRound : sortedRounds[0];
-                 setSelectedRound(newRound);
+                 const pickLatest = sortedRounds[sortedRounds.length - 1];
+                 const chosenRound = viewType === 'results'
+                     ? pickLatest                      // always highest available for results
+                     : (maxRoundPast > 0 ? maxRoundPast : pickLatest); // fallback to highest if no past round
+                 setSelectedRound(chosenRound);
              }
         } else {
              setSelectedRound(0);
         }
-    }, [selectedSeason, gridType, rawCarreira, rawLight]);
+    }, [selectedSeason, gridType, rawCarreira, rawLight, viewType]);
 
     // Histórico
     useEffect(() => {
@@ -1494,7 +1519,7 @@ function Home() {
                             <div className="news-feed-grid">
                                 {news.length > 0 ? news.slice(0, 3).map((newsItem, idx) => (
                                     <article 
-                                        key={newsItem.id} 
+                                        key={`${newsItem?.id ?? 'noid'}-${newsItem?.date ?? 'nodate'}-${idx}`}
                                         className={`news-feed-card ${idx === 0 ? 'news-featured' : ''}`}
                                         onClick={async () => {
                                             // Verificar se existe notícia completa no Supabase com esse ID
@@ -1533,14 +1558,14 @@ function Home() {
                                                 <NewsImage 
                                                     newsItem={newsItem} 
                                                     supaUrl={getSupabaseNewsImageUrl(newsItem.id)} 
-                                                    title={newsItem.title}
-                                                    category={newsItem.category}
-                                                    date={newsItem.date}
                                                 />
                                             </div>
                                                 <div className="news-featured-right">
-                                                    <div className="news-featured-placeholder-top"></div>
                                                     <div className="news-feed-content">
+                                                        <h3 className="news-feed-title-featured">{newsItem.title}</h3>
+                                                        {newsItem.subtitle && (
+                                                            <p className="news-feed-subtitle">{newsItem.subtitle}</p>
+                                                        )}
                                                         <p className="news-feed-excerpt">{newsItem.excerpt}</p>
                                                         <div className="news-feed-link">
                                                             LER MAIS <ArrowRightIcon/>

@@ -132,22 +132,45 @@ input:focus, textarea:focus, select:focus, button:focus {
     color: #fff;
 }
 
-.social-icon-link {
-    color: #94A3B8;
-    transition: all 0.3s ease;
+.footer-social {
     display: flex;
-    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
     justify-content: center;
 }
 
-.social-icon-link:hover {
-    color: white;
-    transform: scale(1.2);
+.social-icon-link {
+    width: 46px;
+    height: 46px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    transition: all 0.25s ease;
 }
 
-.social-icon-link[title="Instagram"]:hover { color: #E1306C; }
-.social-icon-link[title="WhatsApp"]:hover { color: #25D366; }
-.social-icon-link[title="Motorhome"]:hover { color: #3B82F6; }
+.social-icon-link svg {
+    width: 22px;
+    height: 22px;
+}
+
+.social-icon-link:hover {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+}
+
+.social-icon-link.instagram { background: linear-gradient(135deg, rgba(240,148,51,0.18), rgba(188,24,136,0.22)); }
+.social-icon-link.instagram:hover { color: white; background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+
+.social-icon-link.whatsapp { background: linear-gradient(135deg, rgba(37, 211, 102, 0.16), rgba(18, 140, 126, 0.18)); }
+.social-icon-link.whatsapp:hover { color: white; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); }
+
+.social-icon-link.motorhome { background: linear-gradient(135deg, rgba(59,130,246,0.16), rgba(29,78,216,0.18)); }
+.social-icon-link.motorhome:hover { color: white; background: linear-gradient(135deg, #60A5FA 0%, #1D4ED8 100%); }
 
 /* smaller layout on very small screens */
 @media (max-width:420px){
@@ -414,7 +437,7 @@ input:focus, textarea:focus, select:focus, button:focus {
 .hof-hero h1 { font-size: 3.5rem; font-weight: 900; font-style: italic; margin-bottom: 30px; text-transform: uppercase; }
 .hof-hero h1 span { color: #FFD700; }
 .hof-stats-bar { display: inline-flex; align-items: center; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px); padding: 15px 40px; border-radius: 50px; border: 1px solid rgba(255,215,0,0.3); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-.hof-stat-item { text-align: left; padding: 0 20px; }
+.hof-stat-item { text-align: center; padding: 0 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .hs-label { font-size: 0.7rem; color: #94A3B8; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px; }
 .hs-value { 
     font-size: 1.4rem; 
@@ -424,6 +447,7 @@ input:focus, textarea:focus, select:focus, button:focus {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    text-align: center;
 }
 .hof-stat-divider { width: 1px; height: 40px; background: rgba(255,255,255,0.1); }
 .hof-controls-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
@@ -452,10 +476,10 @@ input:focus, textarea:focus, select:focus, button:focus {
 }
 
 .hof-grid-champions { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 30px; }
-.hof-card-champion { background: #1E293B; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); position: relative; text-align: center; padding-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: transform 0.3s; }
+.hof-card-champion { background: #1E293B; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); position: relative; text-align: center; padding: 30px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: transform 0.3s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 350px; }
 .hof-card-champion:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.2); }
 .hof-season-badge-corner { background: #FFD700; color: #0F172A; font-weight: 900; padding: 5px 15px; position: absolute; top: 15px; right: 15px; border-radius: 20px; font-size: 0.8rem; z-index: 10; }
-.hof-champion-image-container { height: 130px; display: flex; align-items: flex-end; justify-content: center; background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%); }
+.hof-champion-image-container { height: 130px; display: flex; align-items: flex-end; justify-content: center; background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%); width: 100%; }
 .hof-champion-circle { width: 100px; height: 100px; border-radius: 50%; overflow: hidden; border: 4px solid #FFD700; background: #0F172A; margin-bottom: 10px; }
 .hof-champion-circle img { width: 100%; height: 100%; object-fit: cover; }
 .hof-champion-name { font-size: 1.2rem; font-weight: 900; color: white; text-transform: uppercase; font-style: italic; }
@@ -674,14 +698,24 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .hof-stats-bar { flex-direction: column; gap: 10px; padding: 20px; border-radius: 20px; width: 100%; }
     .hof-stat-divider { width: 100%; height: 1px; }
     
-    /* Forçar nome do maior campeão em uma linha no mobile */
+    /* Centralizar verticalmente no mobile */
+    .hof-stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    .hs-label {
+        text-align: center;
+    }
     .hs-value {
         font-size: 1rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 100%;
-        display: block;
+        text-align: center;
     }
     
     .hs-value small {
@@ -947,6 +981,20 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
 }
 
+.news-feed-subtitle-overlay {
+    position: absolute;
+    top: 110px;
+    left: 20px;
+    right: 20px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.4;
+    margin: 0;
+    z-index: 3;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
 .news-featured-placeholder-top {
     height: 80px;
     background: rgba(15, 23, 42, 0.2);
@@ -971,6 +1019,24 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 .news-feed-card.news-featured .news-feed-content {
     padding: 30px;
+}
+
+.news-feed-card.news-featured .news-feed-title-featured {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #FFFFFF;
+    line-height: 1.2;
+    margin: 0 0 16px 0;
+    text-transform: uppercase;
+    font-style: italic;
+}
+
+.news-feed-card.news-featured .news-feed-subtitle {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #E2E8F0;
+    line-height: 1.5;
+    margin: 0 0 16px 0;
 }
 
 .news-feed-card.news-featured .news-feed-excerpt {
@@ -3860,10 +3926,19 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         overflow: visible !important;
         -webkit-line-clamp: unset !important;
     }
+    
+    .news-feed-subtitle-overlay {
+        font-size: 0.85rem !important;
+        top: 85px !important;
+        left: 15px !important;
+        right: 15px !important;
+    }
     .news-featured-placeholder-top { display: none; }
     .news-feed-card.news-featured .news-feed-content { padding: 20px !important; }
     .news-feed-card.news-featured .news-feed-image { height: 220px !important; border-radius: 0 !important; }
     .news-feed-title { font-size: 0.95rem !important; line-height: 1.2 !important; }
+    .news-feed-card.news-featured .news-feed-title-featured { font-size: 1.4rem !important; margin-bottom: 12px !important; }
+    .news-feed-card.news-featured .news-feed-subtitle { font-size: 1rem !important; margin-bottom: 12px !important; }
     .news-feed-excerpt { font-size: 0.8rem !important; line-height: 1.4 !important; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .news-feed-card.news-featured .news-feed-excerpt { -webkit-line-clamp: unset !important; overflow: visible !important; display: block !important; }
     .news-feed-category, .news-feed-date { font-size: 0.65rem !important; }
@@ -7697,38 +7772,183 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 /* Estilos para Impressão de Contrato */
 @media print {
-  body * { visibility: hidden; }
-  .no-print { display: none !important; }
-  .dashboard-hero, .navbar, .footer, .custom-alert { display: none !important; }
-  #root { padding: 0 !important; margin: 0 !important; }
+  @page {
+    margin: 1cm;
+  }
   
-  /* Seletor específico para o modal do contrato */
-  /* Seletor específico para o modal do contrato */
-  div[style*="position: fixed"][style*="z-index: 10000"] { 
+  /* Resetar body */
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  
+  /* Root */
+  #root {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    position: relative !important;
+    visibility: visible !important;
+  }
+  
+  /* Esconder todos os elementos filhos do root por padrão */
+  #root > * {
+    visibility: hidden;
+  }
+  
+  /* Mostrar apenas o modal e todo seu conteúdo */
+  .contrato-modal-print,
+  .contrato-modal-print * {
+    visibility: visible !important;
+  }
+  
+  /* Esconder elementos específicos que não devem aparecer */
+  .no-print,
+  .dashboard-hero, 
+  .navbar, 
+  .footer, 
+  .custom-alert,
+  header,
+  nav {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Modal do contrato - layout de impressão */
+  .contrato-modal-print {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    bottom: 0 !important;
+    bottom: auto !important;
     background: white !important;
-    z-index: auto !important;
-    visibility: visible !important;
+    z-index: 999999 !important;
     display: block !important;
     overflow: visible !important;
     padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
   }
   
-  div[style*="position: fixed"][style*="z-index: 10000"] > div { 
-    visibility: visible !important;
+  /* Conteúdo do contrato */
+  .contrato-content-print {
     box-shadow: none !important;
     width: 100% !important;
     max-width: 100% !important;
     max-height: none !important;
     margin: 0 !important;
+    padding: 20px !important;
     border-radius: 0 !important;
     overflow: visible !important;
     display: block !important;
+    position: relative !important;
+    background: white !important;
+    visibility: visible !important;
   }
   
-  p, strong, li { color: black !important; }
+  /* Esconder botões */
+  .contrato-content-print button,
+  .contrato-modal-print button {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Ajustar cores para impressão */
+  .contrato-content-print,
+  .contrato-content-print *,
+  .contrato-modal-print,
+  .contrato-modal-print * {
+    color: #000 !important;
+  }
+  
+  /* Ajustar imagens */
+  .contrato-content-print img,
+  .contrato-modal-print img {
+    max-width: 100% !important;
+    height: auto !important;
+    visibility: visible !important;
+  }
+  
+  /* Remover backgrounds e gradientes */
+  .contrato-content-print [style*="background"],
+  .contrato-modal-print [style*="background"] {
+    background: white !important;
+    background-image: none !important;
+  }
+  
+  /* Header do contrato - fundo cinza claro */
+  .contrato-content-print > div:first-child {
+    background: #f5f5f5 !important;
+    background-image: none !important;
+    color: #000 !important;
+    visibility: visible !important;
+  }
+  
+  /* Garantir que todos os elementos de texto sejam visíveis */
+  .contrato-content-print p,
+  .contrato-content-print div,
+  .contrato-content-print span,
+  .contrato-content-print h1,
+  .contrato-content-print h2,
+  .contrato-content-print h3,
+  .contrato-content-print h4,
+  .contrato-content-print strong,
+  .contrato-content-print li {
+    visibility: visible !important;
+    color: #000 !important;
+  }
+}
+
+/* Estilos para otimizar o contrato ao salvar como imagem */
+.contrato-content-print {
+  box-sizing: border-box;
+}
+
+.contrato-content-print * {
+  box-sizing: border-box;
+}
+
+/* Classe para quando estiver capturando como imagem - Formato Letter (A4 Ofício) 8.5" x 11" */
+.contrato-content-print.saving-as-image {
+  width: 816px !important;
+  max-width: 816px !important;
+  padding: 40px !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
+/* Remover limitações do modal pai durante captura */
+.contrato-modal-print:has(.saving-as-image) {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.contrato-modal-print:has(.saving-as-image) > div {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.contrato-content-print.saving-as-image button {
+  display: none !important;
+}
+
+/* Garantir que conteúdo interno use toda largura disponível */
+.contrato-content-print.saving-as-image > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+
+.contrato-content-print.saving-as-image p,
+.contrato-content-print.saving-as-image div,
+.contrato-content-print.saving-as-image section {
+  max-width: 100% !important;
+  width: 100% !important;
+  overflow: visible !important;
 }

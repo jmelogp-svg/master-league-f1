@@ -103,28 +103,219 @@ function Standings() {
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
 
+    // #region agent log
+    const agentLog = (hypothesisId, location, message, data) => {
+        const payload = {
+            sessionId: 'debug-session',
+            runId: 'run3',
+            hypothesisId,
+            location,
+            message,
+            data,
+            timestamp: Date.now()
+        };
+
+        const endpoint = 'http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038';
+
+        // Tenta sendBeacon (tende a evitar preflight e é bem robusto para telemetria)
+        try {
+            if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                const ok = navigator.sendBeacon(endpoint, blob);
+                if (ok) return;
+            }
+        } catch { /* ignore */ }
+
+        // Fallback: fetch normal (pode sofrer CORS/mixed content dependendo do ambiente)
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            keepalive: true
+        }).catch(() => { });
+    };
+    // #endregion
+
+    useEffect(() => {
+        // #region agent log
+        agentLog('H0', 'Standings.jsx:mount', 'Standings montou', {
+            href: typeof window !== 'undefined' ? window.location.href : null,
+            origin: typeof window !== 'undefined' ? window.location.origin : null,
+            protocol: typeof window !== 'undefined' ? window.location.protocol : null
+        });
+        // #endregion
+    }, []);
+
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 
-    useEffect(() => { if (!loading && seasons.length > 0 && selectedSeason === 0) setSelectedSeason(seasons[0]); }, [seasons, loading]);
+    // Função auxiliar para extrair número de uma string (ex: "Etapa 8" -> 8, "8" -> 8)
+    const extrairNumero = (str) => {
+        if (!str) return 0;
+        // Remove espaços e converte para string
+        const texto = String(str).trim();
+        // Tenta parseInt primeiro (para números puros)
+        const num = parseInt(texto);
+        if (!isNaN(num)) return num;
+        // Se não funcionar, procura por dígitos no texto
+        const match = texto.match(/\d+/);
+        const resultado = match ? parseInt(match[0]) : 0;
+        
+        if (texto && texto.length > 0 && texto !== String(resultado)) {
+            console.log('📝 [extrairNumero] Extraindo:', texto, '->', resultado);
+        }
+        
+        return resultado;
+    };
+
+    // Função auxiliar para encontrar a temporada e etapa mais recentes
+    const filtrarMaisRecente = (dados) => {
+        if (!dados || dados.length === 0) {
+            console.warn('⚠️ [filtrarMaisRecente] Dados vazios ou inválidos');
+            return { temporada: 0, etapa: 0 };
+        }
+
+        // 1. Identifica todas as temporadas disponíveis
+        const todasTemporadas = new Set();
+        dados.forEach((row, idx) => {
+            const s = extrairNumero(row[3]);
+            if (s > 0) todasTemporadas.add(s);
+            // Log das primeiras 3 linhas
+            if (idx < 3) {
+                console.log(`📋 [filtrarMaisRecente] Row ${idx}:`, {
+                    row3: row[3],
+                    row4: row[4],
+                    extractedSeason: extrairNumero(row[3]),
+                    extractedRound: extrairNumero(row[4])
+                });
+            }
+        });
+
+        console.log('📊 [filtrarMaisRecente] Todas temporadas encontradas:', Array.from(todasTemporadas));
+
+        if (todasTemporadas.size === 0) {
+            console.warn('⚠️ [filtrarMaisRecente] Nenhuma temporada encontrada');
+            return { temporada: 0, etapa: 0 };
+        }
+
+        // 2. Identifica a maior temporada
+        const temporadaAtual = Math.max(...Array.from(todasTemporadas));
+        console.log('🏆 [filtrarMaisRecente] Temporada atual (maior):', temporadaAtual);
+
+        // 3. Filtra apenas os dados dessa temporada
+        const dadosDaTemporada = dados.filter(row => extrairNumero(row[3]) === temporadaAtual);
+        console.log('📦 [filtrarMaisRecente] Dados da temporada', temporadaAtual, ':', dadosDaTemporada.length, 'linhas');
+
+        // 4. Identifica todas as etapas dessa temporada
+        const todasEtapas = new Set();
+        dadosDaTemporada.forEach(row => {
+            const r = extrairNumero(row[4]);
+            if (r > 0) todasEtapas.add(r);
+        });
+
+        console.log('📊 [filtrarMaisRecente] Todas etapas encontradas:', Array.from(todasEtapas));
+
+        if (todasEtapas.size === 0) {
+            console.warn('⚠️ [filtrarMaisRecente] Nenhuma etapa encontrada para temporada', temporadaAtual);
+            return { temporada: temporadaAtual, etapa: 0 };
+        }
+
+        // 5. Identifica a maior etapa dentro da temporada atual
+        const etapaAtual = Math.max(...Array.from(todasEtapas));
+        console.log('🎯 [filtrarMaisRecente] Etapa atual (maior):', etapaAtual);
+
+        return {
+            temporada: temporadaAtual,
+            etapa: etapaAtual
+        };
+    };
+
+    // useEffect para inicializar temporada quando dados carregarem
+    useEffect(() => {
+        if (!loading && seasons.length > 0 && selectedSeason === 0) {
+            // Para outras abas, pegar a maior temporada normalmente
+            if (viewType !== 'results') {
+                const maxSeason = Math.max(...seasons.map(s => parseInt(s)));
+                setSelectedSeason(maxSeason);
+                setGridType('carreira');
+            }
+        }
+    }, [seasons, loading, viewType]);
+
+    // useEffect específico para garantir que quando a aba RESULTS for selecionada,
+    // sempre mostre a maior temporada com a maior etapa
+    useEffect(() => {
+        if (viewType === 'results' && !loading && rawCarreira && rawCarreira.length > 0) {
+            // #region agent log
+            agentLog('H1', 'Standings.jsx:useEffect-results', 'Entrou no useEffect(results)', {
+                loading,
+                rawCarreiraLen: rawCarreira?.length,
+                selectedSeason,
+                selectedSeasonType: typeof selectedSeason,
+                selectedRound,
+                selectedRoundType: typeof selectedRound
+            });
+            // #endregion
+            console.log('🔄 [useEffect RESULTS] Executando lógica para aba RESULTS');
+            const maisRecente = filtrarMaisRecente(rawCarreira);
+            console.log('📊 [useEffect RESULTS] Resultado:', maisRecente);
+            
+            if (maisRecente.temporada > 0) {
+                console.log('✅ [useEffect RESULTS] Forçando temporada:', maisRecente.temporada, 'e etapa:', maisRecente.etapa);
+                // #region agent log
+                agentLog('H1', 'Standings.jsx:useEffect-results', 'Aplicando maisRecente (results)', {
+                    maisRecente,
+                    sample: rawCarreira?.slice(0, 3)?.map(r => ({ c3: r?.[3], c4: r?.[4] }))
+                });
+                // #endregion
+                setSelectedSeason(maisRecente.temporada);
+                setGridType('carreira');
+                if (maisRecente.etapa > 0) {
+                    setSelectedRound(maisRecente.etapa);
+                }
+            }
+        }
+    }, [viewType, loading, rawCarreira]);
 
     useEffect(() => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
-        const roundSet = new Set(); let maxRound = 0; let lastRaceDate = 0; const today = new Date().getTime();
-        const parseDate = (dateStr) => { if (!dateStr) return 0; if (dateStr.includes('/')) { const [d, m, y] = dateStr.split('/'); return new Date(`${y}-${m}-${d}`).getTime(); } return new Date(dateStr).getTime(); };
+        if (!rawData || rawData.length === 0) return;
+
+        const roundSet = new Set();
+        let maxRoundNumber = 0;
+        
+        const targetSeason = parseInt(selectedSeason);
+
         rawData.forEach(row => {
-            const s = parseInt(row[3]);
-            if (s === parseInt(selectedSeason)) {
-                const r = parseInt(row[4]); const dateStr = row[0];
-                if (!isNaN(r)) {
-                    roundSet.add(r); const rDate = parseDate(dateStr);
-                    if (rDate <= today && rDate > lastRaceDate) { lastRaceDate = rDate; maxRound = r; }
+            const s = extrairNumero(row[3]);
+            if (s === targetSeason) {
+                const r = extrairNumero(row[4]);
+                if (r > 0) {
+                    roundSet.add(r);
+                    if (r > maxRoundNumber) maxRoundNumber = r;
                 }
             }
         });
+        
         const sortedRounds = Array.from(roundSet).sort((a, b) => b - a);
         setRounds(sortedRounds);
-        if (maxRound > 0) setSelectedRound(maxRound); else if (sortedRounds.length > 0) setSelectedRound(sortedRounds[0]);
-    }, [selectedSeason, gridType, rawCarreira, rawLight]);
+        
+        // Se estivermos na aba de resultados, sempre força a maior etapa daquela temporada
+        if (viewType === 'results' && maxRoundNumber > 0) {
+            // #region agent log
+            agentLog('H2', 'Standings.jsx:useEffect-rounds', 'Calculou rounds e maxRoundNumber (results)', {
+                gridType,
+                targetSeason,
+                sortedRoundsLen: sortedRounds.length,
+                maxRoundNumber,
+                selectedRoundBefore: selectedRound,
+                selectedRoundType: typeof selectedRound
+            });
+            // #endregion
+            setSelectedRound(maxRoundNumber);
+        } else if (selectedRound === 0 && sortedRounds.length > 0) {
+            setSelectedRound(sortedRounds[0]);
+        }
+    }, [selectedSeason, gridType, rawCarreira, rawLight, viewType]);
 
     useEffect(() => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
@@ -772,6 +963,58 @@ function Standings() {
         }
     };
 
+    const handleViewTypeChange = (newViewType) => {
+        // #region agent log
+        agentLog('H3', 'Standings.jsx:handleViewTypeChange', 'Clique trocou viewType', {
+            newViewType,
+            loading,
+            rawCarreiraLen: rawCarreira?.length,
+            gridType,
+            selectedSeason,
+            selectedSeasonType: typeof selectedSeason,
+            selectedRound,
+            selectedRoundType: typeof selectedRound
+        });
+        // #endregion
+        setViewType(newViewType);
+        
+        // Se mudar para resultados, usa a função auxiliar para encontrar temporada e etapa mais recentes
+        if (newViewType === 'results') {
+            const rawData = rawCarreira; // Sempre começa com carreira (grid mais alto)
+            
+            console.log('🔍 [RESULTS] rawData length:', rawData?.length);
+            console.log('🔍 [RESULTS] First 3 rows:', rawData?.slice(0, 3));
+            
+            const maisRecente = filtrarMaisRecente(rawData);
+            
+            console.log('🔍 [RESULTS] maisRecente calculado:', maisRecente);
+            
+            if (maisRecente.temporada > 0) {
+                console.log('✅ [RESULTS] Aplicando temporada:', maisRecente.temporada, 'etapa:', maisRecente.etapa);
+                // #region agent log
+                agentLog('H3', 'Standings.jsx:handleViewTypeChange', 'handleViewTypeChange aplicando maisRecente', {
+                    maisRecente,
+                    sample: rawData?.slice(0, 3)?.map(r => ({ c3: r?.[3], c4: r?.[4] }))
+                });
+                // #endregion
+                setSelectedSeason(maisRecente.temporada);
+                setGridType('carreira');
+                if (maisRecente.etapa > 0) {
+                    setSelectedRound(maisRecente.etapa);
+                }
+            } else {
+                console.warn('⚠️ [RESULTS] maisRecente.temporada é 0 ou inválido');
+                // #region agent log
+                agentLog('H1', 'Standings.jsx:handleViewTypeChange', 'maisRecente inválido ao entrar em results', {
+                    maisRecente,
+                    rawCarreiraLen: rawData?.length,
+                    sample: rawData?.slice(0, 3)?.map(r => ({ c3: r?.[3], c4: r?.[4] }))
+                });
+                // #endregion
+            }
+        }
+    };
+
     return (
         <div className="page-wrapper">
 
@@ -781,10 +1024,10 @@ function Standings() {
 
             <section className="standings-section">
                 <div className="tabs-container">
-                    <button className={`tab-btn ${viewType === 'drivers' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => setViewType('drivers')}>PILOTOS</button>
-                    <button className={`tab-btn ${viewType === 'teams' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => setViewType('teams')}>EQUIPES</button>
-                    <button className={`tab-btn ${viewType === 'results' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => setViewType('results')}>RESULTADOS</button>
-                    <button className={`tab-btn ${viewType === 'calendar' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => setViewType('calendar')}>CALENDÁRIO</button>
+                    <button className={`tab-btn ${viewType === 'drivers' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('drivers')}>PILOTOS</button>
+                    <button className={`tab-btn ${viewType === 'teams' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('teams')}>EQUIPES</button>
+                    <button className={`tab-btn ${viewType === 'results' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('results')}>RESULTADOS</button>
+                    <button className={`tab-btn ${viewType === 'calendar' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('calendar')}>CALENDÁRIO</button>
                 </div>
                 
                 <div className="section-header">
@@ -804,8 +1047,43 @@ function Standings() {
                             <button onClick={() => setGridType('light')} className={`grid-btn ${gridType === 'light' ? 'active-light' : ''}`}>GRID LIGHT</button>
                         </div>
                         <div className="dropdown-group">
-                            <select className="season-select" value={selectedSeason} onChange={(e) => setSelectedSeason(e.target.value)}>{seasons.map(s => <option key={s} value={s}>Temporada {s}</option>)}</select>
-                            {viewType === 'results' && <select className="season-select" value={selectedRound} onChange={(e) => setSelectedRound(e.target.value)} style={{borderColor:'var(--highlight-cyan)'}}>{rounds.map(r => <option key={r} value={r}>Etapa {r}</option>)}</select>}
+                            <select
+                                className="season-select"
+                                value={selectedSeason}
+                                onChange={(e) => {
+                                    // #region agent log
+                                    agentLog('H2', 'Standings.jsx:seasonSelect', 'Mudou dropdown temporada', {
+                                        value: e.target.value,
+                                        valueType: typeof e.target.value,
+                                        prevSelectedSeason: selectedSeason,
+                                        prevSelectedSeasonType: typeof selectedSeason
+                                    });
+                                    // #endregion
+                                    setSelectedSeason(e.target.value);
+                                }}
+                            >
+                                {seasons.map(s => <option key={s} value={s}>Temporada {s}</option>)}
+                            </select>
+                            {viewType === 'results' && (
+                                <select
+                                    className="season-select"
+                                    value={selectedRound}
+                                    onChange={(e) => {
+                                        // #region agent log
+                                        agentLog('H2', 'Standings.jsx:roundSelect', 'Mudou dropdown etapa', {
+                                            value: e.target.value,
+                                            valueType: typeof e.target.value,
+                                            prevSelectedRound: selectedRound,
+                                            prevSelectedRoundType: typeof selectedRound
+                                        });
+                                        // #endregion
+                                        setSelectedRound(e.target.value);
+                                    }}
+                                    style={{ borderColor: 'var(--highlight-cyan)' }}
+                                >
+                                    {rounds.map(r => <option key={r} value={r}>Etapa {r}</option>)}
+                                </select>
+                            )}
                         </div>
                     </div>
                 </div>

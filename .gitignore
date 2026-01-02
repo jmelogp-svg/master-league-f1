@@ -32,3 +32,6 @@ backup_*.zip
 
 # Local Netlify folder
 .netlify
+
+# Debug logs
+.cursor/debug.log

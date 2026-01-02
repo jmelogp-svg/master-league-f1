@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Papa from 'papaparse';
+import html2canvas from 'html2canvas';
 import { 
     isMobileDevice, 
     is2FAValidatedForDevice, 
@@ -421,6 +422,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     const cancelarPropostasExpiradasRef = useRef(null);
     const cronometroIntervalRef = useRef(null);
     const propostasRef = useRef([]);
+    const contratoContentRef = useRef(null);
     const painelPilotoUrl = 'https://masterleaguef1.com.br/dashboard';
 
     const [viewMode, setViewMode] = useState('telemetria');
@@ -643,15 +645,17 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     // Detectar dispositivo atual
     const [deviceInfo, setDeviceInfo] = useState(() => {
         const info = getDeviceInfo();
-        console.log('📱 Dashboard - Device info inicial:', info);
-        return info;
+        // Para fins de LAYOUT, consideramos mobile se largura <= 768px independente de UA/Touch
+        const isMobileLayout = window.innerWidth <= 768;
+        return { ...info, isMobile: isMobileLayout };
     });
     
     // Atualizar info do dispositivo quando a tela redimensionar
     useEffect(() => {
         const handleResize = () => {
-            const newInfo = getDeviceInfo();
-            console.log('📱 Dashboard - Device info atualizado:', newInfo);
+            const info = getDeviceInfo();
+            const isMobileLayout = window.innerWidth <= 768;
+            const newInfo = { ...info, isMobile: isMobileLayout };
             setDeviceInfo(newInfo);
         };
         window.addEventListener('resize', handleResize);
@@ -2047,6 +2051,132 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         return 'midfield';
     };
 
+    // Função para salvar contrato como imagem
+    const handleSaveAsImage = async () => {
+        if (!contratoContentRef.current) {
+            alert('Erro: Não foi possível capturar o contrato.');
+            return;
+        }
+
+        try {
+            // Salvar estilos originais antes de modificar
+            const originalContentWidth = contratoContentRef.current.style.width;
+            const originalContentMaxWidth = contratoContentRef.current.style.maxWidth;
+            const originalContentPadding = contratoContentRef.current.style.padding;
+            const originalContentMargin = contratoContentRef.current.style.margin;
+            
+            // Remover limitações do modal pai e salvar valores originais
+            const modalParent = contratoContentRef.current.closest('.contrato-modal-print');
+            let originalModalMaxHeight = '';
+            let originalModalOverflow = '';
+            let originalModalContentMaxHeight = '';
+            let originalModalContentOverflow = '';
+            
+            if (modalParent) {
+                originalModalMaxHeight = modalParent.style.maxHeight;
+                originalModalOverflow = modalParent.style.overflow;
+                modalParent.style.maxHeight = 'none';
+                modalParent.style.overflow = 'visible';
+                
+                const modalContent = modalParent.querySelector('div');
+                if (modalContent) {
+                    originalModalContentMaxHeight = modalContent.style.maxHeight;
+                    originalModalContentOverflow = modalContent.style.overflow;
+                    modalContent.style.maxHeight = 'none';
+                    modalContent.style.overflow = 'visible';
+                }
+            }
+            
+            // Adicionar classe para otimizar layout durante captura
+            contratoContentRef.current.classList.add('saving-as-image');
+
+            // Aguardar renderização
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            // Garantir que o elemento esteja no topo e visível
+            contratoContentRef.current.scrollIntoView({ behavior: 'instant', block: 'start' });
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // Capturar o conteúdo completo (html2canvas captura todo o conteúdo, não apenas o visível)
+            const canvas = await html2canvas(contratoContentRef.current, {
+                backgroundColor: '#FFFFFF',
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: contratoContentRef.current.scrollWidth,
+                windowHeight: contratoContentRef.current.scrollHeight,
+            });
+
+            // Tamanho Letter (A4 Ofício) em pixels (96 DPI): 8.5" x 11" = 816 x 1056
+            const letterWidth = 816;
+            const letterHeight = 1056;
+            const finalScale = 2; // Para alta qualidade (192 DPI)
+            const finalWidth = letterWidth * finalScale; // 1632px
+            
+            // Sempre usar a largura completa da página Letter
+            const scale = finalWidth / canvas.width;
+            const scaledHeight = canvas.height * scale;
+            
+            // Se o conteúdo for maior que uma página, criar imagem mais alta
+            const finalHeight = Math.max(scaledHeight, letterHeight * finalScale);
+            
+            // Criar canvas final Letter (largura fixa, altura variável)
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = finalWidth;
+            finalCanvas.height = finalHeight;
+            const ctx = finalCanvas.getContext('2d');
+            
+            // Fundo branco
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, finalWidth, finalHeight);
+            
+            // Desenhar preenchendo toda a largura, começando do topo
+            ctx.drawImage(canvas, 0, 0, finalWidth, scaledHeight);
+            
+            // Remover classe e restaurar todos os estilos originais
+            contratoContentRef.current.classList.remove('saving-as-image');
+            
+            // Restaurar estilos do conteúdo
+            contratoContentRef.current.style.width = originalContentWidth;
+            contratoContentRef.current.style.maxWidth = originalContentMaxWidth;
+            contratoContentRef.current.style.padding = originalContentPadding;
+            contratoContentRef.current.style.margin = originalContentMargin;
+            
+            // Restaurar estilos do modal
+            if (modalParent) {
+                modalParent.style.maxHeight = originalModalMaxHeight;
+                modalParent.style.overflow = originalModalOverflow;
+                
+                const modalContent = modalParent.querySelector('div');
+                if (modalContent) {
+                    modalContent.style.maxHeight = originalModalContentMaxHeight;
+                    modalContent.style.overflow = originalModalContentOverflow;
+                }
+            }
+
+            // Converter para imagem e fazer download
+            finalCanvas.toBlob((blob) => {
+                if (!blob) {
+                    alert('Erro ao gerar imagem.');
+                    return;
+                }
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `Contrato_${contratoFechado?.equipes?.name || 'MLF1'}_${new Date().toISOString().split('T')[0]}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 'image/png', 1.0);
+        } catch (error) {
+            console.error('Erro ao salvar como imagem:', error);
+            alert('Erro ao salvar como imagem. Tente novamente.');
+        }
+    };
+
     // Função para gerar texto do contrato personalizado por equipe
     const generateContractText = (team, pilotRanking) => {
         const tier = getTeamTier(team.name || team);
@@ -2795,8 +2925,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                             opacity: 0.85,
                                                             whiteSpace: 'nowrap',
                                                             overflow: 'hidden',
-                                                            textOverflow: 'ellipsis'
+                                                            textOverflow: 'ellipsis',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '6px'
                                                         }}>
+                                                            {hasContrato && contratoFechado?.equipes?.name && getTeamLogo(contratoFechado.equipes.name) && (
+                                                                <img 
+                                                                    src={getTeamLogo(contratoFechado.equipes.name)} 
+                                                                    alt="" 
+                                                                    style={{ 
+                                                                        width: deviceInfo.isMobile ? '14px' : '16px', 
+                                                                        height: deviceInfo.isMobile ? '14px' : '16px', 
+                                                                        objectFit: 'contain' 
+                                                                    }} 
+                                                                />
+                                                            )}
                                                             {remetente}
                                                         </div>
                                                         <div style={{
@@ -3414,8 +3558,9 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                     {contratoFechado.equipes && (
                                         <div style={{
                                             display: 'flex',
-                                            flexDirection: 'column',
+                                            flexDirection: 'row',
                                             alignItems: 'center',
+                                            justifyContent: 'center',
                                             gap: '15px',
                                             marginTop: '30px'
                                         }}>
@@ -3424,7 +3569,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                     src={getTeamLogo(contratoFechado.equipes.name)}
                                                     alt={contratoFechado.equipes.name}
                                                     style={{
-                                                        width: '150px',
+                                                        width: '60px',
                                                         height: 'auto'
                                                     }}
                                                 />
@@ -3461,18 +3606,32 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                     </div>
 
                                     <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: deviceInfo.isMobile
-                                            ? '1fr'
-                                            : (propostaSelecionada && Array.isArray(propostaSelecionada) && propostaSelecionada.length === 3
-                                                ? 'repeat(3, 1fr)'
-                                                : propostaSelecionada && Array.isArray(propostaSelecionada) && propostaSelecionada.length >= 2
-                                                    ? 'repeat(2, 1fr)'
-                                                    : '1fr'),
-                                        gap: deviceInfo.isMobile ? '12px' : '16px',
-                                        width: '100%',
-                                        minWidth: 0
+                                        marginLeft: deviceInfo.isMobile ? '-16px' : '0',
+                                        marginRight: deviceInfo.isMobile ? '-16px' : '0',
+                                        paddingLeft: deviceInfo.isMobile ? '16px' : '0',
+                                        paddingRight: deviceInfo.isMobile ? '16px' : '0'
                                     }}>
+                                        <div style={{
+                                            display: deviceInfo.isMobile ? 'flex' : 'grid',
+                                            flexDirection: deviceInfo.isMobile ? 'row' : undefined,
+                                            overflowX: deviceInfo.isMobile ? 'auto' : undefined,
+                                            overflowY: deviceInfo.isMobile ? 'hidden' : undefined,
+                                            scrollSnapType: deviceInfo.isMobile ? 'x mandatory' : undefined,
+                                            gap: deviceInfo.isMobile ? '16px' : '16px',
+                                            paddingBottom: deviceInfo.isMobile ? '8px' : '0',
+                                            gridTemplateColumns: !deviceInfo.isMobile
+                                                ? (propostaSelecionada && Array.isArray(propostaSelecionada) && propostaSelecionada.length === 3
+                                                    ? 'repeat(3, 1fr)'
+                                                    : propostaSelecionada && Array.isArray(propostaSelecionada) && propostaSelecionada.length >= 2
+                                                        ? 'repeat(2, 1fr)'
+                                                        : '1fr')
+                                                : undefined,
+                                            width: '100%',
+                                            minWidth: 0,
+                                            WebkitOverflowScrolling: deviceInfo.isMobile ? 'touch' : undefined,
+                                            scrollbarWidth: deviceInfo.isMobile ? 'thin' : undefined,
+                                            scrollbarColor: deviceInfo.isMobile ? 'rgba(0,0,0,0.2) transparent' : undefined
+                                        }}>
                                         {(Array.isArray(propostaSelecionada) ? propostaSelecionada : [propostaSelecionada]).map((proposta, idx) => {
                                             const equipe = proposta.equipes;
                                             const contractData = generateContractText(equipe, getPilotRanking());
@@ -3489,7 +3648,11 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                         background: '#FFFFFF',
                                                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                                                         position: 'relative',
-                                                        minWidth: 0,
+                                                        minWidth: deviceInfo.isMobile ? '85vw' : 0,
+                                                        maxWidth: deviceInfo.isMobile ? '85vw' : undefined,
+                                                        width: deviceInfo.isMobile ? '85vw' : undefined,
+                                                        flexShrink: deviceInfo.isMobile ? 0 : undefined,
+                                                        scrollSnapAlign: deviceInfo.isMobile ? 'start' : undefined,
                                                         display: 'flex',
                                                         flexDirection: 'column'
                                                     }}
@@ -3963,6 +4126,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                 </div>
                                             );
                                         })}
+                                        </div>
                                     </div>
                                 </div>
                             ) : contratoFechado ? (
@@ -3986,7 +4150,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
 
             {/* Modal do Contrato Timbrado */}
             {showContratoModal && contratoFechado && (
-                <div style={{
+                <div className="contrato-modal-print" style={{
                     position: 'fixed',
                     top: 0,
                     left: 0,
@@ -4004,7 +4168,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                         setShowContratoModal(false);
                     }
                 }}>
-                    <div style={{
+                    <div ref={contratoContentRef} className="contrato-content-print" style={{
                         background: '#FFFFFF',
                         borderRadius: deviceInfo.isMobile ? '8px' : '12px',
                         overflow: 'hidden',
@@ -4379,10 +4543,10 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            window.print();
+                                            handleSaveAsImage();
                                         }}
                                         style={{
-                                            background: '#1F2937',
+                                            background: '#4F46E5',
                                             color: '#FFFFFF',
                                             border: 'none',
                                             borderRadius: '8px',
@@ -4396,7 +4560,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             touchAction: 'manipulation',
                                             WebkitTapHighlightColor: 'transparent',
                                             minHeight: deviceInfo.isMobile ? '48px' : '52px',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                                            boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: '8px',
@@ -4405,7 +4569,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                         }}
                                         className="no-print"
                                     >
-                                        🖨️ Imprimir / PDF
+                                        📷 Salvar como Imagem
                                     </button>
 
                                     <button

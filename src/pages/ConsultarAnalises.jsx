@@ -41,6 +41,40 @@ function ConsultarAnalises() {
         fetchAnalises();
     }, []);
 
+    const handleTribunalClick = async () => {
+        try {
+            // Verificar se há sessão Google
+            const { data: sessionData } = await supabase.auth.getSession();
+            
+            if (!sessionData.session) {
+                // Sem sessão, ir direto para login
+                navigate('/login-jurado');
+                return;
+            }
+
+            // Verificar se o email está vinculado a um jurado ativo
+            const email = sessionData.session.user.email?.toLowerCase();
+            const { data: jurado } = await supabase
+                .from('jurados')
+                .select('*')
+                .eq('email_google', email)
+                .eq('ativo', true)
+                .single();
+
+            if (jurado) {
+                // Jurado válido, ir direto para o tribunal
+                navigate('/veredito');
+            } else {
+                // Email não vinculado a jurado, ir para login
+                navigate('/login-jurado');
+            }
+        } catch (error) {
+            console.error('Erro ao verificar sessão:', error);
+            // Em caso de erro, ir para login
+            navigate('/login-jurado');
+        }
+    };
+
     const fetchAnalises = async () => {
         setLoading(true);
         try {
@@ -173,7 +207,7 @@ function ConsultarAnalises() {
                         {/* Botão Tribunal do Júri (para jurados) */}
                         <button
                             className="btn-tribunal"
-                            onClick={() => navigate('/veredito')}
+                            onClick={handleTribunalClick}
                             style={{
                                 padding: '10px 20px',
                                 width: '180px',

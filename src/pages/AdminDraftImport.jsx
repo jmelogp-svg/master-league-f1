@@ -1399,222 +1399,197 @@ export default function AdminDraftImport() {
                                                 alignItems: deviceInfo.isMobile ? 'stretch' : 'center', 
                                                 gap: deviceInfo.isMobile ? '12px' : '15px', 
                                                 flexDirection: deviceInfo.isMobile ? 'column' : 'row', 
-                                                width: deviceInfo.isMobile ? '100%' : 'auto'
+                                                width: deviceInfo.isMobile ? '100%' : 'auto',
+                                                borderTop: deviceInfo.isMobile ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                                                paddingTop: deviceInfo.isMobile ? '12px' : 0
                                             }}>
                                                 {hasContract ? (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '8px' }}>
-                                                        <div style={{ fontSize: '0.85rem', fontWeight: '700', color: getTeamColor(contractTeam?.name) }}>{contractTeam?.name}</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: deviceInfo.isMobile ? 'space-between' : 'flex-start', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '8px', width: deviceInfo.isMobile ? '100%' : 'auto' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {contractTeam?.name && getTeamLogo(contractTeam.name) && (
+                                                                <img 
+                                                                    src={getTeamLogo(contractTeam.name)} 
+                                                                    alt="" 
+                                                                    style={{ 
+                                                                        width: '24px', 
+                                                                        height: '24px', 
+                                                                        objectFit: 'contain' 
+                                                                    }} 
+                                                                />
+                                                            )}
+                                                            <div style={{ fontSize: '0.85rem', fontWeight: '700', color: getTeamColor(contractTeam?.name) }}>{contractTeam?.name}</div>
+                                                        </div>
                                                         <button onClick={async () => {
                                                             if (!window.confirm(`Cancelar contrato de ${piloto.nome}?`)) return;
                                                             await supabase.from('contracts').delete().eq('pilot_cod_idml', codIdmlNormalizado).eq('season', 20);
                                                             await loadContracts();
                                                             await loadPilotoPropostasStatus();
-                                                        }} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: 'bold' }}>✖</button>
+                                                        }} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: 'bold', padding: '5px' }}>✖</button>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', width: '100%' }}>
-                                                    {/* Botão Cancelar Envio (WITHDRAWN) */}
-                                                    {hasProposal && !hasContract && (
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (!window.confirm(`⚠️ Cancelar o envio de propostas para ${formatDriverName(piloto.nome)}?`)) return;
-                                                                try {
-                                                                    const cod = (piloto.cod_idml || '').trim().toUpperCase();
-                                                                    const { error } = await supabase
-                                                                        .from('interests')
-                                                                        .update({ status: 'WITHDRAWN', updated_at: new Date().toISOString() })
-                                                                        .eq('pilot_cod_idml', cod)
-                                                                        .eq('grid', negotiationsGrid)
-                                                                        .eq('season', 20)
-                                                                        .eq('status', 'OFFER_SENT');
-                                                                    if (error) throw error;
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                                                {/* Botão Cancelar Envio (WITHDRAWN) */}
+                                                                {hasProposal && (
+                                                                    <button
+                                                                        onClick={async () => {
+                                                                            if (!window.confirm(`⚠️ Cancelar o envio de propostas para ${formatDriverName(piloto.nome)}?`)) return;
+                                                                            try {
+                                                                                const cod = (piloto.cod_idml || '').trim().toUpperCase();
+                                                                                const { error } = await supabase
+                                                                                    .from('interests')
+                                                                                    .update({ status: 'WITHDRAWN', updated_at: new Date().toISOString() })
+                                                                                    .eq('pilot_cod_idml', cod)
+                                                                                    .eq('grid', negotiationsGrid)
+                                                                                    .eq('season', 20)
+                                                                                    .eq('status', 'OFFER_SENT');
+                                                                                if (error) throw error;
 
-                                                                    setProposals(prev => {
-                                                                        const next = { ...prev };
-                                                                        const gp = { ...(next?.[negotiationsGrid] || {}) };
-                                                                        delete gp[piloto.id];
-                                                                        next[negotiationsGrid] = gp;
-                                                                        return next;
-                                                                    });
+                                                                                setProposals(prev => {
+                                                                                    const next = { ...prev };
+                                                                                    const gp = { ...(next?.[negotiationsGrid] || {}) };
+                                                                                    delete gp[piloto.id];
+                                                                                    next[negotiationsGrid] = gp;
+                                                                                    return next;
+                                                                                });
 
-                                                                    await loadPilotoPropostasStatus();
-                                                                    alert('✅ Propostas canceladas. Você já pode enviar novas propostas.');
-                                                                } catch (e) {
-                                                                    alert(`❌ Erro ao cancelar propostas: ${e.message}`);
-                                                                }
-                                                            }}
-                                                            style={{
-                                                                width: deviceInfo.isMobile ? '44px' : '42px',
-                                                                height: deviceInfo.isMobile ? '44px' : '42px',
-                                                                padding: '0',
-                                                                borderRadius: '8px',
-                                                                border: '1px solid rgba(239, 68, 68, 0.65)',
-                                                                background: 'rgba(239, 68, 68, 0.12)',
-                                                                color: '#FCA5A5',
-                                                                fontWeight: '900',
-                                                                cursor: 'pointer',
-                                                                fontSize: deviceInfo.isMobile ? '1.1rem' : '1rem',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                flexShrink: 0
-                                                            }}
-                                                            title="Cancelar envio (Retirar Propostas)"
-                                                        >
-                                                            ✋
-                                                        </button>
-                                                    )}
-
-                                                    <div style={{ 
-                                                        fontSize: '0.85rem', 
-                                                        color: 'rgba(255,255,255,0.5)', 
-                                                        marginRight: '10px', 
-                                                        whiteSpace: 'nowrap',
-                                                        alignSelf: 'center'
-                                                    }}>
-                                                        ({pilotoProposals.length}/3)
-                                                    </div>
-
-                                                    <div style={{ 
-                                                        display: 'flex', 
-                                                        gap: deviceInfo.isMobile ? '8px' : '10px', 
-                                                        alignItems: 'center', 
-                                                        flex: deviceInfo.isMobile ? 'none' : 1, 
-                                                        minWidth: 0, 
-                                                        overflowX: 'auto', 
-                                                        overflowY: 'hidden',
-                                                        paddingBottom: deviceInfo.isMobile ? '8px' : '2px',
-                                                        scrollbarWidth: 'thin',
-                                                        scrollbarColor: 'rgba(255,255,255,0.2) transparent',
-                                                        position: 'relative',
-                                                        zIndex: 1
-                                                    }}>
-                                                        {availableTeams && availableTeams.length > 0 ? availableTeams.map(team => {
-                                                            const isSelected = pilotoProposals.includes(team.id);
-                                                            const teamColor = getTeamColor(team.name);
-                                                            const tid = String(team.id);
-                                                            const currentGrid = normalizeGrid(negotiationsGrid);
-                                                            
-                                                            // 1. Contratos Fechados (oficiais no banco)
-                                                            const closedContractsCount = contracts.filter(c => 
-                                                                String(c.team_id) === tid && 
-                                                                (getContractGrid(c) === currentGrid)
-                                                            ).length;
-
-                                                            // 2. Propostas Enviadas (aguardando resposta)
-                                                            const sentProposalsCount = (offerSentCountByTeamByGrid?.[negotiationsGrid]?.[tid] || 0);
-
-                                                            // Vagas já ocupadas oficialmente (Contrato + Proposta Enviada)
-                                                            const officialOccupied = closedContractsCount + sentProposalsCount;
-
-                                                            // 3. Seleções pendentes no painel (outros pilotos que você marcou mas não enviou ainda)
-                                                            const otherPendingCount = Object.entries(gridProposals).filter(([pid, pTeams]) => 
-                                                                String(pid) !== String(piloto.id) && 
-                                                                (pTeams || []).map(String).includes(tid)
-                                                            ).length;
-
-                                                            const isSent = pilotoStatus?.teamsWithProposals?.map(String).includes(tid);
-                                                            
-                                                            // Regra: Contratos + Enviadas + Pendentes <= 2
-                                                            const isBlockedByLimit = !isSelected && (officialOccupied + otherPendingCount >= 2);
-                                                            const isFull = officialOccupied >= 2;
-
-                                                            // Desativar se: Já selecionou 3, Equipe cheia, Bloqueada por limite pendente ou já tem proposta enviada no banco
-                                                            const isDisabled = isSelected ? false : (pilotoProposals.length >= 3 || isFull || isBlockedByLimit || hasProposal);
-
-                                                            return (
-                                                                <button 
-                                                                    key={team.id} 
-                                                                    className="team-btn"
-                                                                    onClick={() => {
-                                                                        if (isSent || hasContract) return;
-                                                                        setProposals(prev => {
-                                                                            const next = { ...prev };
-                                                                            const gp = { ...(next[negotiationsGrid] || {}) };
-                                                                            const cur = gp[piloto.id] || [];
-                                                                            
-                                                                            if (isSelected) {
-                                                                                gp[piloto.id] = cur.filter(t => String(t) !== String(team.id));
-                                                                            } else if (!isDisabled) {
-                                                                                gp[piloto.id] = [...cur, team.id];
+                                                                                await loadPilotoPropostasStatus();
+                                                                                alert('✅ Propostas canceladas.');
+                                                                            } catch (e) {
+                                                                                alert(`❌ Erro: ${e.message}`);
                                                                             }
-                                                                            
-                                                                            next[negotiationsGrid] = gp;
-                                                                            return next;
-                                                                        });
-                                                                    }} 
-                                                                    disabled={isDisabled || isSent} 
-                                                                    style={{
-                                                                        width: deviceInfo.isMobile ? '44px' : '50px', 
-                                                                        height: deviceInfo.isMobile ? '44px' : '50px', 
-                                                                        borderRadius: '10px', 
-                                                                        border: isSent ? '3px solid #EF4444' : `2px solid ${isSelected ? teamColor : 'rgba(255,255,255,0.1)'}`,
-                                                                        background: isSelected ? `${teamColor}22` : isSent ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-                                                                        cursor: (isDisabled || isSent) ? 'not-allowed' : 'pointer', 
-                                                                        transition: 'all 0.2s', 
-                                                                        padding: deviceInfo.isMobile ? '6px' : '8px', 
-                                                                        position: 'relative', 
-                                                                        opacity: (isDisabled && !isSelected) ? 0.3 : 1,
-                                                                        flexShrink: 0,
-                                                                        touchAction: 'manipulation'
-                                                                    }}
-                                                                    title={isFull ? 'Equipe sem vagas (2/2)' : isBlockedByLimit ? 'Vaga reservada por outra seleção pendente' : ''}
-                                                                >
-                                                                    {isSent && <div style={{ position: 'absolute', top: '-5px', right: '-5px', width: '18px', height: '18px', borderRadius: '50%', background: '#EF4444', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0F172A', zIndex: 10 }}>📨</div>}
-                                                                    <img src={getTeamLogo(team.name)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: (isSelected || isSent) ? 'none' : 'grayscale(1) opacity(0.5)' }} />
-                                                                </button>
-                                                            );
-                                                        }) : (
-                                                            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>Carregando equipes...</div>
-                                                        )}
-                                                    </div>
-                                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                            <button
-                                                                className="btn-action"
-                                                                onClick={() => {
-                                                                    if (pilotoProposals.length !== 1) {
-                                                                        alert('⚠️ Para fechar contrato manual, selecione EXATAMENTE 1 equipe no painel.');
-                                                                        return;
-                                                                    }
-                                                                    handleManualContract(piloto, pilotoProposals[0]);
-                                                                }}
-                                                                disabled={hasProposal || pilotoProposals.length !== 1}
-                                                                style={{
-                                                                    padding: '6px 12px',
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid #22C55E',
-                                                                    background: 'rgba(34, 197, 94, 0.1)',
-                                                                    color: '#22C55E',
-                                                                    fontWeight: 'bold',
-                                                                    cursor: (hasProposal || pilotoProposals.length !== 1) ? 'not-allowed' : 'pointer',
-                                                                    fontSize: '0.8rem',
-                                                                    opacity: (hasProposal || pilotoProposals.length !== 1) ? 0.5 : 1,
-                                                                    transition: 'all 0.2s'
-                                                                }}
-                                                                title="Fechar contrato manualmente com a equipe selecionada"
-                                                            >
-                                                                🤝 Fechar Contrato
-                                                            </button>
+                                                                        }}
+                                                                        style={{
+                                                                            width: '40px',
+                                                                            height: '40px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid rgba(239, 68, 68, 0.6)',
+                                                                            background: 'rgba(239, 68, 68, 0.1)',
+                                                                            color: '#FCA5A5',
+                                                                            cursor: 'pointer',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            flexShrink: 0
+                                                                        }}
+                                                                        title="Retirar Propostas"
+                                                                    >
+                                                                        ✋
+                                                                    </button>
+                                                                )}
+                                                                <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>
+                                                                    ESCOLHA: ({pilotoProposals.length}/3)
+                                                                </div>
+                                                            </div>
 
-                                                            <button 
-                                                                className="btn-action"
-                                                                onClick={() => handleSendProposals(piloto)}
-                                                                disabled={hasProposal || pilotoProposals.length === 0}
-                                                                style={{ 
-                                                                    padding: '6px 12px', 
-                                                                    borderRadius: '6px', 
-                                                                    border: 'none', 
-                                                                    background: hasProposal ? '#334155' : '#4F46E5', 
-                                                                    color: 'white', 
-                                                                    fontWeight: 'bold', 
-                                                                    cursor: (hasProposal || pilotoProposals.length === 0) ? 'not-allowed' : 'pointer', 
-                                                                    fontSize: '0.8rem',
-                                                                    opacity: (hasProposal || pilotoProposals.length === 0) ? 0.5 : 1,
-                                                                    transition: 'all 0.2s'
-                                                                }}
-                                                            >
-                                                                {hasProposal ? '📨 Enviada' : '📩 Enviar'}
-                                                            </button>
+                                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (pilotoProposals.length !== 1) {
+                                                                            alert('⚠️ Selecione EXATAMENTE 1 equipe.');
+                                                                            return;
+                                                                        }
+                                                                        handleManualContract(piloto, pilotoProposals[0]);
+                                                                    }}
+                                                                    disabled={hasProposal || pilotoProposals.length !== 1}
+                                                                    style={{
+                                                                        padding: '8px 12px',
+                                                                        borderRadius: '8px',
+                                                                        border: '1px solid #22C55E',
+                                                                        background: 'rgba(34, 197, 94, 0.1)',
+                                                                        color: '#22C55E',
+                                                                        fontWeight: '800',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '0.7rem',
+                                                                        opacity: (hasProposal || pilotoProposals.length !== 1) ? 0.4 : 1,
+                                                                        textTransform: 'uppercase'
+                                                                    }}
+                                                                >
+                                                                    🤝 CONTRATAR
+                                                                </button>
+
+                                                                <button 
+                                                                    onClick={() => handleSendProposals(piloto)}
+                                                                    disabled={hasProposal || pilotoProposals.length === 0}
+                                                                    style={{ 
+                                                                        padding: '8px 15px', 
+                                                                        borderRadius: '8px', 
+                                                                        background: hasProposal ? '#334155' : '#4F46E5', 
+                                                                        color: 'white', 
+                                                                        fontWeight: '800', 
+                                                                        cursor: 'pointer', 
+                                                                        fontSize: '0.7rem',
+                                                                        opacity: (hasProposal || pilotoProposals.length === 0) ? 0.4 : 1,
+                                                                        textTransform: 'uppercase'
+                                                                    }}
+                                                                >
+                                                                    {hasProposal ? '📨 ENVIADA' : '📩 ENVIAR'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Carrossel de Equipes */}
+                                                        <div style={{ 
+                                                            display: 'flex', 
+                                                            gap: '10px', 
+                                                            alignItems: 'center', 
+                                                            width: '100%', 
+                                                            overflowX: 'auto', 
+                                                            paddingBottom: '5px',
+                                                            scrollbarWidth: 'none',
+                                                            msOverflowStyle: 'none',
+                                                            WebkitOverflowScrolling: 'touch'
+                                                        }}>
+                                                            {availableTeams && availableTeams.length > 0 ? availableTeams.map(team => {
+                                                                const isSelected = pilotoProposals.includes(team.id);
+                                                                const teamColor = getTeamColor(team.name);
+                                                                const tid = String(team.id);
+                                                                const currentGrid = normalizeGrid(negotiationsGrid);
+                                                                const closedContractsCount = contracts.filter(c => String(c.team_id) === tid && (getContractGrid(c) === currentGrid)).length;
+                                                                const sentProposalsCount = (offerSentCountByTeamByGrid?.[negotiationsGrid]?.[tid] || 0);
+                                                                const officialOccupied = closedContractsCount + sentProposalsCount;
+                                                                const otherPendingCount = Object.entries(gridProposals).filter(([pid, pTeams]) => String(pid) !== String(piloto.id) && (pTeams || []).map(String).includes(tid)).length;
+                                                                const isSent = pilotoStatus?.teamsWithProposals?.map(String).includes(tid);
+                                                                const isFull = officialOccupied >= 2;
+                                                                const isBlockedByLimit = !isSelected && (officialOccupied + otherPendingCount >= 2);
+                                                                const isDisabled = isSelected ? false : (pilotoProposals.length >= 3 || isFull || isBlockedByLimit || hasProposal);
+
+                                                                return (
+                                                                    <button 
+                                                                        key={team.id} 
+                                                                        onClick={() => {
+                                                                            if (isSent || hasContract) return;
+                                                                            setProposals(prev => {
+                                                                                const next = { ...prev };
+                                                                                const gp = { ...(next[negotiationsGrid] || {}) };
+                                                                                const cur = gp[piloto.id] || [];
+                                                                                if (isSelected) gp[piloto.id] = cur.filter(t => String(t) !== String(team.id));
+                                                                                else if (!isDisabled) gp[piloto.id] = [...cur, team.id];
+                                                                                next[negotiationsGrid] = gp;
+                                                                                return next;
+                                                                            });
+                                                                        }} 
+                                                                        disabled={isDisabled || isSent} 
+                                                                        style={{
+                                                                            width: '46px', 
+                                                                            height: '46px', 
+                                                                            borderRadius: '10px', 
+                                                                            border: isSent ? '3px solid #EF4444' : `2px solid ${isSelected ? teamColor : 'rgba(255,255,255,0.1)'}`,
+                                                                            background: isSelected ? `${teamColor}22` : isSent ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                                                                            cursor: 'pointer', 
+                                                                            transition: 'all 0.2s', 
+                                                                            padding: '8px', 
+                                                                            position: 'relative', 
+                                                                            opacity: (isDisabled && !isSelected) ? 0.2 : 1,
+                                                                            flexShrink: 0
+                                                                        }}
+                                                                    >
+                                                                        {isSent && <div style={{ position: 'absolute', top: '-5px', right: '-5px', width: '16px', height: '16px', borderRadius: '50%', background: '#EF4444', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #0F172A', zIndex: 10 }}>📨</div>}
+                                                                        <img src={getTeamLogo(team.name)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: (isSelected || isSent) ? 'none' : 'grayscale(1) opacity(0.5)' }} />
+                                                                    </button>
+                                                                );
+                                                            }) : null}
                                                         </div>
                                                     </div>
                                                 )}

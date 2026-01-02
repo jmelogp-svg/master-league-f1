@@ -3067,7 +3067,7 @@ function Admin() {
                                                 .from('noticias')
                                                 .upload(key, file, {
                                                     upsert: true,
-                                                    cacheControl: '0',
+                                                    cacheControl: 'max-age=0, must-revalidate',
                                                     contentType: file.type || 'image/jpeg'
                                                 });
 

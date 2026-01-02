@@ -7,6 +7,9 @@ const ListIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="non
 const GridIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>;
 const TrophyIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#FFD700" stroke="none"><path d="M20.2 2H3.8C2.8 2 2 2.8 2 3.8v2.4c0 2.6 1.9 4.8 4.4 5.1.9 3.3 3.7 5.9 7.1 6.5v2.2H9v2h6v-2h-4.5v-2.2c3.4-.6 6.2-3.2 7.1-6.5 2.5-.3 4.4-2.5 4.4-5.1V3.8c0-1-.8-1.8-1.8-1.8zM4 6.2V4h2v2.2c-1.1 0-2 0-2 0zm16 0c0 .1-1.1.1-2 0V4h2v2.2z"/></svg>;
 
+const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
+
 // --- HELPERS ---
 // ALTERAÇÃO 1: Adicionado a prop 'style' aqui para permitir customização
 const DriverImage = ({ name, gridType, season, className, style }) => {
@@ -77,6 +80,15 @@ function HallOfFame() {
     const [trackRecords, setTrackRecords] = useState({});
     const [powerDriveStats, setPowerDriveStats] = useState([]);
 
+    const extrairNumero = (val) => {
+        if (val === null || val === undefined) return 0;
+        const str = String(val).trim();
+        const parsed = parseInt(str, 10);
+        if (!isNaN(parsed)) return parsed;
+        const m = str.match(/\d+/);
+        return m ? parseInt(m[0], 10) : 0;
+    };
+
     useMemo(() => {
         const data = gridType === 'carreira' ? rawCarreira : rawLight;
         if (!data || data.length === 0) return;
@@ -84,21 +96,25 @@ function HallOfFame() {
         const driverStats = {};
         const tRecords = {};
         const seasonPoints = {};
+        const firstTitleSeason = {};
         
         // Para calcular volta rápida por corrida (agrupado por temporada + etapa)
         const racesFastLaps = {};
 
         data.forEach(row => {
-            const season = parseInt(row[3]);
+            const season = extrairNumero(row[3]);
             const round = row[4]; // Coluna E - Número da etapa (R01, R02, etc)
             const gpName = row[5]; // Coluna F - Nome do GP (BRASIL, ÁUSTRIA, etc)
             const name = row[9];
             const team = row[10];
-            let points = parseFloat((row[15] || '0').replace(',', '.'));
+            const racePos = parseInt(row[8]);
+            const sprintPos = parseInt(row[7]);
+            let points = parseFloat((row[15] || '0').toString().replace(',', '.'));
             const fastestLap = row[11]; // Coluna L - Volta mais rápida
 
-            // FILTRO: Remove pilotos inválidos ou banidos
-            if (!name || name === '-' || name === 'Joao Lucas') return;
+            // FILTRO: Remove pilotos inválidos ou headers
+            if (!name || name === '-' || name === 'Driver' || name === 'Name' || name === 'Pilot' || name === 'PILOTO') return;
+            if (!season || isNaN(season)) return;
 
             // 1. Estatísticas Gerais (exceto fastLaps que será calculado depois)
             if (!driverStats[name]) {
@@ -133,7 +149,14 @@ function HallOfFame() {
             // 2. Pontos por Temporada (para Campeões)
             if (!seasonPoints[season]) seasonPoints[season] = {};
             if (!seasonPoints[season][name]) seasonPoints[season][name] = { points: 0, team: team };
-            seasonPoints[season][name].points += points;
+
+            // Lógica de pontos igual ao Standings: temporadas < 20 usam posições; >=20 usa planilha
+            if (season >= 20) {
+                if (!isNaN(points)) seasonPoints[season][name].points += points;
+            } else {
+                if (racePos >= 1 && racePos <= 10) seasonPoints[season][name].points += POINTS_RACE[racePos - 1];
+                if (sprintPos >= 1 && sprintPos <= 8) seasonPoints[season][name].points += POINTS_SPRINT[sprintPos - 1];
+            }
         });
         
         // Conta quantas voltas rápidas cada piloto fez (quem teve o melhor tempo em cada corrida)
@@ -148,7 +171,11 @@ function HallOfFame() {
             const drivers = Object.entries(seasonPoints[season]);
             drivers.sort((a, b) => b[1].points - a[1].points);
             if (drivers.length > 0) {
-                return { season, name: drivers[0][0], points: drivers[0][1].points, team: drivers[0][1].team };
+                const winner = { season: Number(season), name: drivers[0][0], points: drivers[0][1].points, team: drivers[0][1].team };
+                if (!firstTitleSeason[winner.name] || Number(season) < firstTitleSeason[winner.name]) {
+                    firstTitleSeason[winner.name] = Number(season);
+                }
+                return winner;
             }
             return null;
         }).filter(Boolean).sort((a, b) => b.season - a.season);
@@ -168,19 +195,35 @@ function HallOfFame() {
         
         // Calcula pontos totais por piloto
         data.forEach(row => {
+            const season = extrairNumero(row[3]);
             const name = row[9];
-            let points = parseFloat((row[15] || '0').replace(',', '.'));
+            const racePos = parseInt(row[8]);
+            const sprintPos = parseInt(row[7]);
+            let points = parseFloat((row[15] || '0').toString().replace(',', '.'));
             
-            if (!name || name === '-' || name === 'Joao Lucas') return;
+            if (!name || name === '-' || name === 'Driver' || name === 'Name' || name === 'Pilot' || name === 'PILOTO') return;
+            if (!season || isNaN(season)) return;
             
             if (!totalPointsByDriver[name]) {
                 totalPointsByDriver[name] = { name, totalPoints: 0 };
             }
-            totalPointsByDriver[name].totalPoints += points;
+
+            if (season >= 20) {
+                if (!isNaN(points)) totalPointsByDriver[name].totalPoints += points;
+            } else {
+                if (racePos >= 1 && racePos <= 10) totalPointsByDriver[name].totalPoints += POINTS_RACE[racePos - 1];
+                if (sprintPos >= 1 && sprintPos <= 8) totalPointsByDriver[name].totalPoints += POINTS_SPRINT[sprintPos - 1];
+            }
         });
         
         const topWinnerName = Object.keys(titleCounts).length > 0 
-            ? Object.keys(titleCounts).reduce((a, b) => titleCounts[a] > titleCounts[b] ? a : b)
+            ? Object.keys(titleCounts).reduce((a, b) => {
+                if (titleCounts[a] !== titleCounts[b]) return titleCounts[a] > titleCounts[b] ? a : b;
+                const fa = firstTitleSeason[a] || Infinity;
+                const fb = firstTitleSeason[b] || Infinity;
+                if (fa !== fb) return fa < fb ? a : b;
+                return a.localeCompare(b) <= 0 ? a : b;
+            })
             : null;
         const topTeamName = Object.keys(teamTitleCounts).length > 0
             ? Object.keys(teamTitleCounts).reduce((a, b) => teamTitleCounts[a] > teamTitleCounts[b] ? a : b)
@@ -209,9 +252,9 @@ function HallOfFame() {
             mostFastLaps: [...driversArray].filter(d => d.fastLaps > 0).sort((a, b) => b.fastLaps - a.fastLaps),
             mostRaces: [...driversArray].filter(d => d.races > 0).sort((a, b) => b.races - a.races),
             mostTitles: Object.entries(titleCounts)
-                .map(([name, titles]) => ({ name, titles }))
+                .map(([name, titles]) => ({ name, titles, firstSeason: firstTitleSeason[name] || Infinity }))
                 .filter(d => d.titles > 0)
-                .sort((a, b) => b.titles - a.titles || a.name.localeCompare(b.name)),
+                .sort((a, b) => b.titles - a.titles || (a.firstSeason - b.firstSeason) || a.name.localeCompare(b.name)),
             mostPoints: Object.values(totalPointsByDriver).filter(d => d.totalPoints > 0).sort((a, b) => b.totalPoints - a.totalPoints),
             mostPR: mostPR,
             topWinner: topWinnerName || '-',
