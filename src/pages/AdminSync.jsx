@@ -5,39 +5,32 @@ import { useNavigate } from 'react-router-dom';
 function AdminSync() {
     const navigate = useNavigate();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isSteward, setIsSteward] = useState(false);
     const [loading, setLoading] = useState(true);
     const [syncLogs, setSyncLogs] = useState([]);
     const [syncStatus, setSyncStatus] = useState({});
     const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                navigate('/login');
-                return;
-            }
-
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                navigate('/login');
-                return;
-            }
-
-            // Verificar se é steward
-            const { data: piloto } = await supabase
-                .from('pilotos')
-                .select('is_steward')
-                .eq('email', user.email)
-                .single();
-
-            if (piloto?.is_steward) {
-                setIsSteward(true);
+        const checkAuth = () => {
+            // Usar a mesma autenticação do Admin (localStorage/sessionStorage)
+            // Verificar localStorage primeiro (Manter conectado)
+            const savedAuth = localStorage.getItem('ml_admin_auth');
+            if (savedAuth === 'true') {
                 setIsAuthenticated(true);
-            } else {
-                navigate('/dashboard');
+                setLoading(false);
+                return;
             }
+
+            // Verificar sessionStorage (sessão atual apenas)
+            const sessionAuth = sessionStorage.getItem('ml_admin_auth_session');
+            if (sessionAuth === 'true') {
+                setIsAuthenticated(true);
+                setLoading(false);
+                return;
+            }
+
+            // Se não estiver autenticado, redirecionar para /admin para fazer login
+            navigate('/admin');
             setLoading(false);
         };
 
@@ -73,39 +66,72 @@ function AdminSync() {
             { name: 'power_ranking_cache', label: 'Power Ranking' },
             { name: 'calendario_cache', label: 'Calendário', season: 20 },
             { name: 'tracks_cache', label: 'Tracks' },
-            { name: 'minicup_cache', label: 'Minicup' }
+            { name: 'minicup_cache', label: 'Minicup' },
+            { name: 'equipes', label: 'Equipes', isEquipes: true }
         ];
 
         for (const table of tables) {
-            let query = supabase.from(table.name).select('last_synced_at, data');
-            
-            if (table.grid) {
-                query = query.eq('grid', table.grid);
-            }
-            if (table.season) {
-                query = query.eq('season', table.season);
-            }
-
-            const { data, error } = await query.single().catch(() => ({ data: null, error: null }));
-
-            if (data) {
-                const lastSync = new Date(data.last_synced_at);
-                const age = (Date.now() - lastSync.getTime()) / (1000 * 60);
-                const recordCount = data.data?.rows?.length || 0;
-
-                status[table.label] = {
-                    lastSync: lastSync.toLocaleString('pt-BR'),
-                    ageMinutes: Math.round(age),
-                    recordCount,
-                    status: age < 60 ? 'ok' : age < 120 ? 'warning' : 'error'
-                };
+            if (table.isEquipes) {
+                // Para equipes, buscar diretamente da tabela
+                const { data: equipesData, error: equipesError } = await supabase
+                    .from('equipes')
+                    .select('id, name, updated_at')
+                    .order('updated_at', { ascending: false });
+                
+                if (!equipesError && equipesData && equipesData.length > 0) {
+                    const lastUpdate = equipesData[0]?.updated_at 
+                        ? new Date(equipesData[0].updated_at)
+                        : null;
+                    const age = lastUpdate 
+                        ? (Date.now() - lastUpdate.getTime()) / (1000 * 60)
+                        : null;
+                    
+                    status[table.label] = {
+                        lastSync: lastUpdate ? lastUpdate.toLocaleString('pt-BR') : 'N/A',
+                        ageMinutes: age ? Math.round(age) : null,
+                        recordCount: equipesData.length,
+                        status: age && age < 60 ? 'ok' : age && age < 120 ? 'warning' : 'error',
+                        teams: equipesData.map(e => e.name).sort()
+                    };
+                } else {
+                    status[table.label] = {
+                        lastSync: 'Nunca',
+                        ageMinutes: null,
+                        recordCount: 0,
+                        status: 'error'
+                    };
+                }
             } else {
-                status[table.label] = {
-                    lastSync: 'Nunca',
-                    ageMinutes: null,
-                    recordCount: 0,
-                    status: 'error'
-                };
+                let query = supabase.from(table.name).select('last_synced_at, data');
+                
+                if (table.grid) {
+                    query = query.eq('grid', table.grid);
+                }
+                if (table.season) {
+                    query = query.eq('season', table.season);
+                }
+
+                const { data, error } = await query.single().catch(() => ({ data: null, error: null }));
+
+                if (data) {
+                    const lastSync = new Date(data.last_synced_at);
+                    const age = (Date.now() - lastSync.getTime()) / (1000 * 60);
+                    const recordCount = data.data?.rows?.length || 0;
+
+                    status[table.label] = {
+                        lastSync: lastSync.toLocaleString('pt-BR'),
+                        ageMinutes: Math.round(age),
+                        recordCount,
+                        status: age < 60 ? 'ok' : age < 120 ? 'warning' : 'error'
+                    };
+                } else {
+                    status[table.label] = {
+                        lastSync: 'Nunca',
+                        ageMinutes: null,
+                        recordCount: 0,
+                        status: 'error'
+                    };
+                }
             }
         }
 
@@ -115,19 +141,27 @@ function AdminSync() {
     const triggerSync = async (sheetType) => {
         setSyncing(true);
         try {
-            const supabaseUrl = 'https://ueqfmjwdijaeawvxhdtp.supabase.co';
-            const { data: { session } } = await supabase.auth.getSession();
+            // Verificar autenticação local do Admin (mesma lógica do Admin.jsx)
+            const savedAuth = localStorage.getItem('ml_admin_auth');
+            const sessionAuth = sessionStorage.getItem('ml_admin_auth_session');
             
-            if (!session) {
-                alert('Sessão expirada. Faça login novamente.');
+            if (savedAuth !== 'true' && sessionAuth !== 'true') {
+                alert('Sessão expirada. Faça login novamente no painel Admin.');
+                navigate('/admin');
+                setSyncing(false);
                 return;
             }
+
+            const supabaseUrl = 'https://ueqfmjwdijaeawvxhdtp.supabase.co';
+            // Usar anon key (pública e segura para usar no frontend)
+            const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcWZtandkaWphZWF3dnhoZHRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MjEzOTEsImV4cCI6MjA4MDA5NzM5MX0.b-y_prO5ffMuSOs7rUvrMru4SDN06BHqyMsbUIDDdJI';
 
             const response = await fetch(`${supabaseUrl}/functions/v1/sync-google-sheets`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
+                    'Authorization': `Bearer ${supabaseAnonKey}`,
+                    'apikey': supabaseAnonKey
                 },
                 body: JSON.stringify({ 
                     sheetType,
@@ -138,18 +172,21 @@ function AdminSync() {
 
             const result = await response.json();
 
-            if (result.success) {
-                alert(`Sincronização de ${sheetType} iniciada com sucesso!`);
-                setTimeout(() => {
-                    loadSyncLogs();
-                    loadSyncStatus();
-                }, 2000);
-            } else {
-                alert(`Erro: ${result.error}`);
+            if (!response.ok || !result.success) {
+                const errorMsg = result.error || result.message || `Erro HTTP ${response.status}`;
+                console.error('Erro na sincronização:', { response, result, sheetType });
+                alert(`Erro ao sincronizar ${sheetType}: ${errorMsg}`);
+                return;
             }
+
+            alert(`✅ Sincronização de ${sheetType} iniciada com sucesso!`);
+            setTimeout(() => {
+                loadSyncLogs();
+                loadSyncStatus();
+            }, 2000);
         } catch (error) {
             console.error('Erro ao sincronizar:', error);
-            alert('Erro ao iniciar sincronização');
+            alert(`Erro ao iniciar sincronização: ${error.message || error}`);
         } finally {
             setSyncing(false);
         }
@@ -159,7 +196,7 @@ function AdminSync() {
         return <div style={{ padding: '40px', textAlign: 'center' }}>Carregando...</div>;
     }
 
-    if (!isAuthenticated || !isSteward) {
+    if (!isAuthenticated) {
         return null;
     }
 
@@ -199,6 +236,11 @@ function AdminSync() {
                                 <p style={{ color: '#94A3B8', fontSize: '12px', margin: '4px 0' }}>
                                     Registros: {status.recordCount}
                                 </p>
+                                {status.teams && (
+                                    <p style={{ color: '#94A3B8', fontSize: '11px', margin: '4px 0', fontStyle: 'italic' }}>
+                                        Equipes: {status.teams.slice(0, 5).join(', ')}{status.teams.length > 5 ? '...' : ''}
+                                    </p>
+                                )}
                                 <div style={{
                                     display: 'inline-block',
                                     padding: '4px 8px',
@@ -225,7 +267,7 @@ function AdminSync() {
                 }}>
                     <h2 style={{ color: 'white', marginBottom: '20px' }}>Sincronização Manual</h2>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                        {['classificacao', 'power_ranking', 'calendario', 'tracks', 'minicup', 'all'].map(type => (
+                        {['classificacao', 'power_ranking', 'calendario', 'tracks', 'minicup', 'equipes', 'all'].map(type => (
                             <button
                                 key={type}
                                 onClick={() => triggerSync(type)}

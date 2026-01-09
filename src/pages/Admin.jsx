@@ -1795,6 +1795,17 @@ function Admin() {
                     >
                         📥 DRAFT
                     </button>
+                    <button 
+                        className="adm-tab-btn"
+                        onClick={() => navigate('/admin/sync')}
+                        style={{
+                            background: 'linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)',
+                            color: 'white',
+                            border: 'none'
+                        }}
+                    >
+                        🔄 SYNC
+                    </button>
                 </div>
 
                 {activeTab === 'drivers' && (

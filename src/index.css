@@ -2102,10 +2102,11 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     height: 100%;
     border-radius: 4px;
     transition: width 0.5s ease;
+    background: var(--team-color, rgba(255,255,255,0.5));
     box-shadow: 
-        0 0 8px var(--fill-color, rgba(255,255,255,0.3)),
-        0 0 15px var(--fill-color, rgba(255,255,255,0.3)),
-        0 0 25px var(--fill-color, rgba(255,255,255,0.2)),
+        0 0 8px var(--team-color, rgba(255,255,255,0.3)),
+        0 0 15px var(--team-color, rgba(255,255,255,0.3)),
+        0 0 25px var(--team-color, rgba(255,255,255,0.2)),
         inset 0 1px 2px rgba(255,255,255,0.4);
     position: relative;
     filter: brightness(1.1);

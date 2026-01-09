@@ -166,6 +166,18 @@ export const useLeagueData = () => {
                     rowsC = carreiraData.data.rows;
                     rowsL = lightData.data.rows;
                     console.log('📊 Dados de classificação carregados do Supabase');
+                    console.log(`  - Carreira: ${rowsC.length} linhas`);
+                    console.log(`  - Light: ${rowsL.length} linhas`);
+                    
+                    // Verificar equipes da temporada 20
+                    const teamsS20 = new Set();
+                    rowsC.forEach(row => {
+                        if (row && row.length > 10 && parseInt(row[3]) === 20) {
+                            const team = (row[10] || '').trim();
+                            if (team) teamsS20.add(team);
+                        }
+                    });
+                    console.log(`  - Equipes T20 (Carreira): ${Array.from(teamsS20).sort().join(', ')}`);
                 } else {
                     console.log('📊 Buscando classificação do Google Sheets (não encontrada no Supabase)');
                     const [resC, resL] = await Promise.all([

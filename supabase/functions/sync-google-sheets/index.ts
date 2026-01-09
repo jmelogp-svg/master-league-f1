@@ -1,6 +1,6 @@
 // Edge Function para sincronizar dados do Google Sheets para Supabase
 // Uso: POST /functions/v1/sync-google-sheets
-// Body: { sheetType: 'classificacao' | 'power_ranking' | 'calendario' | 'tracks' | 'minicup', force: boolean }
+// Body: { sheetType: 'classificacao' | 'power_ranking' | 'calendario' | 'tracks' | 'minicup' | 'equipes', force: boolean }
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -41,7 +41,9 @@ const SHEETS_CONFIG = {
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv",
     gid: "1709066718",
     name: "TAB MINICUP"
-  }
+  },
+  // Nota: equipes são extraídas das planilhas de classificação (carreira + light)
+  // Não há uma planilha separada de equipes
 };
 
 // Função para calcular hash dos dados
@@ -173,13 +175,16 @@ async function syncClassificacao(supabase: any, grid: "carreira" | "light", seas
 
     // Verificar se os dados mudaram
     if (existing && existing.data_hash === dataHash) {
-      console.log(`Dados de ${grid} não mudaram, pulando sincronização`);
+      console.log(`Dados de ${grid} não mudaram (hash: ${dataHash.substring(0, 8)}...), pulando sincronização`);
       return {
         success: true,
         skipped: true,
         message: "Dados não mudaram"
       };
     }
+    
+    console.log(`Dados de ${grid} mudaram ou são novos. Hash anterior: ${existing?.data_hash?.substring(0, 8) || 'nenhum'}... Novo hash: ${dataHash.substring(0, 8)}...`);
+    console.log(`Total de linhas a sincronizar: ${rows.length}`);
 
     // Preparar dados para inserção/atualização
     const dataToStore = {
@@ -204,20 +209,61 @@ async function syncClassificacao(supabase: any, grid: "carreira" | "light", seas
     let upsertError;
     if (existing) {
       // Atualizar registro existente
-      const { error } = await supabase
+      console.log(`Atualizando cache existente (ID: ${existing.id}) para ${grid} temporada ${season}`);
+      const { error, data: updatedData } = await supabase
         .from("classificacao_cache")
         .update(cacheData)
-        .eq("id", existing.id);
+        .eq("id", existing.id)
+        .select();
       upsertError = error;
+      if (!error && updatedData) {
+        console.log(`✅ Cache atualizado com sucesso. ${updatedData.length} registro(s) atualizado(s)`);
+      }
     } else {
       // Inserir novo registro
-      const { error } = await supabase
+      console.log(`Inserindo novo cache para ${grid} temporada ${season}`);
+      const { error, data: insertedData } = await supabase
         .from("classificacao_cache")
-        .insert(cacheData);
+        .insert(cacheData)
+        .select();
       upsertError = error;
+      if (!error && insertedData) {
+        console.log(`✅ Cache inserido com sucesso. ${insertedData.length} registro(s) inserido(s)`);
+      }
     }
 
-    if (upsertError) throw upsertError;
+    if (upsertError) {
+      console.error(`❌ Erro ao atualizar/inserir cache:`, upsertError);
+      throw upsertError;
+    }
+    
+    // Verificar se os dados foram realmente salvos
+    const { data: verifyData, error: verifyError } = await supabase
+      .from("classificacao_cache")
+      .select("id, last_synced_at, data")
+      .eq("grid", grid)
+      .eq("season", season)
+      .maybeSingle();
+    
+    if (verifyError) {
+      console.warn(`⚠️ Erro ao verificar cache após sincronização:`, verifyError);
+    } else if (verifyData) {
+      const savedRowCount = verifyData.data?.rows?.length || 0;
+      console.log(`✅ Verificação: Cache salvo com ${savedRowCount} linhas. Última sync: ${verifyData.last_synced_at}`);
+      
+      // Verificar algumas equipes na temporada 20
+      if (season === 20 && savedRowCount > 0) {
+        const sampleRows = verifyData.data.rows.slice(0, 10);
+        const teamsInSample = new Set<string>();
+        sampleRows.forEach((row: any) => {
+          if (row && row.length > 10 && parseInt(row[3]) === 20) {
+            const team = (row[10] || '').trim();
+            if (team) teamsInSample.add(team);
+          }
+        });
+        console.log(`📊 Equipes encontradas nas primeiras 10 linhas da temporada 20: ${Array.from(teamsInSample).join(', ')}`);
+      }
+    }
 
     const duration = Date.now() - startTime;
 
@@ -250,6 +296,182 @@ async function syncClassificacao(supabase: any, grid: "carreira" | "light", seas
       duration_ms: duration
     });
 
+    throw error;
+  }
+}
+
+// Função auxiliar para gerar ID da equipe baseado no nome
+function generateTeamId(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/\s+/g, '');
+}
+
+// Função para sincronizar equipes (extrai das planilhas de classificação carreira e light)
+async function syncEquipes(supabase: any, season: number = 20) {
+  const startTime = Date.now();
+  
+  try {
+    console.log(`Sincronizando equipes da temporada ${season}...`);
+    
+    const teamsSet = new Set<string>();
+    let totalProcessedRows = 0;
+    let totalSeasonMatches = 0;
+    
+    // Processar ambas as planilhas (carreira e light)
+    const grids = [
+      { name: 'carreira', config: SHEETS_CONFIG.classificacao_carreira },
+      { name: 'light', config: SHEETS_CONFIG.classificacao_light }
+    ];
+    
+    for (const grid of grids) {
+      try {
+        console.log(`Processando planilha ${grid.name}...`);
+        const csvText = await fetchSheetCSV(grid.config.url);
+        const rows = parseCSV(csvText);
+        
+        if (rows.length < 2) {
+          console.warn(`Planilha ${grid.name} vazia ou sem dados`);
+          continue;
+        }
+        
+        // Estrutura da planilha de classificação:
+        // row[0] = Date, row[1] = Version, row[2] = Performance, row[3] = Season, 
+        // row[4] = Round, row[5] = GP, row[6] = Qualifying, row[7] = Sprint,
+        // row[8] = Race, row[9] = Driver (coluna J - 10ª), row[10] = Team (coluna K - 11ª)
+        let processedRows = 0;
+        let seasonMatches = 0;
+        
+        // Extrair equipes únicas da temporada especificada
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length < 11) continue;
+          
+          processedRows++;
+          const rowSeason = parseInt(row[3] || '0');
+          const teamName = (row[10] || '').trim();
+          
+          // Filtrar apenas temporada especificada e equipes válidas
+          if (rowSeason === season && teamName && teamName !== '') {
+            seasonMatches++;
+            teamsSet.add(teamName);
+          }
+        }
+        
+        totalProcessedRows += processedRows;
+        totalSeasonMatches += seasonMatches;
+        console.log(`  ${grid.name}: ${processedRows} linhas processadas, ${seasonMatches} da temporada ${season}, ${teamsSet.size} equipes únicas no total`);
+      } catch (error: any) {
+        console.error(`Erro ao processar planilha ${grid.name}:`, error.message);
+        // Continua com a outra planilha mesmo se uma falhar
+      }
+    }
+    
+    console.log(`Total: ${totalProcessedRows} linhas processadas, ${totalSeasonMatches} da temporada ${season}, ${teamsSet.size} equipes únicas encontradas`);
+    
+    if (teamsSet.size === 0) {
+      throw new Error(`Nenhuma equipe encontrada para a temporada ${season}`);
+    }
+    
+    let syncedCount = 0;
+    const errors: string[] = [];
+    
+    // Processar cada equipe única
+    const teamsArray = Array.from(teamsSet).sort();
+    console.log(`Equipes encontradas: ${teamsArray.join(', ')}`);
+    
+    for (const nomeEquipe of teamsArray) {
+      try {
+        // Gerar ID baseado no nome
+        const teamId = generateTeamId(nomeEquipe);
+        console.log(`Processando equipe: "${nomeEquipe}" -> ID: "${teamId}"`);
+        
+        // Valores padrão (pode ser ajustado depois se necessário)
+        const equipeData: any = {
+          id: teamId,
+          name: nomeEquipe,
+          tier: 'BRONZE', // Padrão, pode ser ajustado manualmente depois
+          slots: 2, // Padrão
+          color: '#94A3B8', // Padrão
+          updated_at: new Date().toISOString()
+        };
+        
+        // Buscar equipe existente por ID
+        const { data: existing } = await supabase
+          .from('equipes')
+          .select('id')
+          .eq('id', teamId)
+          .maybeSingle();
+        
+        if (existing) {
+          // Atualizar apenas o nome (preserva tier, slots, color se já existirem)
+          const { error: updateError } = await supabase
+            .from('equipes')
+            .update({ 
+              name: nomeEquipe,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', teamId);
+          
+          if (updateError) {
+            errors.push(`Erro ao atualizar ${nomeEquipe}: ${updateError.message}`);
+            continue;
+          }
+        } else {
+          // Inserir nova equipe
+          equipeData.created_at = new Date().toISOString();
+          const { error: insertError } = await supabase
+            .from('equipes')
+            .insert(equipeData);
+          
+          if (insertError) {
+            errors.push(`Erro ao inserir ${nomeEquipe}: ${insertError.message}`);
+            continue;
+          }
+        }
+        
+        syncedCount++;
+      } catch (error: any) {
+        errors.push(`Erro ao processar ${nomeEquipe}: ${error.message}`);
+      }
+    }
+    
+    const duration = Date.now() - startTime;
+    
+    // Registrar no log
+    await supabase.from("sync_log").insert({
+      source: "google_sheets",
+      sheet_name: "Equipes (Carreira + Light)",
+      sheet_gid: "321791996+1687781433",
+      status: errors.length > 0 ? "partial" : "success",
+      records_synced: syncedCount,
+      error_message: errors.length > 0 ? errors.join('; ') : null,
+      duration_ms: duration
+    });
+    
+    return {
+      success: true,
+      records_synced: syncedCount,
+      teams: teamsArray,
+      errors: errors.length > 0 ? errors : undefined,
+      duration_ms: duration
+    };
+    
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    
+    await supabase.from("sync_log").insert({
+      source: "google_sheets",
+      sheet_name: "Equipes (Carreira + Light)",
+      sheet_gid: "321791996+1687781433",
+      status: "error",
+      error_message: error.message,
+      duration_ms: duration
+    });
+    
     throw error;
   }
 }
@@ -396,22 +618,28 @@ serve(async (req) => {
         result = await syncGeneric(supabase, "minicup_cache", SHEETS_CONFIG.minicup);
         break;
 
+      case "equipes":
+        result = await syncEquipes(supabase, currentSeason);
+        break;
+
       case "all":
         // Sincronizar tudo
-        const [classCarreira, classLight, pr, cal, tracks, minicup] = await Promise.all([
+        const [classCarreira, classLight, pr, cal, tracks, minicup, equipes] = await Promise.all([
           syncClassificacao(supabase, "carreira", currentSeason),
           syncClassificacao(supabase, "light", currentSeason),
           syncGeneric(supabase, "power_ranking_cache", SHEETS_CONFIG.power_ranking),
           syncGeneric(supabase, "calendario_cache", SHEETS_CONFIG.calendario, currentSeason),
           syncGeneric(supabase, "tracks_cache", SHEETS_CONFIG.tracks),
-          syncGeneric(supabase, "minicup_cache", SHEETS_CONFIG.minicup)
+          syncGeneric(supabase, "minicup_cache", SHEETS_CONFIG.minicup),
+          syncEquipes(supabase, currentSeason)
         ]);
         result = {
           classificacao: { carreira: classCarreira, light: classLight },
           power_ranking: pr,
           calendario: cal,
           tracks,
-          minicup
+          minicup,
+          equipes
         };
         break;
 

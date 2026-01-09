@@ -142,7 +142,7 @@ function Calendario() {
                 {/* Header */}
                 <div className="calendario-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '50px', flexWrap: 'wrap', gap: '20px'}}>
                     <div>
-                        <h1 style={{fontSize: '3rem', fontWeight: '900', fontStyle: 'italic', marginBottom: '5px'}}>CALENDÁRIO</h1>
+                        <h1 style={{fontSize: '3rem', fontWeight: '900', fontStyle: 'italic', marginBottom: '5px'}}>ETAPAS</h1>
                         <p style={{color: '#94A3B8', fontSize: '1rem', margin: 0, fontStyle: 'italic', fontWeight: '700'}}>
                             {gridType === 'carreira' ? 'GRID CARREIRA' : 'GRID LIGHT'}
                         </p>

@@ -5,9 +5,6 @@ import { supabase } from '../supabaseClient';
 import Papa from 'papaparse';
 import Footer from '../components/Footer';
 
-// URL do CSV da Minicup
-const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv';
-
 // URL do CSV de Notícias - SUBSTITUA PELA URL DA SUA PLANILHA
 // Para obter a URL: Compartilhar > Qualquer pessoa com o link > Publicar na web > CSV
 const NEWS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=197415613&single=true&output=csv';
@@ -67,25 +64,6 @@ const DriverImage = ({ name, gridType, season, className, style, forceSML = fals
     return <img src={forceSML ? smlSrc : seasonSrc} className={className} style={style} onError={handleError} alt="" />;
 };
 
-// Componente de imagem para Minicup - busca SML PRIMEIRO
-const MinicupDriverImage = ({ name, className, style }) => {
-    const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
-    // Prioriza SML primeiro para Minicup
-    const smlSrc = `/pilotos/SML/${cleanName}.png`;
-    const carreiraS19Src = `/pilotos/carreira/s19/${cleanName}.png`;
-    const shadowSrc = '/pilotos/pilotoshadow.png';
-    
-    const handleError = (e) => {
-        if (e.target.src.includes('/SML/')) {
-            e.target.src = carreiraS19Src;
-        } else if (e.target.src.includes('/carreira/')) {
-            e.target.src = shadowSrc;
-        }
-    };
-    
-    return <img src={smlSrc} className={className} style={style} onError={handleError} alt="" />;
-};
-
 // Função para obter logo da equipe
 const getTeamLogo = (teamName, gridType = null, isDraft = false) => {
     // Se for draft (T20 ainda não começou), usa logo ML conforme solicitado
@@ -115,29 +93,6 @@ const getTeamLogo = (teamName, gridType = null, isDraft = false) => {
     if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/team-logos/f1-racingpoint.png';
     if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/team-logos/f1-racingbulls.png';
     return fallback;
-};
-
-// Função específica para logos da minicup (usa pasta /team-logos/)
-const getMinicupTeamLogo = (teamName) => {
-    if (!teamName || teamName.trim() === "") return '/team-logos/f1-reserva.png';
-    const t = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    if (t === "reserva" || t.includes('reserva')) return '/team-logos/f1-reserva.png';
-    if (t.includes('redbull') || t.includes('red bull') || t.includes('oracle')) return '/team-logos/f1-redbull.png';
-    if (t.includes('ferrari')) return '/team-logos/f1-ferrari.png';
-    if (t.includes('mercedes')) return '/team-logos/f1-mercedes.png';
-    if (t.includes('renault')) return '/team-logos/f1-renault.png';
-    if (t.includes('mclaren')) return '/team-logos/f1-mclaren.png';
-    if (t.includes('aston')) return '/team-logos/f1-astonmartin.png';
-    if (t.includes('alpine')) return '/team-logos/f1-alpine.png';
-    if (t.includes('alfaromeo') || t.includes('alfa romeo') || (t.includes('alfa') && !t.includes('tauri'))) return '/team-logos/f1-alfaromeo.png';
-    if (t.includes('alphatauri') || t.includes('alpha tauri')) return '/team-logos/f1-alphatauri.png';
-    if (t.includes('tororosso') || t.includes('toro rosso') || t.includes('toro')) return '/team-logos/f1-tororosso.png';
-    if (t.includes('williams')) return '/team-logos/f1-williams.png';
-    if (t.includes('haas')) return '/team-logos/f1-haas.png';
-    if (t.includes('sauber') || t.includes('stake') || t.includes('kick')) return '/team-logos/f1-sauber.png';
-    if (t.includes('racingpoint') || (t.includes('racing') && t.includes('point'))) return '/team-logos/f1-racingpoint.png';
-    if (t.includes('vcarb') || (t.includes('racing') && t.includes('bulls'))) return '/team-logos/f1-racingbulls.png';
-    return '/team-logos/f1-reserva.png';
 };
 
 const Countdown = ({ targetDate }) => {
@@ -275,16 +230,13 @@ function Home() {
     const [topDriversLight, setTopDriversLight] = useState([]);
     const [seasonDrivers, setSeasonDrivers] = useState([]); // Carrossel Carreira (T20)
     const [seasonDriversLightFull, setSeasonDriversLightFull] = useState([]); // Carrossel Light (T20)
-    const [minicupDrivers, setMinicupDrivers] = useState([]);
     const [news, setNews] = useState([]);
     const [newsImageVersions, setNewsImageVersions] = useState({}); // { [slot:number]: updated_at:string }
 
     const scrollRef = useRef(null);
     const scrollRefLight = useRef(null);
-    const minicupScrollRef = useRef(null);
     const [isPaused, setIsPaused] = useState(false);
     const [isPausedLight, setIsPausedLight] = useState(false);
-    const [isMinicupPaused, setIsMinicupPaused] = useState(false);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 
@@ -332,75 +284,6 @@ function Home() {
         }, 30);
         return () => clearInterval(interval);
     }, [isPausedLight, loading, seasonDriversLightFull]);
-
-    // Auto-scroll Minicup
-    useEffect(() => {
-        const el = minicupScrollRef.current;
-        if (!el || minicupDrivers.length === 0) return;
-        const interval = setInterval(() => {
-            if (!isMinicupPaused) {
-                if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 1) el.scrollLeft = 0;
-                else el.scrollLeft += 1;
-            }
-        }, 30);
-        return () => clearInterval(interval);
-    }, [isMinicupPaused, minicupDrivers]);
-
-    // Buscar dados da Minicup
-    useEffect(() => {
-        const fetchMinicup = async () => {
-            try {
-                const csvText = await fetchWithProxy(MINICUP_CSV_URL);
-                
-                Papa.parse(csvText, {
-                    header: false,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        const data = results.data;
-                        const drivers = [];
-                        
-
-                        // Verificar se os dados foram parseados corretamente
-                        if (!data || data.length === 0) {
-                            console.warn('⚠️ Dados da Minicup vazios ou inválidos');
-                            return;
-                        }
-                        
-                        for (let i = 1; i < data.length; i++) {
-                            const row = data[i];
-                            if (!row || row.length < 3) continue;
-                            
-                            const piloto = row[1]?.trim();
-                            const equipe = row[2]?.trim() || 'Reserva';
-                            
-                            if (!piloto) continue;
-
-                            let totalPoints = 0;
-                            for (let j = 4; j < 10; j++) {
-                                const pos = parseInt(row[j]?.trim());
-                                if (!isNaN(pos) && pos >= 1 && pos <= 20) {
-                                    totalPoints += (21 - pos);
-                                }
-                            }
-
-                            // Incluir TODOS os pilotos do grid, independente de terem pontos
-                            drivers.push({ name: piloto, team: equipe, points: totalPoints });
-                        }
-
-                        // Ordenar por pontos (pilotos com pontos primeiro, depois os sem pontos)
-                        drivers.sort((a, b) => b.points - a.points);
-                        setMinicupDrivers(drivers);
-                    },
-                    error: (error) => {
-                        console.error('❌ Erro ao parsear CSV da Minicup:', error);
-                    }
-                });
-            } catch (err) {
-                console.error('Erro ao carregar Minicup:', err);
-            }
-        };
-        fetchMinicup();
-    }, []);
 
     // Buscar notícias do Google Sheets (feed de resumos na home)
     useEffect(() => {
@@ -719,9 +602,19 @@ function Home() {
             if (s === parseInt(targetSeason)) {
                 const name = row[9];
                 if (name) {
-                    if (!totals[name]) totals[name] = { name, team: row[10], points: 0 };
+                    if (!totals[name]) totals[name] = { name, team: row[10], points: 0, bestPosition: Infinity };
                     let p = parseFloat((row[15]||'0').replace(',', '.'));
                     if (!isNaN(p)) totals[name].points += p;
+                    
+                    // Rastrear melhor posição (menor número = melhor)
+                    const racePos = parseInt(row[8]);
+                    const sprintPos = parseInt(row[7]);
+                    if (racePos >= 1 && racePos < totals[name].bestPosition) {
+                        totals[name].bestPosition = racePos;
+                    }
+                    if (sprintPos >= 1 && sprintPos < totals[name].bestPosition) {
+                        totals[name].bestPosition = sprintPos;
+                    }
                 }
                 const dateStr = row[0];
                 if (dateStr && row[5]) {
@@ -741,17 +634,38 @@ function Home() {
             if (s === parseInt(targetSeason)) {
                 const name = row[9];
                 if (name) {
-                    if (!totalsLight[name]) totalsLight[name] = { name, team: row[10], points: 0 };
+                    if (!totalsLight[name]) totalsLight[name] = { name, team: row[10], points: 0, bestPosition: Infinity };
                     let p = parseFloat((row[15]||'0').replace(',', '.'));
                     if (!isNaN(p)) totalsLight[name].points += p;
+                    
+                    // Rastrear melhor posição (menor número = melhor)
+                    const racePos = parseInt(row[8]);
+                    const sprintPos = parseInt(row[7]);
+                    if (racePos >= 1 && racePos < totalsLight[name].bestPosition) {
+                        totalsLight[name].bestPosition = racePos;
+                    }
+                    if (sprintPos >= 1 && sprintPos < totalsLight[name].bestPosition) {
+                        totalsLight[name].bestPosition = sprintPos;
+                    }
                 }
             }
         });
 
         setNextRaceData(upcoming);
         
-        let sorted = Object.values(totals).sort((a, b) => b.points - a.points);
-        let sortedLightFull = Object.values(totalsLight).sort((a, b) => b.points - a.points);
+        // Ordenar por: 1) Pontos, 2) Melhor posição, 3) Nome alfabético
+        const sortDrivers = (a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (a.bestPosition !== b.bestPosition) {
+                if (a.bestPosition === Infinity) return 1;
+                if (b.bestPosition === Infinity) return -1;
+                return a.bestPosition - b.bestPosition;
+            }
+            return a.name.localeCompare(b.name, 'pt-BR');
+        };
+        
+        let sorted = Object.values(totals).sort(sortDrivers);
+        let sortedLightFull = Object.values(totalsLight).sort(sortDrivers);
 
         // FALLBACK: Se não houver dados de resultados para S20 (temporada não começou), 
         // usar os dados dos DRAFTS conforme GIDs informados
@@ -906,11 +820,35 @@ function Home() {
         rawData.forEach(row => {
             const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return;
             const name = row[9]; const team = row[10]; if (!name) return;
-            if (!totals[name]) totals[name] = { name, team, points: 0 };
+            if (!totals[name]) totals[name] = { name, team, points: 0, bestPosition: Infinity };
+            
+            // Rastrear melhor posição (menor número = melhor)
+            const racePos = parseInt(row[8]);
+            const sprintPos = parseInt(row[7]);
+            if (racePos >= 1 && racePos < totals[name].bestPosition) {
+                totals[name].bestPosition = racePos;
+            }
+            if (sprintPos >= 1 && sprintPos < totals[name].bestPosition) {
+                totals[name].bestPosition = sprintPos;
+            }
+            
+            // Calcular pontos
             if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) totals[name].points += p; }
-            else { const racePos = parseInt(row[8]); if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
+            else { if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
         });
-        return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 }));
+        
+        // Ordenar por: 1) Pontos, 2) Melhor posição, 3) Nome alfabético
+        const sorted = Object.values(totals).sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (a.bestPosition !== b.bestPosition) {
+                if (a.bestPosition === Infinity) return 1;
+                if (b.bestPosition === Infinity) return -1;
+                return a.bestPosition - b.bestPosition;
+            }
+            return a.name.localeCompare(b.name, 'pt-BR');
+        });
+        
+        return sorted.map((d, i) => ({ ...d, pos: i + 1 }));
     };
 
     const getConstructors = () => {
@@ -1601,56 +1539,6 @@ function Home() {
                             </div>
                         </section>
 
-                        {/* GRID MINICUP */}
-                        {minicupDrivers.length > 0 && (
-                            <section className="hub-section minicup-section">
-                                <div className="section-header-hub" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                    <img src="/team-logos/minicup-logo.jpg" alt="Minicup" style={{ height: '40px', borderRadius: '6px' }} onError={(e) => e.target.style.display = 'none'} />
-                                    <h2 style={{ color: '#22C55E' }}>GRID MINICUP</h2>
-                                    <div className="header-line" style={{ background: 'linear-gradient(90deg, #22C55E, transparent)' }}></div>
-                                    <Link to="/minicup" className="btn-text" style={{ marginLeft: 'auto', color: '#22C55E' }}>Ver Classificação <ArrowRightIcon/></Link>
-                                </div>
-                                <div className="drivers-grid-hub minicup-grid" ref={minicupScrollRef} onMouseEnter={() => setIsMinicupPaused(true)} onMouseLeave={() => setIsMinicupPaused(false)} style={{ background: 'linear-gradient(90deg, rgba(34,197,94,0.05), transparent, rgba(34,197,94,0.05))' }}>
-                                    {minicupDrivers.map((d, idx) => {
-                                        const nameParts = d.name.split(' ');
-                                        const firstName = nameParts[0];
-                                        const lastName = nameParts.slice(1).join(' ');
-                                        const teamLogo = getMinicupTeamLogo(d.team);
-                                        return (
-                                        <div key={d.name} className="driver-card-hub minicup-card" style={{"--team-color": '#22C55E', border: idx === 0 ? '2px solid #22C55E' : '1px solid rgba(34,197,94,0.3)'}}>
-                                            <div className="dch-bg" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.15), transparent)' }}></div>
-                                            <div className="dch-photo-wrapper"><MinicupDriverImage name={d.name} className="dch-photo" /></div>
-                                            <div className="dch-info">
-                                                <div className="dch-name">
-                                                    <span className="dch-firstname">{firstName}</span>
-                                                    <span className="dch-lastname">{lastName}</span>
-                                                </div>
-                                                <div className="dch-team" style={{ color: idx === 0 ? '#22C55E' : '#64748B' }}>{idx === 0 ? '👑 Líder' : d.team}</div>
-                                                <img 
-                                                    src={teamLogo} 
-                                                    alt={d.team || 'Master League'} 
-                                                    style={{ 
-                                                        position: 'absolute', 
-                                                        bottom: '8px', 
-                                                        right: '8px', 
-                                                        width: '28px', 
-                                                        height: '28px', 
-                                                        objectFit: 'contain',
-                                                        opacity: 0.9,
-                                                        filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.5)) drop-shadow(0 0 6px rgba(255,255,255,0.3))'
-                                                    }} 
-                                                />
-                                            </div>
-                                            <div style={{ position: 'absolute', top: '8px', right: '8px', background: idx === 0 ? '#22C55E' : 'rgba(34,197,94,0.2)', color: idx === 0 ? '#000' : '#22C55E', padding: '2px 8px', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '700' }}>
-                                                {d.points} pts
-                                            </div>
-                                        </div>
-                                        );
-                                    })}
-                                </div>
-                            </section>
-                        )}
-
                         <section className="hub-section">
                             <div className="section-header-hub" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '15px', textAlign: 'left' }}>
                                 <img
@@ -1661,6 +1549,7 @@ function Home() {
                                 />
                                 <h2 style={{ color: 'var(--carreira-wine)' }}>GRID CARREIRA T20</h2>
                                 <div className="header-line" style={{ background: 'linear-gradient(90deg, var(--carreira-wine), transparent)' }}></div>
+                                <Link to="/standings" className="btn-text" style={{ marginLeft: 'auto', color: 'var(--carreira-wine)' }}>Ver Classificação <ArrowRightIcon/></Link>
                             </div>
                             <div className="drivers-grid-hub" ref={scrollRef} onMouseEnter={() => setIsPaused(true)} onMouseLeave={() => setIsPaused(false)}>
                                 {seasonDrivers.map(d => {
@@ -1709,6 +1598,7 @@ function Home() {
                                 />
                                 <h2 style={{ color: 'var(--light-blue)' }}>GRID LIGHT T20</h2>
                                 <div className="header-line" style={{ background: 'linear-gradient(90deg, var(--light-blue), transparent)' }}></div>
+                                <Link to="/standings" className="btn-text" style={{ marginLeft: 'auto', color: 'var(--light-blue)' }}>Ver Classificação <ArrowRightIcon/></Link>
                             </div>
                             <div className="drivers-grid-hub" ref={scrollRefLight} onMouseEnter={() => setIsPausedLight(true)} onMouseLeave={() => setIsPausedLight(false)}>
                                 {seasonDriversLightFull.map(d => {

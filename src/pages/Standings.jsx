@@ -103,49 +103,6 @@ function Standings() {
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
 
-    // #region agent log
-    const agentLog = (hypothesisId, location, message, data) => {
-        const payload = {
-            sessionId: 'debug-session',
-            runId: 'run3',
-            hypothesisId,
-            location,
-            message,
-            data,
-            timestamp: Date.now()
-        };
-
-        const endpoint = 'http://127.0.0.1:7242/ingest/adb2ceb8-1ea0-49a6-8727-37eb1fa55038';
-
-        // Tenta sendBeacon (tende a evitar preflight e é bem robusto para telemetria)
-        try {
-            if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-                const ok = navigator.sendBeacon(endpoint, blob);
-                if (ok) return;
-            }
-        } catch { /* ignore */ }
-
-        // Fallback: fetch normal (pode sofrer CORS/mixed content dependendo do ambiente)
-        fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            keepalive: true
-        }).catch(() => { });
-    };
-    // #endregion
-
-    useEffect(() => {
-        // #region agent log
-        agentLog('H0', 'Standings.jsx:mount', 'Standings montou', {
-            href: typeof window !== 'undefined' ? window.location.href : null,
-            origin: typeof window !== 'undefined' ? window.location.origin : null,
-            protocol: typeof window !== 'undefined' ? window.location.protocol : null
-        });
-        // #endregion
-    }, []);
-
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 
     // Função auxiliar para extrair número de uma string (ex: "Etapa 8" -> 8, "8" -> 8)
@@ -245,28 +202,12 @@ function Standings() {
     // sempre mostre a maior temporada com a maior etapa
     useEffect(() => {
         if (viewType === 'results' && !loading && rawCarreira && rawCarreira.length > 0) {
-            // #region agent log
-            agentLog('H1', 'Standings.jsx:useEffect-results', 'Entrou no useEffect(results)', {
-                loading,
-                rawCarreiraLen: rawCarreira?.length,
-                selectedSeason,
-                selectedSeasonType: typeof selectedSeason,
-                selectedRound,
-                selectedRoundType: typeof selectedRound
-            });
-            // #endregion
             console.log('🔄 [useEffect RESULTS] Executando lógica para aba RESULTS');
             const maisRecente = filtrarMaisRecente(rawCarreira);
             console.log('📊 [useEffect RESULTS] Resultado:', maisRecente);
             
             if (maisRecente.temporada > 0) {
                 console.log('✅ [useEffect RESULTS] Forçando temporada:', maisRecente.temporada, 'e etapa:', maisRecente.etapa);
-                // #region agent log
-                agentLog('H1', 'Standings.jsx:useEffect-results', 'Aplicando maisRecente (results)', {
-                    maisRecente,
-                    sample: rawCarreira?.slice(0, 3)?.map(r => ({ c3: r?.[3], c4: r?.[4] }))
-                });
-                // #endregion
                 setSelectedSeason(maisRecente.temporada);
                 setGridType('carreira');
                 if (maisRecente.etapa > 0) {
@@ -301,16 +242,6 @@ function Standings() {
         
         // Se estivermos na aba de resultados, sempre força a maior etapa daquela temporada
         if (viewType === 'results' && maxRoundNumber > 0) {
-            // #region agent log
-            agentLog('H2', 'Standings.jsx:useEffect-rounds', 'Calculou rounds e maxRoundNumber (results)', {
-                gridType,
-                targetSeason,
-                sortedRoundsLen: sortedRounds.length,
-                maxRoundNumber,
-                selectedRoundBefore: selectedRound,
-                selectedRoundType: typeof selectedRound
-            });
-            // #endregion
             setSelectedRound(maxRoundNumber);
         } else if (selectedRound === 0 && sortedRounds.length > 0) {
             setSelectedRound(sortedRounds[0]);
@@ -388,6 +319,8 @@ function Standings() {
     const getTeamLogo = (teamName) => {
         if(!teamName) return null;
         const t = teamName.toLowerCase().replace(/\s/g, ''); 
+        // Equipe de reservas usa logo da Master League F1
+        if(t.includes("reserva")) return "/team-logos/logo-ml.png";
         if(t.includes("ferrari")) return "/team-logos/f1-ferrari.png"; 
         if(t.includes("mercedes")) return "/team-logos/f1-mercedes.png"; 
         if(t.includes("renault")) return "/team-logos/f1-renault.png";
@@ -412,17 +345,63 @@ function Standings() {
         return "#94A3B8";
     };
 
-    const getDrivers = () => { /* Mesma Lógica */ 
+    const getDrivers = () => { 
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
         const totals = {};
         rawData.forEach(row => {
             const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return;
             const name = row[9]; const team = row[10]; if (!name) return;
-            if (!totals[name]) totals[name] = { name, team, points: 0 };
-            if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) totals[name].points += p; }
-            else { const racePos = parseInt(row[8]); if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
+            if (!totals[name]) {
+                totals[name] = { name, team, points: 0, bestPosition: Infinity }; // Infinity = nunca teve posição válida ainda
+            }
+            
+            // Rastrear melhor posição (menor número = melhor) - considerar tanto corrida principal quanto sprint
+            const racePos = parseInt(row[8]);
+            const sprintPos = parseInt(row[7]);
+            
+            // Atualizar melhor posição pela corrida principal (se válida)
+            if (racePos >= 1 && racePos < totals[name].bestPosition) {
+                totals[name].bestPosition = racePos;
+            }
+            // Atualizar melhor posição pela sprint (se válida e melhor que a atual)
+            if (sprintPos >= 1 && sprintPos < totals[name].bestPosition) {
+                totals[name].bestPosition = sprintPos;
+            }
+            
+            // Calcular pontos (depende da temporada)
+            if (s >= 20) { 
+                let p = parseFloat((row[15]||'0').replace(',', '.')); 
+                if (!isNaN(p)) totals[name].points += p; 
+            } else { 
+                if (racePos >= 1 && racePos <= 10) {
+                    totals[name].points += POINTS_RACE[racePos - 1];
+                }
+                if (sprintPos >= 1 && sprintPos <= 8) {
+                    totals[name].points += POINTS_SPRINT[sprintPos - 1];
+                }
+            }
         });
-        return Object.values(totals).sort((a, b) => b.points - a.points).map((d, i) => ({ ...d, pos: i + 1 }));
+        
+        // Ordenar por: 1) Pontos (maior = melhor), 2) Melhor posição (menor = melhor), 3) Nome alfabético
+        const sorted = Object.values(totals).sort((a, b) => {
+            // 1. Critério: Pontos (maior = melhor)
+            if (b.points !== a.points) {
+                return b.points - a.points;
+            }
+            // 2. Critério: Melhor posição obtida (menor número = melhor)
+            // Se ambos têm Infinity (nunca terminaram), mantém empate
+            if (a.bestPosition !== b.bestPosition) {
+                // Se um tem Infinity e outro não, o que não tem Infinity fica na frente
+                if (a.bestPosition === Infinity) return 1; // a fica atrás
+                if (b.bestPosition === Infinity) return -1; // b fica atrás
+                // Ambos têm posições válidas: menor número fica na frente
+                return a.bestPosition - b.bestPosition;
+            }
+            // 3. Critério: Ordem alfabética pelo nome (A antes de B)
+            return a.name.localeCompare(b.name, 'pt-BR');
+        });
+
+        return sorted.map((d, i) => ({ ...d, pos: i + 1 }));
     };
 
     // Regra única para responsividade: "mobile" = até 768px; "PC" = acima disso
@@ -964,18 +943,6 @@ function Standings() {
     };
 
     const handleViewTypeChange = (newViewType) => {
-        // #region agent log
-        agentLog('H3', 'Standings.jsx:handleViewTypeChange', 'Clique trocou viewType', {
-            newViewType,
-            loading,
-            rawCarreiraLen: rawCarreira?.length,
-            gridType,
-            selectedSeason,
-            selectedSeasonType: typeof selectedSeason,
-            selectedRound,
-            selectedRoundType: typeof selectedRound
-        });
-        // #endregion
         setViewType(newViewType);
         
         // Se mudar para resultados, usa a função auxiliar para encontrar temporada e etapa mais recentes
@@ -991,12 +958,6 @@ function Standings() {
             
             if (maisRecente.temporada > 0) {
                 console.log('✅ [RESULTS] Aplicando temporada:', maisRecente.temporada, 'etapa:', maisRecente.etapa);
-                // #region agent log
-                agentLog('H3', 'Standings.jsx:handleViewTypeChange', 'handleViewTypeChange aplicando maisRecente', {
-                    maisRecente,
-                    sample: rawData?.slice(0, 3)?.map(r => ({ c3: r?.[3], c4: r?.[4] }))
-                });
-                // #endregion
                 setSelectedSeason(maisRecente.temporada);
                 setGridType('carreira');
                 if (maisRecente.etapa > 0) {
@@ -1004,13 +965,6 @@ function Standings() {
                 }
             } else {
                 console.warn('⚠️ [RESULTS] maisRecente.temporada é 0 ou inválido');
-                // #region agent log
-                agentLog('H1', 'Standings.jsx:handleViewTypeChange', 'maisRecente inválido ao entrar em results', {
-                    maisRecente,
-                    rawCarreiraLen: rawData?.length,
-                    sample: rawData?.slice(0, 3)?.map(r => ({ c3: r?.[3], c4: r?.[4] }))
-                });
-                // #endregion
             }
         }
     };
@@ -1027,7 +981,7 @@ function Standings() {
                     <button className={`tab-btn ${viewType === 'drivers' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('drivers')}>PILOTOS</button>
                     <button className={`tab-btn ${viewType === 'teams' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('teams')}>EQUIPES</button>
                     <button className={`tab-btn ${viewType === 'results' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('results')}>RESULTADOS</button>
-                    <button className={`tab-btn ${viewType === 'calendar' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('calendar')}>CALENDÁRIO</button>
+                    <button className={`tab-btn ${viewType === 'calendar' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('calendar')}>ETAPAS</button>
                 </div>
                 
                 <div className="section-header">
@@ -1036,7 +990,7 @@ function Standings() {
                             {viewType === 'drivers' && "CLASSIFICAÇÃO DE PILOTOS"}
                             {viewType === 'teams' && "CLASSIFICAÇÃO DE EQUIPES"}
                             {viewType === 'results' && "RESULTADOS POR ETAPA"}
-                            {viewType === 'calendar' && "CALENDÁRIO"}
+                            {viewType === 'calendar' && "ETAPAS"}
                         </h2>
                         <div style={{fontSize: '2rem', fontWeight: '900', fontStyle: 'italic', textTransform: 'uppercase', marginTop: '5px', color: gridType === 'carreira' ? 'var(--carreira-wine)' : 'var(--light-blue)'}}>{gridType === 'carreira' ? 'GRID CARREIRA' : 'GRID LIGHT'}</div>
                     </div>
@@ -1051,14 +1005,6 @@ function Standings() {
                                 className="season-select"
                                 value={selectedSeason}
                                 onChange={(e) => {
-                                    // #region agent log
-                                    agentLog('H2', 'Standings.jsx:seasonSelect', 'Mudou dropdown temporada', {
-                                        value: e.target.value,
-                                        valueType: typeof e.target.value,
-                                        prevSelectedSeason: selectedSeason,
-                                        prevSelectedSeasonType: typeof selectedSeason
-                                    });
-                                    // #endregion
                                     setSelectedSeason(e.target.value);
                                 }}
                             >
@@ -1069,14 +1015,6 @@ function Standings() {
                                     className="season-select"
                                     value={selectedRound}
                                     onChange={(e) => {
-                                        // #region agent log
-                                        agentLog('H2', 'Standings.jsx:roundSelect', 'Mudou dropdown etapa', {
-                                            value: e.target.value,
-                                            valueType: typeof e.target.value,
-                                            prevSelectedRound: selectedRound,
-                                            prevSelectedRoundType: typeof selectedRound
-                                        });
-                                        // #endregion
                                         setSelectedRound(e.target.value);
                                     }}
                                     style={{ borderColor: 'var(--highlight-cyan)' }}
