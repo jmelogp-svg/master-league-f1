@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import VideoEmbed from '../components/VideoEmbed';
 import { clearLeagueDataCache } from '../hooks/useLeagueData';
 import { isMobileDevice } from '../utils/deviceDetection';
+import { sendWhatsappNotification } from '../utils/whatsappNotify';
 import '../index.css';
 
 function Admin() {
@@ -39,6 +40,7 @@ function Admin() {
     const [filtroNotificacao, setFiltroNotificacao] = useState('todas'); // 'todas', 'nao_lidas', 'lidas'
     const [filtroStatus, setFiltroStatus] = useState('todos'); // 'todos', 'aguardando_defesa', 'aguardando_analise', 'analise_realizada'
     const [expandedLances, setExpandedLances] = useState({}); // { notifId: true/false }
+    const [selectedNotificacoes, setSelectedNotificacoes] = useState(new Set()); // IDs das notificações selecionadas
 
     // Estados para Jurados
     const [jurados, setJurados] = useState([]);
@@ -461,6 +463,14 @@ function Admin() {
     };
 
     // ===== FUNÇÕES DE JURADOS =====
+    // Gerar caminho da foto do jurado baseado no nome
+    // Formato: /jurados/nomesobrenome.png (lowercase, sem espaços)
+    const getFotoJurado = (nome) => {
+        if (!nome) return '/pilotos/pilotoshadow.png';
+        const nomeFormatado = nome.toLowerCase().replace(/\s+/g, '');
+        return `/jurados/${nomeFormatado}.png`;
+    };
+
     const fetchJurados = async () => {
         setLoadingJurados(true);
         try {
@@ -833,6 +843,59 @@ function Admin() {
         }
     };
 
+    // ===== SELECIONAR/DESSELECIONAR NOTIFICAÇÕES =====
+    const toggleSelectNotificacao = (notifId) => {
+        setSelectedNotificacoes(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(notifId)) {
+                newSet.delete(notifId);
+            } else {
+                newSet.add(notifId);
+            }
+            return newSet;
+        });
+    };
+
+    const selectAllNotificacoes = () => {
+        setSelectedNotificacoes(new Set(notificacoesFiltradas.map(n => n.id)));
+    };
+
+    const deselectAllNotificacoes = () => {
+        setSelectedNotificacoes(new Set());
+    };
+
+    // ===== APAGAR NOTIFICAÇÕES SELECIONADAS =====
+    const apagarNotificacoesSelecionadas = async () => {
+        if (selectedNotificacoes.size === 0) {
+            alert('⚠️ Nenhuma notificação selecionada para apagar.');
+            return;
+        }
+
+        const confirmMessage = `⚠️ ATENÇÃO: APAGAR NOTIFICAÇÕES\n\nVocê está prestes a apagar ${selectedNotificacoes.size} notificação(ões).\n\nEsta ação não pode ser desfeita!\n\nDeseja continuar?`;
+        if (!window.confirm(confirmMessage)) return;
+
+        try {
+            const idsArray = Array.from(selectedNotificacoes);
+            const { error } = await supabase
+                .from('notificacoes_admin')
+                .delete()
+                .in('id', idsArray);
+
+            if (error) throw error;
+
+            // Remover das notificações locais
+            setNotificacoes(prev => prev.filter(n => !selectedNotificacoes.has(n.id)));
+            
+            // Limpar seleção
+            setSelectedNotificacoes(new Set());
+
+            alert(`✅ ${idsArray.length} notificação(ões) apagada(s) com sucesso!`);
+        } catch (err) {
+            console.error('Erro ao apagar notificações:', err);
+            alert('❌ Erro ao apagar notificações: ' + err.message);
+        }
+    };
+
     // ===== ENVIAR PARA JÚRI =====
     const enviarParaJuri = async (notifId, dados) => {
         if (!window.confirm(`Confirmar envio do lance ${dados.codigoLance} para análise do Júri?`)) return;
@@ -856,6 +919,70 @@ function Admin() {
                 n.id === notifId ? { ...n, dados: dadosAtualizados } : n
             ));
             
+            // Buscar todos os jurados ativos e enviar notificação WhatsApp
+            try {
+                const { data: juradosAtivos, error: errorJurados } = await supabase
+                    .from('jurados')
+                    .select('nome, whatsapp, email_google')
+                    .eq('ativo', true)
+                    .not('whatsapp', 'is', null);
+                
+                if (!errorJurados && juradosAtivos && juradosAtivos.length > 0) {
+                    const codigoLance = dados.codigoLance || 'N/A';
+                    const acusador = dados.acusador?.nome || dados.acusador?.gamertag || 'N/A';
+                    const acusado = dados.acusado?.nome || dados.acusado?.gamertag || 'N/A';
+                    const etapa = dados.etapa?.circuit || dados.etapa?.round || 'N/A';
+                    
+                    const mensagem = `👨‍⚖️ *NOVO LANCE PARA ANÁLISE - MASTER LEAGUE F1*\n\n` +
+                        `🔖 *Código:* ${codigoLance}\n` +
+                        `🏁 *Etapa:* ${etapa}\n` +
+                        `👤 *Acusador:* ${acusador}\n` +
+                        `🎯 *Acusado:* ${acusado}\n\n` +
+                        `📋 *Acesse o Painel do Júri para analisar:*\n` +
+                        `🔗 masterleaguef1.com.br/veredito`;
+                    
+                    // Enviar notificação para cada jurado ativo
+                    let sucessos = 0;
+                    let erros = 0;
+                    
+                    for (const jurado of juradosAtivos) {
+                        if (jurado.whatsapp) {
+                            try {
+                                const result = await sendWhatsappNotification({
+                                    phone: jurado.whatsapp,
+                                    email: jurado.email_google || `${jurado.whatsapp}@masterleaguef1.com`,
+                                    nome: jurado.nome || 'Jurado',
+                                    message: mensagem
+                                });
+                                
+                                if (result.success) {
+                                    sucessos++;
+                                    console.log(`✅ Notificação enviada para ${jurado.nome}`);
+                                } else {
+                                    erros++;
+                                    console.warn(`⚠️ Erro ao enviar para ${jurado.nome}:`, result.error);
+                                }
+                                
+                                // Pequeno delay entre envios para não sobrecarregar
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                            } catch (err) {
+                                erros++;
+                                console.error(`❌ Erro ao enviar notificação para ${jurado.nome}:`, err);
+                            }
+                        }
+                    }
+                    
+                    if (sucessos > 0) {
+                        console.log(`📬 Notificações enviadas: ${sucessos} sucesso(s), ${erros} erro(s)`);
+                    }
+                } else {
+                    console.warn('⚠️ Nenhum jurado ativo encontrado ou sem WhatsApp configurado');
+                }
+            } catch (err) {
+                console.error('⚠️ Erro ao enviar notificações para jurados:', err);
+                // Não bloquear o fluxo principal se a notificação falhar
+            }
+            
             alert(`✅ Lance ${dados.codigoLance} enviado para o Júri!`);
             
         } catch (err) {
@@ -878,6 +1005,29 @@ function Admin() {
         
         return true;
     });
+
+    // Limpar seleção quando as notificações filtradas mudarem (remover IDs que não estão mais visíveis)
+    useEffect(() => {
+        const filtered = notificacoes.filter(n => {
+            if (filtroNotificacao === 'nao_lidas' && n.lido) return false;
+            if (filtroNotificacao === 'lidas' && !n.lido) return false;
+            if (filtroStatus !== 'todos') {
+                const status = n.dados?.status || 'aguardando_defesa';
+                if (status !== filtroStatus) return false;
+            }
+            return true;
+        });
+        const filteredIds = new Set(filtered.map(n => n.id));
+        setSelectedNotificacoes(prev => {
+            const newSet = new Set();
+            prev.forEach(id => {
+                if (filteredIds.has(id)) {
+                    newSet.add(id);
+                }
+            });
+            return newSet;
+        });
+    }, [notificacoes, filtroNotificacao, filtroStatus]);
 
     // Conta não lidas para badge
     const countNaoLidas = notificacoes.filter(n => !n.lido).length;
@@ -2089,6 +2239,61 @@ function Admin() {
                                         ✓ Marcar todas como lidas
                                     </button>
                                 )}
+
+                                {/* Botões de Seleção Múltipla */}
+                                {notificacoesFiltradas.length > 0 && (
+                                    <>
+                                        {selectedNotificacoes.size === 0 ? (
+                                            <button
+                                                type="button"
+                                                onClick={selectAllNotificacoes}
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    borderRadius: '6px',
+                                                    border: 'none',
+                                                    background: '#6366F1',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                ☑️ Selecionar Todas
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={deselectAllNotificacoes}
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    borderRadius: '6px',
+                                                    border: 'none',
+                                                    background: '#64748B',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                ☐ Desselecionar Todas
+                                            </button>
+                                        )}
+                                        
+                                        {selectedNotificacoes.size > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={apagarNotificacoesSelecionadas}
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    borderRadius: '6px',
+                                                    border: 'none',
+                                                    background: '#EF4444',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    fontWeight: 'bold',
+                                                }}
+                                            >
+                                                🗑️ Apagar Selecionadas ({selectedNotificacoes.size})
+                                            </button>
+                                        )}
+                                    </>
+                                )}
                                 
                                 {/* Botão Tribunal do Júri */}
                                 <button
@@ -2171,7 +2376,11 @@ function Admin() {
                                         >
                                             {/* ===== PRÉVIA (GAVETA FECHADA) - Layout Compacto ===== */}
                                             <div 
-                                                onClick={(e) => toggleLance(notif.id, notif.lido, e)}
+                                                onClick={(e) => {
+                                                    // Não expandir se clicou no checkbox
+                                                    if (e.target.type === 'checkbox') return;
+                                                    toggleLance(notif.id, notif.lido, e);
+                                                }}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -2183,6 +2392,23 @@ function Admin() {
                                                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                                                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                             >
+                                                {/* Checkbox para seleção */}
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedNotificacoes.has(notif.id)}
+                                                    onChange={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleSelectNotificacao(notif.id);
+                                                    }}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    style={{
+                                                        width: '18px',
+                                                        height: '18px',
+                                                        cursor: 'pointer',
+                                                        accentColor: '#6366F1',
+                                                    }}
+                                                />
+
                                                 {/* Código do Lance */}
                                                 <span style={{ 
                                                     background: '#E5E7EB',
@@ -2563,88 +2789,119 @@ function Admin() {
                                             background: '#1E293B',
                                             borderRadius: '10px',
                                             border: `1px solid ${jurado.ativo ? '#22C55E' : '#475569'}`,
-                                            overflow: 'hidden'
+                                            overflow: 'hidden',
+                                            display: 'flex',
+                                            minHeight: '150px'
                                         }}
                                     >
-                                        {/* Header do Card */}
+                                        {/* Parte Esquerda - Foto Grande */}
                                         <div style={{
+                                            width: '200px',
+                                            minWidth: '200px',
+                                            background: '#0F172A',
+                                            borderRight: `2px solid ${jurado.ativo ? '#22C55E' : '#64748B'}`,
                                             display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            padding: '15px 20px',
-                                            background: jurado.ativo ? 'rgba(34, 197, 94, 0.1)' : 'rgba(71, 85, 105, 0.2)',
-                                            borderBottom: '1px solid rgba(255,255,255,0.1)'
+                                            alignItems: 'stretch',
+                                            padding: 0,
+                                            overflow: 'hidden'
                                         }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                                <span style={{
-                                                    background: '#E5E7EB',
-                                                    color: '#1F2937',
-                                                    padding: '6px 12px',
-                                                    borderRadius: '6px',
-                                                    fontSize: '13px',
-                                                    fontWeight: 'bold',
-                                                    fontFamily: 'monospace'
-                                                }}>
-                                                    {jurado.usuario}
-                                                </span>
-                                                <span style={{ color: '#F8FAFC', fontWeight: 'bold' }}>
-                                                    {jurado.nome || '(Nome não definido)'}
-                                                </span>
-                                                <span style={{
-                                                    background: jurado.ativo ? '#22C55E' : '#64748B',
-                                                    color: 'white',
-                                                    padding: '3px 10px',
-                                                    borderRadius: '20px',
-                                                    fontSize: '11px',
-                                                    fontWeight: 'bold'
-                                                }}>
-                                                    {jurado.ativo ? '✅ ATIVO' : '⏸️ INATIVO'}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button
-                                                    onClick={() => handleEditJurado(jurado)}
-                                                    style={{
-                                                        padding: '6px 14px',
-                                                        background: '#8B5CF6',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '5px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '12px'
-                                                    }}
-                                                >
-                                                    ✏️ Editar
-                                                </button>
-                                                <button
-                                                    onClick={() => toggleJuradoAtivo(jurado)}
-                                                    style={{
-                                                        padding: '6px 14px',
-                                                        background: jurado.ativo ? '#EF4444' : '#22C55E',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '5px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '12px'
-                                                    }}
-                                                >
-                                                    {jurado.ativo ? '⏸️ Desativar' : '▶️ Ativar'}
-                                                </button>
-                                            </div>
+                                            <img
+                                                src={getFotoJurado(jurado.nome)}
+                                                alt={jurado.nome || jurado.usuario}
+                                                onError={(e) => {
+                                                    e.target.src = '/pilotos/pilotoshadow.png';
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: 'cover',
+                                                    display: 'block'
+                                                }}
+                                            />
                                         </div>
 
-                                        {/* Info do jurado */}
-                                        <div style={{ padding: '15px 20px', display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
-                                            <div>
-                                                <span style={{ color: '#64748B', fontSize: '12px' }}>📧 E-mail Google:</span>
-                                                <div style={{ color: jurado.email_google ? '#F8FAFC' : '#64748B', marginTop: '3px' }}>
-                                                    {jurado.email_google || '(não configurado)'}
+                                        {/* Parte Direita - Informações */}
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                            {/* Header do Card */}
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: '15px 20px',
+                                                background: jurado.ativo ? 'rgba(34, 197, 94, 0.1)' : 'rgba(71, 85, 105, 0.2)',
+                                                borderBottom: '1px solid rgba(255,255,255,0.1)'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                                                    <span style={{
+                                                        background: '#E5E7EB',
+                                                        color: '#1F2937',
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '13px',
+                                                        fontWeight: 'bold',
+                                                        fontFamily: 'monospace'
+                                                    }}>
+                                                        {jurado.usuario}
+                                                    </span>
+                                                    <span style={{ color: '#F8FAFC', fontWeight: 'bold' }}>
+                                                        {jurado.nome || '(Nome não definido)'}
+                                                    </span>
+                                                    <span style={{
+                                                        background: jurado.ativo ? '#22C55E' : '#64748B',
+                                                        color: 'white',
+                                                        padding: '3px 10px',
+                                                        borderRadius: '20px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {jurado.ativo ? '✅ ATIVO' : '⏸️ INATIVO'}
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <button
+                                                        onClick={() => handleEditJurado(jurado)}
+                                                        style={{
+                                                            padding: '6px 14px',
+                                                            background: '#8B5CF6',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '5px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '12px'
+                                                        }}
+                                                    >
+                                                        ✏️ Editar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => toggleJuradoAtivo(jurado)}
+                                                        style={{
+                                                            padding: '6px 14px',
+                                                            background: jurado.ativo ? '#EF4444' : '#22C55E',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '5px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '12px'
+                                                        }}
+                                                    >
+                                                        {jurado.ativo ? '⏸️ Desativar' : '▶️ Ativar'}
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <span style={{ color: '#64748B', fontSize: '12px' }}>📱 WhatsApp:</span>
-                                                <div style={{ color: jurado.whatsapp ? '#F8FAFC' : '#64748B', marginTop: '3px' }}>
-                                                    {jurado.whatsapp || '(não configurado)'}
+
+                                            {/* Info do jurado */}
+                                            <div style={{ padding: '15px 20px', display: 'flex', gap: '30px', flexWrap: 'wrap', flex: 1 }}>
+                                                <div>
+                                                    <span style={{ color: '#64748B', fontSize: '12px' }}>📧 E-mail Google:</span>
+                                                    <div style={{ color: jurado.email_google ? '#F8FAFC' : '#64748B', marginTop: '3px' }}>
+                                                        {jurado.email_google || '(não configurado)'}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#64748B', fontSize: '12px' }}>📱 WhatsApp:</span>
+                                                    <div style={{ color: jurado.whatsapp ? '#F8FAFC' : '#64748B', marginTop: '3px' }}>
+                                                        {jurado.whatsapp || '(não configurado)'}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

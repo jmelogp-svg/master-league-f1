@@ -71,7 +71,7 @@ function HallOfFame() {
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, []);
 
-    const { rawCarreira, rawLight, rawPR, tracks, loading } = useLeagueData();
+    const { rawCarreira, rawLight, rawPR, tracks, datesCarreira, datesLight, loading } = useLeagueData();
     const [gridType, setGridType] = useState('carreira'); 
     const [activeTab, setActiveTab] = useState('stats'); 
     
@@ -87,6 +87,45 @@ function HallOfFame() {
         if (!isNaN(parsed)) return parsed;
         const m = str.match(/\d+/);
         return m ? parseInt(m[0], 10) : 0;
+    };
+
+    // Função para verificar se uma data é futura
+    const parseDateAny = (dateStr) => {
+        if (!dateStr) return null;
+        const s = String(dateStr).trim();
+        if (!s) return null;
+        const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+        if (m) {
+            const day = Number(m[1]);
+            const month = Number(m[2]);
+            let year = Number(m[3]);
+            if (year < 100) year = 2000 + year;
+            const d = new Date(year, month - 1, day);
+            if (!isNaN(d.getTime())) return d;
+        }
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) return d;
+        return null;
+    };
+
+    const isFutureDay = (dateStr) => {
+        const d = parseDateAny(dateStr);
+        if (!d) return false;
+        const today = new Date();
+        const dayOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+        return dayOnly > todayOnly;
+    };
+
+    // Função para verificar se uma temporada está completa
+    const isSeasonComplete = (grid, season) => {
+        const dateMap = grid === 'carreira' ? (datesCarreira || {}) : (datesLight || {});
+        if (!dateMap || typeof dateMap !== 'object') return true; // Sem informação => assume completo
+        const prefix = `${season}-`;
+        const keys = Object.keys(dateMap).filter(k => k.startsWith(prefix));
+        if (keys.length === 0) return true; // Sem etapas => assume completo
+        // Se existir qualquer etapa com data futura, a temporada ainda não está completa
+        return !keys.some(k => isFutureDay(dateMap[k]));
     };
 
     useMemo(() => {
@@ -180,6 +219,11 @@ function HallOfFame() {
             return null;
         }).filter(Boolean).sort((a, b) => b.season - a.season);
 
+        // Para Grid Light, filtrar apenas temporadas completas e pegar a última completa
+        const completeChamps = gridType === 'light' 
+            ? champs.filter(champ => isSeasonComplete('light', champ.season))
+            : champs;
+
         // Top Stats Globais
         const driversArray = Object.values(driverStats);
         
@@ -263,13 +307,13 @@ function HallOfFame() {
             topTeamCount: topTeamName ? (teamTitleCounts[topTeamName] || 0) : 0
         });
 
-        setChampionsList(champs);
+        setChampionsList(completeChamps);
         setTrackRecords(Object.keys(tRecords).sort().reduce((obj, key) => {
             obj[key] = tRecords[key];
             return obj;
         }, {}));
 
-    }, [gridType, rawCarreira, rawLight, rawPR]);
+    }, [gridType, rawCarreira, rawLight, rawPR, datesCarreira, datesLight]);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 

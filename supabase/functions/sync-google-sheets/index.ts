@@ -498,7 +498,7 @@ async function syncGeneric(
       query.eq("season", season);
     }
     
-    const { data: existing } = await query.single().catch(() => ({ data: null }));
+    const { data: existing } = await query.maybeSingle();
 
     if (existing && existing.data_hash === dataHash) {
       console.log(`Dados de ${tableName} não mudaram`);

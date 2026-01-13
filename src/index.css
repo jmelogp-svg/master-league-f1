@@ -1029,6 +1029,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     margin: 0 0 16px 0;
     text-transform: uppercase;
     font-style: italic;
+    text-align: justify;
 }
 
 .news-feed-card.news-featured .news-feed-subtitle {
@@ -3951,8 +3952,9 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .btn-text { font-size: 0.75rem !important; }
     
     /* Quick Links Mobile */
-    .ql-card { padding: 12px; }
+    .ql-card { padding: 12px; justify-content: center; }
     .ql-icon { font-size: 1.5rem; }
+    .ql-info { display: none !important; }
     .ql-info h3 { font-size: 0.85rem; }
     .ql-info span { font-size: 0.7rem; }
     

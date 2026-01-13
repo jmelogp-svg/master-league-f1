@@ -127,26 +127,54 @@ function PowerRanking() {
     useEffect(() => {
         if (!selectedSeason || !rawPR || rawPR.length === 0) return;
         const driverStats = {};
+        let totalRowsProcessed = 0;
+        let rowsForSeason = 0;
+        
         rawPR.forEach(row => {
-            const driverName = row[0];
+            totalRowsProcessed++;
+            const driverName = (row[0] || '').trim();
             const totalPR = parseFloat((row[8] || '0').replace(',', '.')); 
-            const rowSeason = row[9]?.trim();
-            const teamName = row[10]?.trim();
-            if (rowSeason === String(selectedSeason) && driverName) {
+            const rowSeason = (row[9] || '').trim();
+            const teamName = (row[10] || '').trim();
+            
+            // Verificar se a linha pertence à temporada selecionada e tem nome de piloto válido
+            if (rowSeason === String(selectedSeason) && driverName && driverName.length > 0) {
+                rowsForSeason++;
                 if (!driverStats[driverName]) {
                     driverStats[driverName] = { name: driverName, team: teamName || "Sem Equipe", totalScore: 0 };
                 }
-                if (teamName) driverStats[driverName].team = teamName;
-                if (!isNaN(totalPR)) driverStats[driverName].totalScore += totalPR;
+                if (teamName && teamName.length > 0) {
+                    driverStats[driverName].team = teamName;
+                }
+                if (!isNaN(totalPR) && totalPR > 0) {
+                    driverStats[driverName].totalScore += totalPR;
+                }
             }
         });
+        
         const sortedRank = Object.values(driverStats)
-            .sort((a, b) => b.totalScore - a.totalScore)
+            .sort((a, b) => {
+                // Primeiro critério: maior score
+                if (b.totalScore !== a.totalScore) {
+                    return b.totalScore - a.totalScore;
+                }
+                // Segundo critério (desempate): ordem alfabética do nome
+                return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+            })
             .map((d, index) => ({
                 ...d,
                 rank: index + 1,
                 displayScore: d.totalScore.toFixed(0) 
             }));
+        
+        console.log(`📊 Power Ranking - Temporada ${selectedSeason}:`, {
+            totalRowsInData: rawPR.length,
+            totalRowsProcessed,
+            rowsForSeason,
+            uniqueDrivers: sortedRank.length,
+            drivers: sortedRank.map(d => ({ name: d.name, score: d.totalScore }))
+        });
+        
         setRankingData(sortedRank);
     }, [selectedSeason, rawPR]);
 

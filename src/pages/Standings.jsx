@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import { useLeagueData } from '../hooks/useLeagueData';
 
@@ -95,8 +95,19 @@ function Standings() {
     }, []);
 
     const { rawCarreira, rawLight, tracks, seasons, loading } = useLeagueData();
-    const [gridType, setGridType] = useState('carreira');
+    const [searchParams] = useSearchParams();
+    const gridFromURL = searchParams.get('grid');
+    const [gridType, setGridType] = useState(gridFromURL === 'light' ? 'light' : 'carreira');
     const [viewType, setViewType] = useState('drivers');
+    
+    // Atualizar gridType quando o parâmetro da URL mudar
+    useEffect(() => {
+        if (gridFromURL === 'light') {
+            setGridType('light');
+        } else if (gridFromURL === 'carreira') {
+            setGridType('carreira');
+        }
+    }, [gridFromURL]);
     const [selectedSeason, setSelectedSeason] = useState(0);
     const [rounds, setRounds] = useState([]);
     const [selectedRound, setSelectedRound] = useState(0);
@@ -193,10 +204,13 @@ function Standings() {
             if (viewType !== 'results') {
                 const maxSeason = Math.max(...seasons.map(s => parseInt(s)));
                 setSelectedSeason(maxSeason);
-                setGridType('carreira');
+                // Não sobrescrever gridType se já foi definido pela URL
+                if (!gridFromURL) {
+                    setGridType('carreira');
+                }
             }
         }
-    }, [seasons, loading, viewType]);
+    }, [seasons, loading, viewType, gridFromURL]);
 
     // useEffect específico para garantir que quando a aba RESULTS for selecionada,
     // sempre mostre a maior temporada com a maior etapa
@@ -209,7 +223,10 @@ function Standings() {
             if (maisRecente.temporada > 0) {
                 console.log('✅ [useEffect RESULTS] Forçando temporada:', maisRecente.temporada, 'e etapa:', maisRecente.etapa);
                 setSelectedSeason(maisRecente.temporada);
-                setGridType('carreira');
+                // Não sobrescrever gridType se já foi definido pela URL
+                if (!gridFromURL) {
+                    setGridType('carreira');
+                }
                 if (maisRecente.etapa > 0) {
                     setSelectedRound(maisRecente.etapa);
                 }
@@ -345,7 +362,7 @@ function Standings() {
         return "#94A3B8";
     };
 
-    const getDrivers = () => { 
+    const getDrivers = () => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
         const totals = {};
         rawData.forEach(row => {
@@ -370,8 +387,24 @@ function Standings() {
             
             // Calcular pontos (depende da temporada)
             if (s >= 20) { 
-                let p = parseFloat((row[15]||'0').replace(',', '.')); 
-                if (!isNaN(p)) totals[name].points += p; 
+                // Para temporada 20+, os pontos vêm da coluna 15 (coluna P na planilha)
+                // Tentar ler da coluna 15, mas se não existir, tentar calcular baseado na posição
+                let p = 0;
+                if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
+                    // Tentar parsear pontos da coluna 15
+                    p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
+                    if (isNaN(p)) p = 0;
+                }
+                
+                // Se não encontrou pontos na coluna 15, calcular baseado na posição (fallback)
+                if (p === 0 && racePos >= 1 && racePos <= 10) {
+                    p = POINTS_RACE[racePos - 1];
+                }
+                if (p === 0 && sprintPos >= 1 && sprintPos <= 8) {
+                    p += POINTS_SPRINT[sprintPos - 1];
+                }
+                
+                totals[name].points += p;
             } else { 
                 if (racePos >= 1 && racePos <= 10) {
                     totals[name].points += POINTS_RACE[racePos - 1];
@@ -420,6 +453,9 @@ function Standings() {
         const drivers = getDrivers();
         const teams = {};
         drivers.forEach(d => {
+            // Ignorar equipes "Reserva"
+            if (!d.team || d.team.toLowerCase().trim() === 'reserva') return;
+            
             if (!teams[d.team]) {
                 teams[d.team] = { team: d.team, points: 0, driversList: [] };
             }
@@ -947,7 +983,8 @@ function Standings() {
         
         // Se mudar para resultados, usa a função auxiliar para encontrar temporada e etapa mais recentes
         if (newViewType === 'results') {
-            const rawData = rawCarreira; // Sempre começa com carreira (grid mais alto)
+            // Usar o grid atual (pode ser light ou carreira) baseado na URL
+            const rawData = gridType === 'light' ? rawLight : rawCarreira;
             
             console.log('🔍 [RESULTS] rawData length:', rawData?.length);
             console.log('🔍 [RESULTS] First 3 rows:', rawData?.slice(0, 3));
@@ -959,7 +996,10 @@ function Standings() {
             if (maisRecente.temporada > 0) {
                 console.log('✅ [RESULTS] Aplicando temporada:', maisRecente.temporada, 'etapa:', maisRecente.etapa);
                 setSelectedSeason(maisRecente.temporada);
-                setGridType('carreira');
+                // Não sobrescrever gridType se já foi definido pela URL
+                if (!gridFromURL) {
+                    setGridType('carreira');
+                }
                 if (maisRecente.etapa > 0) {
                     setSelectedRound(maisRecente.etapa);
                 }

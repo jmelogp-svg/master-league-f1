@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { sendWhatsappNotification } from './whatsappNotify';
 
 // Configurações do Admin
 export const ADMIN_CONFIG = {
@@ -244,6 +245,68 @@ ${dadosAcusacao.descricao}
         resultados.whatsapp = await sendWhatsAppMessage(mensagemTelegram);
     } catch (err) {
         console.error('❌ Falha ao enviar notificações:', err);
+    }
+
+    // 5. Se status for 'aguardando_analise', notificar todos os jurados ativos
+    if (dadosAcusacao.status === 'aguardando_analise') {
+        try {
+            const { data: juradosAtivos, error: errorJurados } = await supabase
+                .from('jurados')
+                .select('nome, whatsapp, email_google')
+                .eq('ativo', true)
+                .not('whatsapp', 'is', null);
+            
+            if (!errorJurados && juradosAtivos && juradosAtivos.length > 0) {
+                const codigoLance = dadosAcusacao.codigoLance || 'N/A';
+                const acusador = dadosAcusacao.acusador?.nome || dadosAcusacao.acusador?.gamertag || 'N/A';
+                const acusado = dadosAcusacao.acusado?.nome || dadosAcusacao.acusado?.gamertag || 'N/A';
+                const etapa = dadosAcusacao.etapa?.circuit || dadosAcusacao.etapa?.round || 'N/A';
+                
+                const mensagemJurados = `👨‍⚖️ *NOVO LANCE PARA ANÁLISE - MASTER LEAGUE F1*\n\n` +
+                    `🔖 *Código:* ${codigoLance}\n` +
+                    `🏁 *Etapa:* ${etapa}\n` +
+                    `👤 *Acusador:* ${acusador}\n` +
+                    `🎯 *Acusado:* ${acusado}\n\n` +
+                    `📋 *Acesse o Painel do Júri para analisar:*\n` +
+                    `🔗 masterleaguef1.com.br/veredito`;
+                
+                // Enviar notificação para cada jurado ativo
+                let sucessosJurados = 0;
+                for (const jurado of juradosAtivos) {
+                    if (jurado.whatsapp) {
+                        try {
+                            const result = await sendWhatsappNotification({
+                                phone: jurado.whatsapp,
+                                email: jurado.email_google || `${jurado.whatsapp}@masterleaguef1.com`,
+                                nome: jurado.nome || 'Jurado',
+                                message: mensagemJurados
+                            });
+                            
+                            if (result.success) {
+                                sucessosJurados++;
+                                console.log(`✅ Notificação enviada para jurado ${jurado.nome}`);
+                            } else {
+                                console.warn(`⚠️ Erro ao enviar para jurado ${jurado.nome}:`, result.error);
+                            }
+                            
+                            // Pequeno delay entre envios
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        } catch (err) {
+                            console.error(`❌ Erro ao enviar notificação para jurado ${jurado.nome}:`, err);
+                        }
+                    }
+                }
+                
+                if (sucessosJurados > 0) {
+                    console.log(`📬 Notificações enviadas para ${sucessosJurados} jurado(s)`);
+                }
+            } else {
+                console.warn('⚠️ Nenhum jurado ativo encontrado ou sem WhatsApp configurado');
+            }
+        } catch (err) {
+            console.error('⚠️ Erro ao enviar notificações para jurados:', err);
+            // Não bloquear o fluxo principal se a notificação falhar
+        }
     }
 
     console.log('📊 Resultado das notificações:', resultados);

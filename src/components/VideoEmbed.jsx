@@ -22,7 +22,42 @@ function VideoEmbed({ videoLink, title = "Vídeo", borderColor = 'rgba(255,255,2
     // Verificar se é um YouTube Short
     const isYouTubeShort = videoLink.includes('/shorts/');
     
+    // Verificar se é Steam CDN (usa tag <video> HTML5)
+    const isSteamCDN = videoLink.includes('cdn.steamusercontent.com');
+    
     if (embedUrl) {
+        // Para Steam CDN, usar tag <video> HTML5
+        if (isSteamCDN) {
+            return (
+                <div 
+                    style={{
+                        width: '100%',
+                        background: '#000',
+                        borderRadius: isMobile ? '6px' : '8px',
+                        overflow: 'hidden',
+                        border: `2px solid ${borderColor}`,
+                        position: 'relative',
+                        aspectRatio: '16 / 9',
+                        boxSizing: 'border-box'
+                    }}
+                >
+                    <video
+                        src={embedUrl}
+                        controls
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'block',
+                            outline: 'none'
+                        }}
+                        preload="metadata"
+                    >
+                        Seu navegador não suporta a tag de vídeo.
+                    </video>
+                </div>
+            );
+        }
+        
         // Para YouTube Shorts, usar formato vertical 9:16
         // Para vídeos normais, usar formato 16:9 (1920x1080p)
         const aspectRatio = isYouTubeShort ? '9 / 16' : '16 / 9';

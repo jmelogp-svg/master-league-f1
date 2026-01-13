@@ -748,7 +748,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             totalPontos: 0,
             melhorResultado: null, // number
             totalTemporadas: new Set(),
-            gridsParticipados: new Set()
+            gridsParticipados: new Set(),
+            statsPorTemporada: {} // { [temporada]: { vitorias, podios, pontos, corridas } }
         };
         
         // Agrupar dados por temporada e grid para calcular campeonatos
@@ -807,14 +808,26 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                     stats.totalTemporadas.add(season);
                     stats.gridsParticipados.add(grid);
 
+                    // Inicializar estatísticas da temporada se não existir
+                    if (!stats.statsPorTemporada[season]) {
+                        stats.statsPorTemporada[season] = {
+                            vitorias: 0,
+                            podios: 0,
+                            pontos: 0,
+                            corridas: 0
+                        };
+                    }
+
                     // Contar vitórias
                     if (racePos === 1) {
                         stats.totalVitorias++;
+                        stats.statsPorTemporada[season].vitorias++;
                     }
 
                     // Contar pódios
                     if (racePos > 0 && racePos <= 3) {
                         stats.totalPodios++;
+                        stats.statsPorTemporada[season].podios++;
                     }
 
                     // Contar poles
@@ -829,6 +842,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
 
                     // Pontos (somatório)
                     stats.totalPontos += points;
+                    stats.statsPorTemporada[season].pontos += points;
+                    stats.statsPorTemporada[season].corridas++;
                     
                     // Contar equipes
                     if (team && team !== '-' && team !== '') {
@@ -1041,13 +1056,49 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         } else {
             // Se participou da S19
             const participouS19 = statsAdicionais?.totalTemporadas.has(19);
+            const participouS20 = statsAdicionais?.totalTemporadas.has(20);
             const temContratoS20 = !!contratoFechado?.id;
 
-            if (participouS19) {
+            if (participouS19 && !participouS20) {
                 resumo += `Na última temporada (Temporada 19), mostrou sua competitividade nas pistas. `;
             }
 
-            if (temContratoS20) {
+            if (participouS20) {
+                // Incluir estatísticas da temporada 20 se disponíveis
+                const statsS20 = statsAdicionais?.statsPorTemporada?.[20] || {};
+                const vitoriasS20 = statsS20.vitorias || 0;
+                const podiosS20 = statsS20.podios || 0;
+                const pontosS20 = statsS20.pontos || 0;
+                
+                if (vitoriasS20 > 0 || podiosS20 > 0 || pontosS20 > 0) {
+                    resumo += `Na Temporada 20, ${nomeCapitalizado} `;
+                    const conquistasS20 = [];
+                    if (vitoriasS20 > 0) {
+                        conquistasS20.push(`conquistou ${vitoriasS20} vitória${vitoriasS20 > 1 ? 's' : ''}`);
+                    }
+                    if (podiosS20 > 0) {
+                        conquistasS20.push(`subiu ao pódio ${podiosS20} vez${podiosS20 > 1 ? 'es' : ''}`);
+                    }
+                    if (pontosS20 > 0) {
+                        conquistasS20.push(`acumulou ${Math.round(pontosS20)} pontos`);
+                    }
+                    
+                    if (conquistasS20.length > 0) {
+                        if (conquistasS20.length === 1) {
+                            resumo += conquistasS20[0];
+                        } else {
+                            const last = conquistasS20.pop();
+                            resumo += conquistasS20.join(', ') + ` e ${last}`;
+                        }
+                        resumo += `. `;
+                    }
+                } else if (temContratoS20) {
+                    const novaEquipe = contratoFechado?.equipes?.name || 'sua nova equipe';
+                    resumo += `Para a Temporada 20, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
+                } else {
+                    resumo += `Atualmente, está focado nos desafios da Temporada 20.`;
+                }
+            } else if (temContratoS20) {
                 const novaEquipe = contratoFechado?.equipes?.name || 'sua nova equipe';
                 resumo += `Para a Temporada 20, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
             } else if (isTemporada20) {
@@ -3048,12 +3099,12 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                         <p style={{
                             color: '#E2E8F0',
                             lineHeight: '1.8',
-                            fontSize: '1rem',
+                            fontSize: deviceInfo.isMobile ? '0.875rem' : '1rem',
                             fontStyle: 'italic',
                             margin: 0,
                             textAlign: 'justify'
                         }}>
-                                {gerarResumoHistoria(historiaPiloto, profile.nome, statsAdicionais, dashData?.currentSeason, datesCarreira, datesLight, dashData?.currentGrid, contratoFechado)}
+                            {gerarResumoHistoria(historiaPiloto, profile.nome, statsAdicionais, dashData?.currentSeason, datesCarreira, datesLight, dashData?.currentGrid, contratoFechado)}
                         </p>
                     </div>
                 )}
@@ -3403,6 +3454,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                         <StatCard label="POLES" value={dashData.statsCarreira.poles} color="#A855F7" />
                         <StatCard label="PÓDIOS" value={dashData.statsCarreira.podiums} />
                         <StatCard label="MELHOR RES." value={dashData.statsCarreira.best === 999 ? '-' : `${dashData.statsCarreira.best}º`} />
+                        <StatCard label="TEMPORADAS" value={dashData.statsCarreira.seasons?.size || 0} />
                     </div>
                 ) : <div className="no-data-box">Sem histórico no Grid Carreira.</div>}
 
@@ -3415,6 +3467,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                         <StatCard label="POLES" value={dashData.statsLight.poles} color="#A855F7" />
                         <StatCard label="PÓDIOS" value={dashData.statsLight.podiums} />
                         <StatCard label="MELHOR RES." value={dashData.statsLight.best === 999 ? '-' : `${dashData.statsLight.best}º`} />
+                        <StatCard label="TEMPORADAS" value={dashData.statsLight.seasons?.size || 0} />
                     </div>
                 ) : <div className="no-data-box">Sem histórico no Grid Light.</div>}
             </div>

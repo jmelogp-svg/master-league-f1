@@ -597,18 +597,32 @@ function Home() {
         const totalsLight = {};
         const targetSeason = 20; // Home: carrosséis fixos da T20
 
-        rawCarreira.forEach(row => {
+                rawCarreira.forEach(row => {
             const s = parseInt(row[3]);
             if (s === parseInt(targetSeason)) {
                 const name = row[9];
                 if (name) {
                     if (!totals[name]) totals[name] = { name, team: row[10], points: 0, bestPosition: Infinity };
-                    let p = parseFloat((row[15]||'0').replace(',', '.'));
-                    if (!isNaN(p)) totals[name].points += p;
-                    
-                    // Rastrear melhor posição (menor número = melhor)
+                    // Para temporada 20+, tentar ler pontos da coluna 15, senão calcular pela posição
                     const racePos = parseInt(row[8]);
                     const sprintPos = parseInt(row[7]);
+                    let p = 0;
+                    if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
+                        p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
+                        if (isNaN(p)) p = 0;
+                    }
+                    // Fallback: calcular pela posição se não encontrou na coluna 15
+                    if (p === 0) {
+                        if (racePos >= 1 && racePos <= 10) {
+                            p = POINTS_RACE[racePos - 1];
+                        }
+                        if (sprintPos >= 1 && sprintPos <= 8) {
+                            p += POINTS_SPRINT[sprintPos - 1];
+                        }
+                    }
+                    totals[name].points += p;
+                    
+                    // Rastrear melhor posição (menor número = melhor)
                     if (racePos >= 1 && racePos < totals[name].bestPosition) {
                         totals[name].bestPosition = racePos;
                     }
@@ -635,12 +649,26 @@ function Home() {
                 const name = row[9];
                 if (name) {
                     if (!totalsLight[name]) totalsLight[name] = { name, team: row[10], points: 0, bestPosition: Infinity };
-                    let p = parseFloat((row[15]||'0').replace(',', '.'));
-                    if (!isNaN(p)) totalsLight[name].points += p;
-                    
-                    // Rastrear melhor posição (menor número = melhor)
+                    // Para temporada 20+, tentar ler pontos da coluna 15, senão calcular pela posição
                     const racePos = parseInt(row[8]);
                     const sprintPos = parseInt(row[7]);
+                    let p = 0;
+                    if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
+                        p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
+                        if (isNaN(p)) p = 0;
+                    }
+                    // Fallback: calcular pela posição se não encontrou na coluna 15
+                    if (p === 0) {
+                        if (racePos >= 1 && racePos <= 10) {
+                            p = POINTS_RACE[racePos - 1];
+                        }
+                        if (sprintPos >= 1 && sprintPos <= 8) {
+                            p += POINTS_SPRINT[sprintPos - 1];
+                        }
+                    }
+                    totalsLight[name].points += p;
+                    
+                    // Rastrear melhor posição (menor número = melhor)
                     if (racePos >= 1 && racePos < totalsLight[name].bestPosition) {
                         totalsLight[name].bestPosition = racePos;
                     }
@@ -833,8 +861,26 @@ function Home() {
             }
             
             // Calcular pontos
-            if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) totals[name].points += p; }
-            else { if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
+            if (s >= 20) { 
+                // Para temporada 20+, os pontos vêm da coluna 15 (coluna P na planilha)
+                // Tentar ler da coluna 15, mas se não existir, tentar calcular baseado na posição
+                let p = 0;
+                if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
+                    // Tentar parsear pontos da coluna 15
+                    p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
+                    if (isNaN(p)) p = 0;
+                }
+                
+                // Se não encontrou pontos na coluna 15, calcular baseado na posição (fallback)
+                if (p === 0 && racePos >= 1 && racePos <= 10) {
+                    p = POINTS_RACE[racePos - 1];
+                }
+                if (p === 0 && sprintPos >= 1 && sprintPos <= 8) {
+                    p += POINTS_SPRINT[sprintPos - 1];
+                }
+                
+                totals[name].points += p;
+            } else { if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
         });
         
         // Ordenar por: 1) Pontos, 2) Melhor posição, 3) Nome alfabético
@@ -855,7 +901,10 @@ function Home() {
         const drivers = getDrivers();
         const teams = {};
         drivers.forEach(d => {
-            const teamName = d.team || 'Reserva';
+            // Ignorar equipes "Reserva"
+            const teamName = d.team || '';
+            if (!teamName || teamName.toLowerCase().trim() === 'reserva') return;
+            
             if (!teams[teamName]) {
                 teams[teamName] = { team: teamName, points: 0, driversList: [] };
             }
@@ -1455,49 +1504,51 @@ function Home() {
                                 <Link to="/noticias" className="btn-text">Ver Todas <ArrowRightIcon/></Link>
                             </div>
                             <div className="news-feed-grid">
-                                {news.length > 0 ? news.slice(0, 3).map((newsItem, idx) => (
-                                    <article 
-                                        key={`${newsItem?.id ?? 'noid'}-${newsItem?.date ?? 'nodate'}-${idx}`}
-                                        className={`news-feed-card ${idx === 0 ? 'news-featured' : ''}`}
-                                        onClick={async () => {
-                                            // Verificar se existe notícia completa no Supabase com esse ID
-                                            try {
-                                                const { data: noticiaCompleta } = await supabase
-                                                    .from('noticias')
-                                                    .select('id')
-                                                    .eq('id', newsItem.id)
-                                                    .single();
-                                                
-                                                if (noticiaCompleta) {
-                                                    // Se existe no Supabase, vai para portal e rola até a notícia
-                                                    navigate(`/noticias#noticia-${newsItem.id}`);
-                                                    return;
+                                {news.length > 0 ? (() => {
+                                    // Mostrar apenas a notícia principal (primeira da lista, maior ID)
+                                    const newsItem = news[0];
+                                    return (
+                                        <article 
+                                            key={`${newsItem?.id ?? 'noid'}-${newsItem?.date ?? 'nodate'}`}
+                                            className="news-feed-card news-featured"
+                                            onClick={async () => {
+                                                // Verificar se existe notícia completa no Supabase com esse ID
+                                                try {
+                                                    const { data: noticiaCompleta } = await supabase
+                                                        .from('noticias')
+                                                        .select('id')
+                                                        .eq('id', newsItem.id)
+                                                        .single();
+                                                    
+                                                    if (noticiaCompleta) {
+                                                        // Se existe no Supabase, vai para portal e rola até a notícia
+                                                        navigate(`/noticias#noticia-${newsItem.id}`);
+                                                        return;
+                                                    }
+                                                } catch (err) {
+                                                    // Sem notícia no Supabase, continua com a lógica normal
                                                 }
-                                            } catch (err) {
-                                                // Sem notícia no Supabase, continua com a lógica normal
-                                            }
 
-                                            // Se não tem no Supabase, usa link da planilha
-                                            if (newsItem.link) {
-                                                if (newsItem.link.startsWith('http://') || newsItem.link.startsWith('https://')) {
-                                                    window.open(newsItem.link, '_blank', 'noopener,noreferrer');
+                                                // Se não tem no Supabase, usa link da planilha
+                                                if (newsItem.link) {
+                                                    if (newsItem.link.startsWith('http://') || newsItem.link.startsWith('https://')) {
+                                                        window.open(newsItem.link, '_blank', 'noopener,noreferrer');
+                                                    } else {
+                                                        navigate(newsItem.link);
+                                                    }
                                                 } else {
-                                                    navigate(newsItem.link);
+                                                    // Fallback: vai para o portal de notícias
+                                                    navigate('/noticias');
                                                 }
-                                            } else {
-                                                // Fallback: vai para o portal de notícias
-                                                navigate('/noticias');
-                                            }
-                                        }}
-                                    >
-                                        {idx === 0 ? (
+                                            }}
+                                        >
                                             <div className="news-featured-layout">
-                                            <div className="news-featured-left">
-                                                <NewsImage 
-                                                    newsItem={newsItem} 
-                                                    supaUrl={getSupabaseNewsImageUrl(newsItem.id)} 
-                                                />
-                                            </div>
+                                                <div className="news-featured-left">
+                                                    <NewsImage 
+                                                        newsItem={newsItem} 
+                                                        supaUrl={getSupabaseNewsImageUrl(newsItem.id)} 
+                                                    />
+                                                </div>
                                                 <div className="news-featured-right">
                                                     <div className="news-feed-content">
                                                         <h3 className="news-feed-title-featured">{newsItem.title}</h3>
@@ -1511,27 +1562,9 @@ function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <>
-                                                <NewsImage 
-                                                    newsItem={newsItem} 
-                                                    supaUrl={getSupabaseNewsImageUrl(newsItem.id)} 
-                                                />
-                                                <div className="news-feed-content">
-                                                    <div className="news-feed-meta">
-                                                        <span className="news-feed-category">{newsItem.category}</span>
-                                                        <span className="news-feed-date">{newsItem.date}</span>
-                                                    </div>
-                                                    <h3 className="news-feed-title">{newsItem.title}</h3>
-                                                    <p className="news-feed-excerpt">{newsItem.excerpt}</p>
-                                                    <div className="news-feed-link">
-                                                        LER MAIS <ArrowRightIcon/>
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
-                                    </article>
-                                )) : (
+                                        </article>
+                                    );
+                                })() : (
                                     <div style={{gridColumn: 'span 2', textAlign: 'center', padding: '40px', color: '#94A3B8'}}>
                                         <p>Carregando notícias...</p>
                                     </div>
@@ -1549,7 +1582,7 @@ function Home() {
                                 />
                                 <h2 style={{ color: 'var(--carreira-wine)' }}>GRID CARREIRA T20</h2>
                                 <div className="header-line" style={{ background: 'linear-gradient(90deg, var(--carreira-wine), transparent)' }}></div>
-                                <Link to="/standings" className="btn-text" style={{ marginLeft: 'auto', color: 'var(--carreira-wine)' }}>Ver Classificação <ArrowRightIcon/></Link>
+                                <Link to="/standings?grid=carreira" className="btn-text" style={{ marginLeft: 'auto', color: 'var(--carreira-wine)' }}>Ver Classificação <ArrowRightIcon/></Link>
                             </div>
                             <div className="drivers-grid-hub" ref={scrollRef} onMouseEnter={() => setIsPaused(true)} onMouseLeave={() => setIsPaused(false)}>
                                 {seasonDrivers.map(d => {
@@ -1560,6 +1593,23 @@ function Home() {
                                     return (
                                     <div key={d.name} className="driver-card-hub" style={{"--team-color": getTeamColor(d.team, 'carreira', d.isDraft)}} onClick={() => handleDriverClick(d)}>
                                         <div className="dch-bg"></div>
+                                        {/* Pontuação no canto superior direito - marca d'água atrás da foto */}
+                                        {d.points > 0 && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '12px',
+                                                right: '12px',
+                                                zIndex: 1.5,
+                                                fontSize: '1.8rem',
+                                                fontWeight: '900',
+                                                color: 'rgba(255, 255, 255, 0.15)',
+                                                lineHeight: 1,
+                                                pointerEvents: 'none',
+                                                fontFamily: 'Montserrat, sans-serif'
+                                            }}>
+                                                {d.points.toFixed(0)}
+                                            </div>
+                                        )}
                                         <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="carreira" season={20} className="dch-photo" forceSML={d.isDraft} /></div>
                                         <div className="dch-info">
                                             <div className="dch-name">
@@ -1598,7 +1648,7 @@ function Home() {
                                 />
                                 <h2 style={{ color: 'var(--light-blue)' }}>GRID LIGHT T20</h2>
                                 <div className="header-line" style={{ background: 'linear-gradient(90deg, var(--light-blue), transparent)' }}></div>
-                                <Link to="/standings" className="btn-text" style={{ marginLeft: 'auto', color: 'var(--light-blue)' }}>Ver Classificação <ArrowRightIcon/></Link>
+                                <Link to="/standings?grid=light" className="btn-text" style={{ marginLeft: 'auto', color: 'var(--light-blue)' }}>Ver Classificação <ArrowRightIcon/></Link>
                             </div>
                             <div className="drivers-grid-hub" ref={scrollRefLight} onMouseEnter={() => setIsPausedLight(true)} onMouseLeave={() => setIsPausedLight(false)}>
                                 {seasonDriversLightFull.map(d => {
@@ -1614,6 +1664,23 @@ function Home() {
                                             onClick={() => handleDriverClick({ ...d, gridType: 'light' })}
                                         >
                                             <div className="dch-bg"></div>
+                                            {/* Pontuação no canto superior direito - marca d'água atrás da foto */}
+                                            {d.points > 0 && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: '12px',
+                                                    right: '12px',
+                                                    zIndex: 1.5,
+                                                    fontSize: '1.8rem',
+                                                    fontWeight: '900',
+                                                    color: 'rgba(255, 255, 255, 0.15)',
+                                                    lineHeight: 1,
+                                                    pointerEvents: 'none',
+                                                    fontFamily: 'Montserrat, sans-serif'
+                                                }}>
+                                                    {d.points.toFixed(0)}
+                                                </div>
+                                            )}
                                             <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="light" season={20} className="dch-photo" forceSML={d.isDraft} /></div>
                                             <div className="dch-info">
                                                 <div className="dch-name">

@@ -93,6 +93,13 @@ export function getVideoEmbedUrl(url) {
         return `https://drive.google.com/file/d/${driveUcMatch[1]}/preview`;
     }
     
+    // Steam CDN (cdn.steamusercontent.com)
+    // URLs do Steam CDN são links diretos para arquivos de vídeo
+    if (cleanUrl.includes('cdn.steamusercontent.com')) {
+        // Retornar a URL original para usar com tag <video> HTML5
+        return cleanUrl;
+    }
+    
     // Se já for uma URL de embed válida, retornar como está
     if (cleanUrl.includes('/embed/') || cleanUrl.includes('iframe')) {
         return cleanUrl;

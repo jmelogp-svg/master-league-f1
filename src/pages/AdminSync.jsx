@@ -111,7 +111,7 @@ function AdminSync() {
                     query = query.eq('season', table.season);
                 }
 
-                const { data, error } = await query.single().catch(() => ({ data: null, error: null }));
+                const { data, error } = await query.maybeSingle();
 
                 if (data) {
                     const lastSync = new Date(data.last_synced_at);
@@ -175,11 +175,54 @@ function AdminSync() {
             if (!response.ok || !result.success) {
                 const errorMsg = result.error || result.message || `Erro HTTP ${response.status}`;
                 console.error('Erro na sincronização:', { response, result, sheetType });
-                alert(`Erro ao sincronizar ${sheetType}: ${errorMsg}`);
+                
+                // Se for classificação, verificar se algum grid falhou
+                if (sheetType === 'classificacao' && result.result) {
+                    const carreiraResult = result.result.carreira || result.result.classificacao?.carreira;
+                    const lightResult = result.result.light || result.result.classificacao?.light;
+                    
+                    if (carreiraResult && !carreiraResult.success && !carreiraResult.skipped) {
+                        alert(`❌ Erro ao sincronizar Classificação (Carreira): ${carreiraResult.error || carreiraResult.message || 'Erro desconhecido'}`);
+                    } else if (lightResult && !lightResult.success && !lightResult.skipped) {
+                        alert(`❌ Erro ao sincronizar Classificação (Light): ${lightResult.error || lightResult.message || 'Erro desconhecido'}`);
+                    } else {
+                        alert(`Erro ao sincronizar ${sheetType}: ${errorMsg}`);
+                    }
+                } else {
+                    alert(`Erro ao sincronizar ${sheetType}: ${errorMsg}`);
+                }
                 return;
             }
 
-            alert(`✅ Sincronização de ${sheetType} iniciada com sucesso!`);
+            // Verificar resultados detalhados para classificação
+            if (sheetType === 'classificacao' && result.result) {
+                const carreiraResult = result.result.carreira || result.result.classificacao?.carreira;
+                const lightResult = result.result.light || result.result.classificacao?.light;
+                
+                let message = '✅ Sincronização iniciada com sucesso!\n\n';
+                if (carreiraResult) {
+                    if (carreiraResult.skipped) {
+                        message += '📋 Carreira: Dados não mudaram (já atualizado)\n';
+                    } else if (carreiraResult.success) {
+                        message += `📋 Carreira: ✅ Sincronizado (${carreiraResult.records_synced || 0} registros)\n`;
+                    } else {
+                        message += `📋 Carreira: ❌ Erro\n`;
+                    }
+                }
+                if (lightResult) {
+                    if (lightResult.skipped) {
+                        message += '📋 Light: Dados não mudaram (já atualizado)\n';
+                    } else if (lightResult.success) {
+                        message += `📋 Light: ✅ Sincronizado (${lightResult.records_synced || 0} registros)\n`;
+                    } else {
+                        message += `📋 Light: ❌ Erro\n`;
+                    }
+                }
+                alert(message);
+            } else {
+                alert(`✅ Sincronização de ${sheetType} iniciada com sucesso!`);
+            }
+            
             setTimeout(() => {
                 loadSyncLogs();
                 loadSyncStatus();

@@ -10,12 +10,12 @@ function LoginJuradoTeste() {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        // Carregar jurados de teste (juradoA, juradoB, juradoC)
+        // Carregar jurados de teste (jurado1, jurado2, jurado3)
         const fetchJuradosTeste = async () => {
             const { data, error } = await supabase
                 .from('jurados')
                 .select('*')
-                .in('usuario', ['juradoA', 'juradoB', 'juradoC'])
+                .in('usuario', ['jurado1', 'jurado2', 'jurado3'])
                 .eq('ativo', true)
                 .order('usuario');
 
