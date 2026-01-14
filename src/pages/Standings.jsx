@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import { useLeagueData } from '../hooks/useLeagueData';
+import { supabase } from '../supabaseClient';
 
 // --- CONSTANTES DE PONTUAÇÃO ---
 const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
@@ -113,8 +114,150 @@ function Standings() {
     const [selectedRound, setSelectedRound] = useState(0);
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
+    const [punicoes, setPunicoes] = useState({}); // { 'Nome do Piloto': pontosPerdidos }
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
+    
+    // Função auxiliar para normalizar nome do piloto (usada para comparação de punições)
+    const normalizeNomePiloto = (nome) => {
+        if (!nome) return '';
+        // Remove acentuação, espaços extras e converte para minúsculas para comparação case-insensitive
+        return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, ' ').toLowerCase();
+    };
+
+    // Buscar punições do Supabase (vereditos finalizados)
+    useEffect(() => {
+        console.log('🔄 [Punições] useEffect executado. selectedSeason:', selectedSeason, 'gridType:', gridType);
+        
+        const buscarPunicoes = async () => {
+            // Verificar se selectedSeason está definido (pode ser string ou número)
+            const seasonValido = selectedSeason && (parseInt(selectedSeason) > 0 || selectedSeason > 0);
+            
+            if (!seasonValido) {
+                console.log('⏳ [Punições] Aguardando temporada ser selecionada. selectedSeason atual:', selectedSeason);
+                setPunicoes({});
+                return;
+            }
+            
+            console.log('🔍 [Punições] Iniciando busca de punições...');
+            console.log('🔍 [Punições] Temporada selecionada:', selectedSeason, 'Tipo:', typeof selectedSeason);
+            console.log('🔍 [Punições] Grid selecionado:', gridType);
+            
+            try {
+                // Buscar todas as análises finalizadas
+                const { data, error } = await supabase
+                    .from('notificacoes_admin')
+                    .select('dados')
+                    .eq('dados->>status', 'analise_realizada');
+
+                if (error) {
+                    console.error('❌ Erro ao buscar punições:', error);
+                    setPunicoes({});
+                    return;
+                }
+
+                console.log('📊 [Punições] Total de análises finalizadas encontradas:', data?.length || 0);
+                console.log('📊 [Punições] Dados brutos (primeiros 3):', data?.slice(0, 3));
+
+                // Processar vereditos e somar pontos perdidos por piloto
+                const punicoesMap = {};
+                
+                (data || []).forEach((item, index) => {
+                    const veredito = item.dados?.veredito;
+                    const acusado = item.dados?.acusado;
+                    const codigoLance = item.dados?.codigoLance || item.dados?.codigo || 'N/A';
+                    const etapa = item.dados?.etapa || {};
+                    const temporadaLance = etapa?.season || etapa?.temporada || item.dados?.season || item.dados?.temporada || null;
+                    const gridLance = etapa?.grid || item.dados?.grid || null;
+                    
+                    // Log detalhado para debug
+                    if (index < 5 || codigoLance.includes('STW-L2008') || codigoLance.includes('L2008')) {
+                        console.log(`🔍 Análise ${index + 1}:`, {
+                            codigo: codigoLance,
+                            acusado: acusado,
+                            veredito: veredito,
+                            etapa: etapa,
+                            temporadaLance: temporadaLance,
+                            gridLance: gridLance,
+                            temporadaSelecionada: selectedSeason,
+                            gridSelecionado: gridType,
+                            temVeredito: !!veredito,
+                            temAcusado: !!acusado,
+                            pontosPerdidos: veredito?.pontosPerdidos,
+                            dadosCompletos: item.dados
+                        });
+                    }
+                    
+                    // Verificar se tem veredito e se é para a temporada e grid atual (ou se não tem info, aplicar a todas)
+                    const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === parseInt(selectedSeason) : true;
+                    const gridCompativel = gridLance ? gridLance === gridType : true;
+                    const aplicarPunicao = !veredito ? false : temporadaCompativel && gridCompativel;
+                    
+                    if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && aplicarPunicao) {
+                        // Normalizar nome do piloto para comparação
+                        const nomePilotoOriginal = acusado.nome.trim();
+                        const nomePilotoNormalizado = normalizeNomePiloto(nomePilotoOriginal);
+                        const pontosPerdidos = parseInt(veredito.pontosPerdidos) || 0;
+                        
+                        if (pontosPerdidos > 0 && nomePilotoNormalizado) {
+                            // Somar pontos perdidos (um piloto pode ter múltiplas punições)
+                            punicoesMap[nomePilotoNormalizado] = (punicoesMap[nomePilotoNormalizado] || 0) + pontosPerdidos;
+                            
+                            if (codigoLance.includes('STW-L2008') || codigoLance.includes('L2008') || nomePilotoOriginal.toLowerCase().includes('alann')) {
+                                console.log(`✅ Punição aplicada:`, {
+                                    codigo: codigoLance,
+                                    nomeOriginal: nomePilotoOriginal,
+                                    nomeNormalizado: nomePilotoNormalizado,
+                                    pontosPerdidos: pontosPerdidos,
+                                    temporadaLance: temporadaLance,
+                                    gridLance: gridLance,
+                                    temporadaSelecionada: selectedSeason,
+                                    gridSelecionado: gridType,
+                                    totalAcumulado: punicoesMap[nomePilotoNormalizado]
+                                });
+                            }
+                        }
+                    }
+                });
+
+                setPunicoes(punicoesMap);
+                console.log('📉 [Punições] Punições carregadas (resumo):', punicoesMap);
+                console.log('📉 [Punições] Total de pilotos com punições:', Object.keys(punicoesMap).length);
+                
+                if (Object.keys(punicoesMap).length === 0) {
+                    console.log('⚠️ [Punições] Nenhuma punição encontrada para temporada', selectedSeason, 'e grid', gridType);
+                }
+                
+                // Log específico para Alann Rodrigues
+                const alannNormalizado = normalizeNomePiloto('Alann Rodrigues');
+                console.log('🔍 [Punições] Procurando Alann Rodrigues (normalizado):', alannNormalizado);
+                console.log('🔍 [Punições] Chaves disponíveis no mapa:', Object.keys(punicoesMap));
+                
+                if (punicoesMap[alannNormalizado]) {
+                    console.log('✅ [Punições] Punição encontrada para Alann Rodrigues:', {
+                        nomeNormalizado: alannNormalizado,
+                        pontosPerdidos: punicoesMap[alannNormalizado]
+                    });
+                } else {
+                    console.log('❌ [Punições] Punição NÃO encontrada para Alann Rodrigues');
+                    // Procurar por similaridade
+                    const chavesSimilares = Object.keys(punicoesMap).filter(key => 
+                        key.toLowerCase().includes('alann') || key.toLowerCase().includes('rodrigues')
+                    );
+                    if (chavesSimilares.length > 0) {
+                        console.log('💡 [Punições] Chaves similares encontradas:', chavesSimilares);
+                    }
+                }
+            } catch (err) {
+                console.error('❌ [Punições] Erro ao buscar punições:', err);
+                setPunicoes({});
+            }
+        };
+
+        // Sempre executar, mesmo que selectedSeason seja 0 (para debug)
+        // A função interna vai verificar se precisa buscar ou não
+        buscarPunicoes();
+    }, [selectedSeason, gridType]); // Recarregar quando a temporada ou grid mudar
 
     // Função auxiliar para extrair número de uma string (ex: "Etapa 8" -> 8, "8" -> 8)
     const extrairNumero = (str) => {
@@ -297,7 +440,13 @@ function Standings() {
                 else { if (racePos >= 1 && racePos <= 10) stats.points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) stats.points += POINTS_SPRINT[sprintPos - 1]; }
             }
         });
+        
+        // Subtrair pontos perdidos em punições (permite valores negativos)
+        const nomePilotoNormalizado = normalizeNomePiloto(driverName);
+        const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
+        stats.points = stats.points - pontosPerdidos; // Permite valores negativos
         stats.points = stats.points.toFixed(0);
+        
         return stats;
     };
     const handleDriverClick = (driver) => { setSelectedDriver({ ...driver, stats: getDriverStats(driver.name) }); };
@@ -372,6 +521,16 @@ function Standings() {
                 totals[name] = { name, team, points: 0, bestPosition: Infinity }; // Infinity = nunca teve posição válida ainda
             }
             
+            // Debug para piloto específico
+            if (name && name.toLowerCase().includes('alann')) {
+                console.log('🔍 Piloto encontrado na planilha:', {
+                    nomeOriginal: name,
+                    nomeNormalizado: normalizeNomePiloto(name),
+                    temporada: s,
+                    temporadaSelecionada: selectedSeason
+                });
+            }
+            
             // Rastrear melhor posição (menor número = melhor) - considerar tanto corrida principal quanto sprint
             const racePos = parseInt(row[8]);
             const sprintPos = parseInt(row[7]);
@@ -415,11 +574,39 @@ function Standings() {
             }
         });
         
+        // Subtrair pontos perdidos em punições para cada piloto (permite valores negativos)
+        Object.keys(totals).forEach(nomePiloto => {
+            const nomePilotoNormalizado = normalizeNomePiloto(nomePiloto);
+            const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
+            
+            // Debug para pilotos específicos
+            if (nomePiloto.includes('Alann') || pontosPerdidos > 0) {
+                console.log('🔍 Aplicando punição:', {
+                    nomeOriginal: nomePiloto,
+                    nomeNormalizado: nomePilotoNormalizado,
+                    pontosAntes: totals[nomePiloto].points,
+                    pontosPerdidos: pontosPerdidos,
+                    pontosDepois: totals[nomePiloto].points - pontosPerdidos
+                });
+            }
+            
+            // Armazenar pontos perdidos no objeto do piloto
+            totals[nomePiloto].pontosPerdidos = pontosPerdidos;
+            
+            if (pontosPerdidos > 0) {
+                totals[nomePiloto].points = totals[nomePiloto].points - pontosPerdidos; // Permite valores negativos
+            }
+        });
+        
         // Ordenar por: 1) Pontos (maior = melhor), 2) Melhor posição (menor = melhor), 3) Nome alfabético
         const sorted = Object.values(totals).sort((a, b) => {
+            // Converter pontos para número para comparação
+            const pontosA = parseFloat(a.points) || 0;
+            const pontosB = parseFloat(b.points) || 0;
+            
             // 1. Critério: Pontos (maior = melhor)
-            if (b.points !== a.points) {
-                return b.points - a.points;
+            if (pontosB !== pontosA) {
+                return pontosB - pontosA;
             }
             // 2. Critério: Melhor posição obtida (menor número = melhor)
             // Se ambos têm Infinity (nunca terminaram), mantém empate
@@ -434,7 +621,8 @@ function Standings() {
             return a.name.localeCompare(b.name, 'pt-BR');
         });
 
-        return sorted.map((d, i) => ({ ...d, pos: i + 1 }));
+        // Preservar pontosPerdidos ao mapear para posições
+        return sorted.map((d, i) => ({ ...d, pos: i + 1, pontosPerdidos: d.pontosPerdidos || 0 }));
     };
 
     // Regra única para responsividade: "mobile" = até 768px; "PC" = acima disso
@@ -568,6 +756,17 @@ function Standings() {
                             const teamLogo = getTeamLogo(driver.team);
                             const maxPoints = topDrivers[0]?.points || driver.points;
                             const progressPercent = maxPoints > 0 ? (driver.points / maxPoints) * 100 : 0;
+                            
+                            // Debug
+                            if (driver.name && driver.name.toLowerCase().includes('alann')) {
+                                console.log('🔍 Driver no top5:', {
+                                    name: driver.name,
+                                    pontosPerdidos: driver.pontosPerdidos,
+                                    points: driver.points,
+                                    hasPunicao: driver.pontosPerdidos > 0
+                                });
+                            }
+                            
                             return (
                                 <article 
                                     key={driver.pos} 
@@ -617,6 +816,21 @@ function Standings() {
                                             <div className="top5-points-value">{driver.points.toFixed(0)}</div>
                                             <div className="top5-points-label">PONTOS</div>
                                         </div>
+                                        {/* Punições */}
+                                        {driver.pontosPerdidos > 0 && (
+                                            <div style={{
+                                                marginTop: '8px',
+                                                padding: '4px 8px',
+                                                background: 'rgba(239, 68, 68, 0.2)',
+                                                border: '1px solid #EF4444',
+                                                borderRadius: '6px',
+                                                fontSize: '11px',
+                                                color: '#EF4444',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                ⚠️ -{driver.pontosPerdidos} pts
+                                            </div>
+                                        )}
                                     </div>
                                 </article>
                             );
@@ -628,6 +842,17 @@ function Standings() {
                                 {rest.map(driver => {
                                     const teamColor = getTeamColor(driver.team);
                                     const teamLogo = getTeamLogo(driver.team);
+                                    
+                                    // Debug
+                                    if (driver.name && driver.name.toLowerCase().includes('alann')) {
+                                        console.log('🔍 Driver no rest:', {
+                                            name: driver.name,
+                                            pontosPerdidos: driver.pontosPerdidos,
+                                            points: driver.points,
+                                            hasPunicao: driver.pontosPerdidos > 0
+                                        });
+                                    }
+                                    
                                     return (
                                         <div 
                                             key={driver.pos} 
@@ -656,10 +881,26 @@ function Standings() {
                                                     </div>
                                                 )}
                                                 <small style={{fontSize: '0.65rem', opacity: 0.7, fontWeight: 400}}>{driver.team}</small>
+                                                {/* Punições na versão mobile */}
+                                                {driver.pontosPerdidos > 0 && (
+                                                    <div style={{
+                                                        marginTop: '4px',
+                                                        padding: '2px 6px',
+                                                        background: 'rgba(239, 68, 68, 0.2)',
+                                                        border: '1px solid #EF4444',
+                                                        borderRadius: '4px',
+                                                        fontSize: '10px',
+                                                        color: '#EF4444',
+                                                        fontWeight: 'bold',
+                                                        display: 'inline-block'
+                                                    }}>
+                                                        ⚠️ -{driver.pontosPerdidos} pts
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                             </div>
-                                            <div className="classification-right">
+                                            <div className="classification-right" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: '16px' }}>
                                                 <div className="classification-team-info">
                                                     {teamLogo ? (
                                                         <img src={teamLogo} className="classification-team-logo" alt={driver.team} />
@@ -672,9 +913,43 @@ function Standings() {
                                                         {driver.team}
                                                     </span>
                                                 </div>
-                                        <div className="classification-points">
-                                            <span className="classification-points-value">{driver.points.toFixed(0)}</span>
-                                            <span className="classification-points-label">PTS</span>
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            flexDirection: 'column', 
+                                            alignItems: 'flex-end', 
+                                            gap: '4px',
+                                            minWidth: '80px'
+                                        }}>
+                                            <div className="classification-points">
+                                                <span className="classification-points-value">{driver.points.toFixed(0)}</span>
+                                                <span className="classification-points-label">PTS</span>
+                                            </div>
+                                            {/* Punições - Desktop e Mobile */}
+                                            {driver.pontosPerdidos > 0 && (
+                                                <div 
+                                                    className="classification-punicoes"
+                                                    style={{
+                                                        padding: '4px 10px',
+                                                        background: 'rgba(239, 68, 68, 0.25)',
+                                                        border: '1px solid #EF4444',
+                                                        borderRadius: '6px',
+                                                        fontSize: '11px',
+                                                        color: '#EF4444',
+                                                        fontWeight: 'bold',
+                                                        whiteSpace: 'nowrap',
+                                                        display: 'flex !important',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        visibility: 'visible !important',
+                                                        opacity: '1 !important',
+                                                        position: 'static !important',
+                                                        width: 'auto !important',
+                                                        height: 'auto !important',
+                                                        margin: '0 !important'
+                                                    }}>
+                                                    ⚠️ -{driver.pontosPerdidos} pts
+                                                </div>
+                                            )}
                                         </div>
                                             </div>
                                         </div>

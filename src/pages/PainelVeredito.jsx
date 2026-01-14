@@ -5,6 +5,7 @@ import VideoEmbed from '../components/VideoEmbed';
 import CustomAlert from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 import { isMobileDevice } from '../utils/deviceDetection';
+import { atualizarLancesComDefesaExpirada } from '../hooks/useAnalises';
 import '../index.css';
 
 function PainelVeredito() {
@@ -31,6 +32,7 @@ function PainelVeredito() {
     const [userEmail, setUserEmail] = useState('');
     const [whatsappInput, setWhatsappInput] = useState('');
     const [nomeJurado, setNomeJurado] = useState('');
+    const [juradoId, setJuradoId] = useState(null);
     const [loginError, setLoginError] = useState('');
     const [loginLoading, setLoginLoading] = useState(false);
     const [juradoData, setJuradoData] = useState(null);
@@ -89,6 +91,7 @@ function PainelVeredito() {
             const savedAuth = localStorage.getItem('ml_juri_auth');
             const savedNome = localStorage.getItem('ml_juri_nome');
             const savedEmail = localStorage.getItem('ml_juri_email');
+            const savedId = localStorage.getItem('ml_juri_id');
             
             if (savedAuth === 'true' && savedNome && savedEmail) {
                 // Validar se o jurado ainda está ativo com esse email
@@ -104,14 +107,17 @@ function PainelVeredito() {
                     setNomeJurado(jurado.nome);
                     setUserEmail(savedEmail);
                     setJuradoData(jurado);
+                    setJuradoId(jurado.id ?? savedId ?? null);
                     setAuthStep('authenticated');
                     setLoading(false);
+                    if (jurado.id != null) localStorage.setItem('ml_juri_id', String(jurado.id));
                     return;
                 } else {
                     // Jurado desativado ou email alterado, limpar sessão
                     localStorage.removeItem('ml_juri_auth');
                     localStorage.removeItem('ml_juri_nome');
                     localStorage.removeItem('ml_juri_email');
+                    localStorage.removeItem('ml_juri_id');
                 }
             }
 
@@ -161,6 +167,9 @@ function PainelVeredito() {
         
         if (showLoading) setLoading(true);
         try {
+            // Atualizar lances com deadline de defesa expirado antes de buscar
+            await atualizarLancesComDefesaExpirada(supabase);
+            
             const { data, error } = await supabase
                 .from('notificacoes_admin')
                 .select('*')
@@ -172,8 +181,15 @@ function PainelVeredito() {
             
             // Filtrar apenas lances que o jurado ainda NÃO votou
             const nomeJuradoAtual = localStorage.getItem('ml_juri_nome');
+            const juradoIdAtual = localStorage.getItem('ml_juri_id');
+            const juradoEmailAtual = (localStorage.getItem('ml_juri_email') || '').toLowerCase().trim();
             const lancesNaoVotados = (data || []).filter(lance => {
-                const jaVotou = lance.dados?.votos?.some(v => v.jurado === nomeJuradoAtual);
+                const jaVotou = lance.dados?.votos?.some(v => {
+                    const vEmail = (v?.juradoEmail || '').toLowerCase().trim();
+                    return (juradoIdAtual && String(v?.juradoId) === String(juradoIdAtual)) ||
+                           (juradoEmailAtual && vEmail && vEmail === juradoEmailAtual) ||
+                           (nomeJuradoAtual && v?.jurado === nomeJuradoAtual);
+                });
                 return !jaVotou;
             });
             
@@ -233,12 +249,14 @@ function PainelVeredito() {
             // Sucesso! Autenticar o jurado
             setIsAuthenticated(true);
             setNomeJurado(juradoData.nome);
+            setJuradoId(juradoData.id ?? null);
             setAuthStep('authenticated');
 
             // Salvar sessão (manter conectado)
             localStorage.setItem('ml_juri_auth', 'true');
             localStorage.setItem('ml_juri_nome', juradoData.nome);
             localStorage.setItem('ml_juri_email', userEmail);
+            if (juradoData.id != null) localStorage.setItem('ml_juri_id', String(juradoData.id));
 
         } catch (err) {
             console.error('Erro na verificação:', err);
@@ -252,14 +270,35 @@ function PainelVeredito() {
         localStorage.removeItem('ml_juri_auth');
         localStorage.removeItem('ml_juri_nome');
         localStorage.removeItem('ml_juri_email');
+        localStorage.removeItem('ml_juri_id');
         setIsAuthenticated(false);
         setAuthStep('checking');
         setWhatsappInput('');
         setNomeJurado('');
+        setJuradoId(null);
         setJuradoData(null);
         setLoginError('');
         // Redirecionar para login de jurado
         navigate('/login-jurado');
+    };
+
+    // Identificar se um voto pertence ao jurado logado (compatível com votos antigos e novos)
+    const isVotoDoJuradoAtual = (v) => {
+        const juradoIdAtual = juradoData?.id ?? juradoId ?? localStorage.getItem('ml_juri_id');
+        const juradoEmailAtual = (userEmail || localStorage.getItem('ml_juri_email') || '').toLowerCase().trim();
+        const juradoNomeAtual = nomeJurado || localStorage.getItem('ml_juri_nome') || '';
+        const vEmail = (v?.juradoEmail || '').toLowerCase().trim();
+
+        return (juradoIdAtual && String(v?.juradoId) === String(juradoIdAtual)) ||
+               (juradoEmailAtual && vEmail && vEmail === juradoEmailAtual) ||
+               (juradoNomeAtual && v?.jurado === juradoNomeAtual);
+    };
+
+    // Ajustar rótulo da decisão para casos de "retirada de bug"
+    const getDecisaoLabel = (decisao, isRetiradaBug) => {
+        if (!decisao) return decisao;
+        if (!isRetiradaBug) return decisao;
+        return decisao === 'CULPADO' ? 'RETIRAR PUNIÇÃO' : 'MANTER PUNIÇÃO';
     };
 
     // Registrar voto do jurado
@@ -284,126 +323,183 @@ function PainelVeredito() {
         }
 
         try {
-            const votosAtuais = lance.dados?.votos || [];
-            
-            // Verifica se jurado já votou
-            const jaVotou = votosAtuais.find(v => v.jurado === nomeJurado);
-            if (jaVotou) {
-                await showAlert('Você já registrou seu voto neste lance!', 'Aviso');
-                return;
-            }
+            // Identidade do jurado (preferir ID/email para não depender de nome)
+            const juradoIdAtual = juradoData?.id ?? juradoId ?? localStorage.getItem('ml_juri_id');
+            const juradoEmailAtual = (userEmail || localStorage.getItem('ml_juri_email') || '').toLowerCase().trim();
+            const juradoNomeAtual = nomeJurado || localStorage.getItem('ml_juri_nome') || '';
 
-            const novoVoto = {
-                jurado: nomeJurado,
-                culpado: voto.culpado,
-                punicao: voto.culpado ? voto.punicao : null,
-                agravante: voto.culpado ? voto.agravante : false,
-                semVideo: voto.semVideo || false,
-                justificativa: voto.justificativa,
-                dataVoto: new Date().toISOString()
-            };
+            const MAX_TENTATIVAS = 3;
+            let vereditoFinal = null;
+            let decisaoFinal = null;
+            let lanceDecidido = false;
 
-            const novosVotos = [...votosAtuais, novoVoto];
+            for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+                // Buscar versão mais recente do lance (evita sobrescrever voto de outro jurado)
+                const { data: lanceFresh, error: fetchError } = await supabase
+                    .from('notificacoes_admin')
+                    .select('id, dados')
+                    .eq('id', lance.id)
+                    .single();
 
-            // Verificar se o lance foi decidido (3 votos culpado ou 3 votos inocente)
-            const votosCulpado = novosVotos.filter(v => v.culpado).length;
-            const votosInocente = novosVotos.filter(v => !v.culpado).length;
-            const lanceDecidido = votosCulpado >= 3 || votosInocente >= 3;
-            const decisaoFinal = votosCulpado >= 3 ? 'CULPADO' : (votosInocente >= 3 ? 'INOCENTE' : null);
+                if (fetchError) throw fetchError;
 
-            // Calcular punição "Sem envio do vídeo" (maioria dos votos)
-            const votosSemVideo = novosVotos.filter(v => v.semVideo).length;
-            const aplicarSemVideo = votosSemVideo >= 2; // Maioria (2 de 3 ou mais)
+                const votosAtuais = lanceFresh?.dados?.votos || [];
 
-            // Calcular punição final se culpado
-            let veredito = null;
-            if (lanceDecidido) {
-                if (decisaoFinal === 'CULPADO') {
-                    // Calcular punição por maioria
-                    const votosCulpadosList = novosVotos.filter(v => v.culpado);
-                    const contagemPunicoes = {};
-                    
-                    votosCulpadosList.forEach(v => {
-                        const key = v.punicao + (v.agravante ? '_agravante' : '');
-                        contagemPunicoes[key] = (contagemPunicoes[key] || 0) + 1;
-                    });
+                // Verifica se jurado já votou (compatível com votos antigos e novos)
+                const jaVotou = votosAtuais.find(v => {
+                    const vEmail = (v?.juradoEmail || '').toLowerCase().trim();
+                    return (juradoIdAtual && String(v?.juradoId) === String(juradoIdAtual)) ||
+                           (juradoEmailAtual && vEmail && vEmail === juradoEmailAtual) ||
+                           (juradoNomeAtual && v?.jurado === juradoNomeAtual);
+                });
 
-                    // Encontrar punição mais votada (desempate pela mais grave)
-                    let punicaoVencedora = null;
-                    let maxVotos = 0;
-                    let pesoMax = 0;
-
-                    Object.entries(contagemPunicoes).forEach(([key, count]) => {
-                        const punicaoBase = key.replace('_agravante', '');
-                        const temAgravante = key.includes('_agravante');
-                        const punicaoInfo = punicoes.find(p => p.value === punicaoBase);
-                        const pesoTotal = (punicaoInfo?.peso || 0) + (temAgravante ? 0.5 : 0);
-
-                        if (count > maxVotos || (count === maxVotos && pesoTotal > pesoMax)) {
-                            maxVotos = count;
-                            pesoMax = pesoTotal;
-                            punicaoVencedora = { punicao: punicaoBase, agravante: temAgravante };
-                        }
-                    });
-
-                    const punicaoInfo = punicoes.find(p => p.value === punicaoVencedora?.punicao);
-                    const pontosBase = punicaoInfo?.pontos || 0;
-                    const pontosFinal = pontosBase + (punicaoVencedora?.agravante ? 5 : 0) + (aplicarSemVideo ? 5 : 0);
-
-                    veredito = {
-                        culpado: true,
-                        decisao: 'CULPADO',
-                        placar: `${votosCulpado} x ${votosInocente}`,
-                        punicao: punicaoVencedora?.punicao,
-                        agravante: punicaoVencedora?.agravante,
-                        semVideo: aplicarSemVideo,
-                        pontosPerdidos: pontosFinal,
-                        raceBan: punicaoInfo?.raceBan || false,
-                        labelPunicao: punicaoInfo?.label || '',
-                        dataVeredito: new Date().toISOString(),
-                        totalVotos: novosVotos.length
-                    };
-                } else {
-                    // Inocente, mas pode ter punição por sem vídeo
-                    const pontosPerdidos = aplicarSemVideo ? 5 : 0;
-                    
-                    veredito = {
-                        culpado: false,
-                        decisao: 'INOCENTE',
-                        placar: `${votosInocente} x ${votosCulpado}`,
-                        punicao: null,
-                        agravante: false,
-                        semVideo: aplicarSemVideo,
-                        pontosPerdidos: pontosPerdidos,
-                        raceBan: false,
-                        labelPunicao: null,
-                        dataVeredito: new Date().toISOString(),
-                        totalVotos: novosVotos.length
-                    };
+                if (jaVotou) {
+                    await showAlert('Você já registrou seu voto neste lance!', 'Aviso');
+                    return;
                 }
+
+                const novoVoto = {
+                    juradoId: juradoIdAtual ?? null,
+                    juradoEmail: juradoEmailAtual || null,
+                    jurado: juradoNomeAtual,
+                    culpado: voto.culpado,
+                    punicao: voto.culpado ? voto.punicao : null,
+                    agravante: voto.culpado ? voto.agravante : false,
+                    semVideo: voto.semVideo || false,
+                    justificativa: voto.justificativa,
+                    dataVoto: new Date().toISOString()
+                };
+
+                const novosVotos = [...votosAtuais, novoVoto];
+
+                // Verificar se o lance foi decidido (3 votos culpado ou 3 votos inocente)
+                const votosCulpado = novosVotos.filter(v => v.culpado).length;
+                const votosInocente = novosVotos.filter(v => !v.culpado).length;
+                lanceDecidido = votosCulpado >= 3 || votosInocente >= 3;
+                decisaoFinal = votosCulpado >= 3 ? 'CULPADO' : (votosInocente >= 3 ? 'INOCENTE' : null);
+                const decisaoFinalLabel = getDecisaoLabel(decisaoFinal, isRetiradaBug);
+
+                // Calcular punição "Sem envio do vídeo" (maioria dos votos)
+                const votosSemVideo = novosVotos.filter(v => v.semVideo).length;
+                const aplicarSemVideo = votosSemVideo >= 2; // Maioria (2 de 3 ou mais)
+
+                // Calcular punição final se culpado
+                let veredito = null;
+                if (lanceDecidido) {
+                    if (decisaoFinal === 'CULPADO') {
+                        // Calcular punição por maioria
+                        const votosCulpadosList = novosVotos.filter(v => v.culpado);
+                        const contagemPunicoes = {};
+                        
+                        votosCulpadosList.forEach(v => {
+                            const key = v.punicao + (v.agravante ? '_agravante' : '');
+                            contagemPunicoes[key] = (contagemPunicoes[key] || 0) + 1;
+                        });
+
+                        // Encontrar punição mais votada (desempate pela mais grave)
+                        let punicaoVencedora = null;
+                        let maxVotos = 0;
+                        let pesoMax = 0;
+
+                        Object.entries(contagemPunicoes).forEach(([key, count]) => {
+                            const punicaoBase = key.replace('_agravante', '');
+                            const temAgravante = key.includes('_agravante');
+                            const punicaoInfo = punicoes.find(p => p.value === punicaoBase);
+                            const pesoTotal = (punicaoInfo?.peso || 0) + (temAgravante ? 0.5 : 0);
+
+                            if (count > maxVotos || (count === maxVotos && pesoTotal > pesoMax)) {
+                                maxVotos = count;
+                                pesoMax = pesoTotal;
+                                punicaoVencedora = { punicao: punicaoBase, agravante: temAgravante };
+                            }
+                        });
+
+                        const punicaoInfo = punicoes.find(p => p.value === punicaoVencedora?.punicao);
+                        const pontosBase = punicaoInfo?.pontos || 0;
+                        const pontosFinal = pontosBase + (punicaoVencedora?.agravante ? 5 : 0) + (aplicarSemVideo ? 5 : 0);
+
+                        veredito = {
+                            culpado: true,
+                            decisao: decisaoFinalLabel,
+                            placar: `${votosCulpado} x ${votosInocente}`,
+                            punicao: punicaoVencedora?.punicao,
+                            agravante: punicaoVencedora?.agravante,
+                            semVideo: aplicarSemVideo,
+                            pontosPerdidos: pontosFinal,
+                            raceBan: punicaoInfo?.raceBan || false,
+                            labelPunicao: punicaoInfo?.label || '',
+                            dataVeredito: new Date().toISOString(),
+                            totalVotos: novosVotos.length
+                        };
+                    } else {
+                        // Inocente, mas pode ter punição por sem vídeo
+                        const pontosPerdidos = aplicarSemVideo ? 5 : 0;
+                        
+                        veredito = {
+                            culpado: false,
+                            decisao: decisaoFinalLabel,
+                            placar: `${votosInocente} x ${votosCulpado}`,
+                            punicao: null,
+                            agravante: false,
+                            semVideo: aplicarSemVideo,
+                            pontosPerdidos: pontosPerdidos,
+                            raceBan: false,
+                            labelPunicao: null,
+                            dataVeredito: new Date().toISOString(),
+                            totalVotos: novosVotos.length
+                        };
+                    }
+                }
+
+                const jaEstavaDecidido = lanceFresh?.dados?.status === 'analise_realizada' || !!lanceFresh?.dados?.veredito;
+
+                const dadosAtualizados = {
+                    ...lanceFresh.dados,
+                    votos: novosVotos,
+                    // Se lance foi decidido, atualizar status e adicionar veredito
+                    ...(lanceDecidido && {
+                        status: 'analise_realizada',
+                        veredito: veredito
+                    })
+                };
+
+                const { data: updatedRow, error: updateError } = await supabase
+                    .from('notificacoes_admin')
+                    .update({ dados: dadosAtualizados })
+                    .eq('id', lance.id)
+                    .select('id, dados')
+                    .single();
+
+                if (updateError) throw updateError;
+
+                const votosConfirmados = updatedRow?.dados?.votos || [];
+                const votoConfirmado = votosConfirmados.some(v => {
+                    const vEmail = (v?.juradoEmail || '').toLowerCase().trim();
+                    return (juradoIdAtual && String(v?.juradoId) === String(juradoIdAtual)) ||
+                           (juradoEmailAtual && vEmail && vEmail === juradoEmailAtual) ||
+                           (juradoNomeAtual && v?.jurado === juradoNomeAtual);
+                });
+
+                if (votoConfirmado) {
+                    vereditoFinal = veredito;
+
+                    // Se lance foi decidido AGORA (e não estava decidido antes), enviar notificação Telegram
+                    if (lanceDecidido && veredito && !jaEstavaDecidido) {
+                        await enviarTelegramVeredito(lance, veredito);
+                    }
+                    break;
+                }
+
+                if (tentativa === MAX_TENTATIVAS) {
+                    throw new Error('Seu voto não foi confirmado no servidor. Tente novamente (ou avise o admin).');
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 250 * tentativa));
             }
 
-            const dadosAtualizados = {
-                ...lance.dados,
-                votos: novosVotos,
-                // Se lance foi decidido, atualizar status e adicionar veredito
-                ...(lanceDecidido && {
-                    status: 'analise_realizada',
-                    veredito: veredito
-                })
-            };
-
-            const { error } = await supabase
-                .from('notificacoes_admin')
-                .update({ dados: dadosAtualizados })
-                .eq('id', lance.id);
-
-            if (error) throw error;
-
-            // Se lance foi decidido, enviar notificação Telegram
-            if (lanceDecidido && veredito) {
-                await enviarTelegramVeredito(lance, veredito);
-                await showAlert(`Voto registrado!\n\n🏁 LANCE DECIDIDO: ${decisaoFinal}\nPlacar: ${veredito.placar}`, 'Sucesso');
+            if (lanceDecidido && vereditoFinal) {
+                const decisaoFinalLabel = getDecisaoLabel(decisaoFinal, isRetiradaBug);
+                await showAlert(`Voto registrado!\n\n🏁 LANCE DECIDIDO: ${decisaoFinalLabel}\nPlacar: ${vereditoFinal.placar}`, 'Sucesso');
             } else {
                 await showAlert('Voto registrado com sucesso!', 'Sucesso');
             }
@@ -444,19 +540,29 @@ function PainelVeredito() {
     const enviarTelegramVeredito = async (lance, veredito) => {
         const dados = lance.dados || {};
         const codigo = dados.codigoLance || 'N/A';
-        const acusado = dados.acusado?.nome || '-';
+        const acusadoNome = dados.acusado?.nome || '-';
         const acusador = dados.acusador?.nome || '-';
-        const etapa = dados.etapa?.circuit || '-';
+        const etapa = dados.etapa || {};
+        const circuit = etapa.circuit || '-';
+        const round = etapa.round || '-';
+        const season = etapa.season || etapa.temporada || dados.season || dados.temporada || '-';
+        const grid = etapa.grid || dados.grid || '-';
+        const date = etapa.date || dados.dataCorrida || '-';
+        const gridLabel = grid === 'carreira' ? '🏆 CARREIRA' : (grid === 'light' ? '💡 LIGHT' : grid);
+        const isRetiradaBug = dados?.tipoSolicitacao === 'retirada_bug' || acusadoNome === 'Administração Master League F1';
+        
+        // Se for retirada de bug, abreviar nome da administração
+        const acusado = (isRetiradaBug && acusadoNome === 'Administração Master League F1') ? 'ADM MLF1' : acusadoNome;
 
-        let mensagem = `👨‍⚖️ VEREDITO FINAL\n\n📋 Código: ${codigo}\n🏁 Etapa: ${etapa}\n👤 Acusador: ${acusador}\n🎯 Acusado: ${acusado}\n\n📊 Placar: ${veredito.placar}\n⚖️ Decisão: ${veredito.decisao}`;
+        let mensagem = `👨‍⚖️ VEREDITO FINAL\n\n📋 Código: ${codigo}\n📊 Temporada: ${season}\n${gridLabel ? `🎯 Grid: ${gridLabel}\n` : ''}🏁 Round ${round} - ${circuit}\n📅 Data: ${date}\n👤 Acusador: ${acusador}\n🎯 Acusado: ${acusado}\n\n📊 Placar: ${veredito.placar}\n⚖️ Decisão: ${veredito.decisao}`;
 
-        if (veredito.culpado) {
+        if (!isRetiradaBug && veredito.culpado) {
             mensagem += `\n\n⚠️ Punição: ${veredito.labelPunicao}`;
             if (veredito.agravante) mensagem += `\n➕ Agravante: +5 pontos`;
             if (veredito.semVideo) mensagem += `\n📹 Sem envio do vídeo: -5 pontos`;
             mensagem += `\n📉 Pontos perdidos: ${veredito.pontosPerdidos}`;
             if (veredito.raceBan) mensagem += `\n⛔ RACE BAN APLICADO!`;
-        } else if (veredito.semVideo) {
+        } else if (!isRetiradaBug && veredito.semVideo) {
             mensagem += `\n\n📹 Sem envio do vídeo: -5 pontos`;
             mensagem += `\n📉 Pontos perdidos: ${veredito.pontosPerdidos}`;
         }
@@ -640,11 +746,21 @@ function PainelVeredito() {
     const enviarTelegram = async (lance, resultado) => {
         const dados = lance.dados || {};
         const codigo = dados.codigoLance || 'N/A';
-        const acusado = dados.acusado?.nome || '-';
+        const acusadoNome = dados.acusado?.nome || '-';
         const acusador = dados.acusador?.nome || '-';
-        const etapa = dados.etapa?.circuit || '-';
+        const etapa = dados.etapa || {};
+        const circuit = etapa.circuit || '-';
+        const round = etapa.round || '-';
+        const season = etapa.season || etapa.temporada || dados.season || dados.temporada || '-';
+        const grid = etapa.grid || dados.grid || '-';
+        const date = etapa.date || dados.dataCorrida || '-';
+        const gridLabel = grid === 'carreira' ? '🏆 CARREIRA' : (grid === 'light' ? '💡 LIGHT' : grid);
+        const isRetiradaBug = dados?.tipoSolicitacao === 'retirada_bug' || acusadoNome === 'Administração Master League F1';
+        
+        // Se for retirada de bug, abreviar nome da administração
+        const acusado = (isRetiradaBug && acusadoNome === 'Administração Master League F1') ? 'ADM MLF1' : acusadoNome;
 
-        let mensagem = `👨‍⚖️ VEREDITO FINAL\n\n📋 Código: ${codigo}\n🏁 Etapa: ${etapa}\n👤 Acusador: ${acusador}\n🎯 Acusado: ${acusado}\n\n📊 Placar: ${resultado.placar}\n⚖️ Decisão: ${resultado.decisao}`;
+        let mensagem = `👨‍⚖️ VEREDITO FINAL\n\n📋 Código: ${codigo}\n📊 Temporada: ${season}\n${gridLabel ? `🎯 Grid: ${gridLabel}\n` : ''}🏁 Round ${round} - ${circuit}\n📅 Data: ${date}\n👤 Acusador: ${acusador}\n🎯 Acusado: ${acusado}\n\n📊 Placar: ${resultado.placar}\n⚖️ Decisão: ${resultado.decisao}`;
 
         if (resultado.culpado) {
             mensagem += `\n\n⚠️ Punição: ${resultado.labelPunicao}`;
@@ -699,7 +815,7 @@ function PainelVeredito() {
         };
         
         const votos = lance.dados?.votos || [];
-        const jaVotou = votos.find(v => v.jurado === nomeJurado);
+        const jaVotou = votos.find(isVotoDoJuradoAtual);
         const resultado = calcularResultado(votos);
 
         // Função para obter justificativa atual
@@ -941,7 +1057,7 @@ function PainelVeredito() {
         const votosCulpado = votos.filter(v => v.culpado).length;
         const votosInocente = votos.filter(v => !v.culpado).length;
         const resultado = calcularResultado(votos);
-        const podeFinalizarJurado = votos.length >= 3 && votos.find(v => v.jurado === nomeJurado);
+        const podeFinalizarJurado = votos.length >= 3 && votos.find(isVotoDoJuradoAtual);
 
         return (
             <div style={{ background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)', borderRadius: '12px', padding: '20px', border: '2px solid #F59E0B', marginBottom: '20px' }}>
@@ -1250,6 +1366,7 @@ function PainelVeredito() {
                             const etapa = dados.etapa || {};
                             const codigoLance = dados.codigoLance || 'N/A';
                             const defesa = dados.defesa || null;
+                            const isRetiradaBug = dados?.tipoSolicitacao === 'retirada_bug' || dados?.acusado?.nome === 'Administração Master League F1';
                             const isExpanded = expandedLances[lance.id];
                             const votos = dados.votos || [];
 
@@ -1273,7 +1390,7 @@ function PainelVeredito() {
                             const statusColors = getStatusColors(statusAtual);
 
                             // Verificar se o jurado atual já votou neste lance
-                            const jaVotouNesteLance = votos.find(v => v.jurado === nomeJurado);
+                            const jaVotouNesteLance = votos.find(isVotoDoJuradoAtual);
                             
                             // Contar votos de culpado e inocente
                             const votosCulpado = votos.filter(v => v.culpado).length;
@@ -1282,6 +1399,7 @@ function PainelVeredito() {
                             // Lance só é finalizado quando há 3 votos de CULPADO ou 3 votos de INOCENTE
                             const lanceFinalizado = votosCulpado >= 3 || votosInocente >= 3;
                             const decisaoFinal = lanceFinalizado ? (votosCulpado >= 3 ? 'CULPADO' : 'INOCENTE') : null;
+                            const decisaoFinalLabel = getDecisaoLabel(decisaoFinal, isRetiradaBug);
                             
                             // Bloquear se já votou OU se lance já finalizou
                             const bloqueado = jaVotouNesteLance || lanceFinalizado;
@@ -1305,7 +1423,7 @@ function PainelVeredito() {
                                         <span style={{ background: '#E5E7EB', color: '#1F2937', padding: '5px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: 'bold', fontFamily: 'monospace' }}>🔖 {codigoLance}</span>
                                         {lanceFinalizado ? (
                                             <span style={{ background: decisaoFinal === 'CULPADO' ? '#EF4444' : '#22C55E', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
-                                                🏁 DECIDIDO: {decisaoFinal}
+                                                🏁 DECIDIDO: {decisaoFinalLabel}
                                             </span>
                                         ) : jaVotouNesteLance ? (
                                             <span style={{ background: '#22C55E', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>✅ VOCÊ JÁ VOTOU</span>
@@ -1484,7 +1602,7 @@ function PainelVeredito() {
                                                             fontSize: isMobile ? '0.85rem' : '13px', 
                                                             lineHeight: '1.5' 
                                                         }}>
-                                                            {defesa.argumentos || 'Sem argumentos'}
+                                                            {defesa.descricaoDefesa || defesa.argumentos || 'Sem argumentos'}
                                                         </div>
                                                     </div>
                                                 )}

@@ -232,6 +232,7 @@ function Home() {
     const [seasonDriversLightFull, setSeasonDriversLightFull] = useState([]); // Carrossel Light (T20)
     const [news, setNews] = useState([]);
     const [newsImageVersions, setNewsImageVersions] = useState({}); // { [slot:number]: updated_at:string }
+    const [punicoes, setPunicoes] = useState({}); // { 'nome-normalizado': pontosPerdidos }
 
     const scrollRef = useRef(null);
     const scrollRefLight = useRef(null);
@@ -239,6 +240,12 @@ function Home() {
     const [isPausedLight, setIsPausedLight] = useState(false);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
+    
+    // Função para normalizar nome do piloto (usada para comparação de punições)
+    const normalizeNomePiloto = (nome) => {
+        if (!nome) return '';
+        return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, ' ').toLowerCase();
+    };
 
     // Extrai número seguro de string (ex: "Etapa 8" => 8)
     const extrairNumero = (str) => {
@@ -258,6 +265,55 @@ function Home() {
         if (view) setViewType(view); else setViewType('hub');
         if (grid) setGridType(grid);
     }, [location]);
+
+    // Buscar punições do Supabase (vereditos finalizados)
+    useEffect(() => {
+        const buscarPunicoes = async () => {
+            const seasonValido = selectedSeason && (parseInt(selectedSeason) > 0 || selectedSeason > 0);
+            if (!seasonValido) {
+                setPunicoes({});
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('notificacoes_admin')
+                    .select('dados')
+                    .eq('dados->>status', 'analise_realizada');
+
+                if (error) {
+                    console.error('Erro ao buscar punições:', error);
+                    return;
+                }
+
+                const punicoesMap = {};
+                (data || []).forEach(item => {
+                    const veredito = item.dados?.veredito;
+                    const acusado = item.dados?.acusado;
+                    const etapa = item.dados?.etapa || {};
+                    const temporadaLance = etapa?.season || etapa?.temporada || item.dados?.season || item.dados?.temporada || null;
+                    const gridLance = etapa?.grid || item.dados?.grid || null;
+
+                    const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === parseInt(selectedSeason) : true;
+                    const gridCompativel = gridLance ? gridLance === gridType : true;
+
+                    if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && temporadaCompativel && gridCompativel) {
+                        const nomePilotoNormalizado = normalizeNomePiloto(acusado.nome);
+                        const pontosPerdidos = parseInt(veredito.pontosPerdidos) || 0;
+                        if (pontosPerdidos > 0 && nomePilotoNormalizado) {
+                            punicoesMap[nomePilotoNormalizado] = (punicoesMap[nomePilotoNormalizado] || 0) + pontosPerdidos;
+                        }
+                    }
+                });
+
+                setPunicoes(punicoesMap);
+            } catch (err) {
+                console.error('Erro ao buscar punições:', err);
+            }
+        };
+
+        buscarPunicoes();
+    }, [selectedSeason, gridType]);
 
     // Auto-scroll
     useEffect(() => {
@@ -830,8 +886,60 @@ function Home() {
         return "#94A3B8";
     };
 
-    const getDriverStats = (driverName) => { const rawData = gridType === 'carreira' ? rawCarreira : rawLight; let stats = { points: 0, wins: 0, podiums: 0, poles: 0, races: 0 }; rawData.forEach(row => { const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return; if (row[9] === driverName) { stats.races++; const qualy = parseInt(row[6]); if (qualy === 1) stats.poles++; const racePos = parseInt(row[8]); if (racePos === 1) stats.wins++; if (racePos >= 1 && racePos <= 3) stats.podiums++; if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) stats.points += p; } else { if (racePos >= 1 && racePos <= 10) stats.points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) stats.points += POINTS_SPRINT[sprintPos - 1]; } } }); stats.points = stats.points.toFixed(0); return stats; };
-    const handleDriverClick = (driver) => { setSelectedDriver({ ...driver, stats: getDriverStats(driver.name) }); };
+    const getDriverStats = (driverName, driverGridType = null, driverSeason = null) => { 
+        const useGridType = driverGridType || gridType;
+        const useSeason = driverSeason !== null ? driverSeason : selectedSeason;
+        const rawData = useGridType === 'carreira' ? rawCarreira : rawLight; 
+        let stats = { points: 0, wins: 0, podiums: 0, poles: 0, races: 0 }; 
+        rawData.forEach(row => { 
+            const s = parseInt(row[3]); 
+            if (s !== parseInt(useSeason)) return; 
+            if (row[9] === driverName) { 
+                stats.races++; 
+                const qualy = parseInt(row[6]); 
+                if (qualy === 1) stats.poles++; 
+                const racePos = parseInt(row[8]); 
+                if (racePos === 1) stats.wins++; 
+                if (racePos >= 1 && racePos <= 3) stats.podiums++; 
+                if (s >= 20) { 
+                    let p = 0;
+                    if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
+                        p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
+                        if (isNaN(p)) p = 0;
+                    }
+                    // Fallback: calcular pela posição se não encontrou na coluna 15
+                    if (p === 0) {
+                        if (racePos >= 1 && racePos <= 10) {
+                            p = POINTS_RACE[racePos - 1];
+                        }
+                        const sprintPos = parseInt(row[7]);
+                        if (sprintPos >= 1 && sprintPos <= 8) {
+                            p += POINTS_SPRINT[sprintPos - 1];
+                        }
+                    }
+                    stats.points += p;
+                } else { 
+                    if (racePos >= 1 && racePos <= 10) stats.points += POINTS_RACE[racePos - 1]; 
+                    const sprintPos = parseInt(row[7]); 
+                    if (sprintPos >= 1 && sprintPos <= 8) stats.points += POINTS_SPRINT[sprintPos - 1]; 
+                } 
+            } 
+        }); 
+        
+        // Subtrair pontos perdidos em punições (permite valores negativos)
+        const nomePilotoNormalizado = normalizeNomePiloto(driverName);
+        const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
+        stats.points = stats.points - pontosPerdidos;
+        
+        stats.points = stats.points.toFixed(0); 
+        return stats; 
+    };
+    const handleDriverClick = (driver) => { 
+        const driverGridType = driver.gridType || gridType;
+        // Carrosséis do hub usam temporada 20 fixa
+        const driverSeason = driver.fromCarousel ? 20 : selectedSeason;
+        setSelectedDriver({ ...driver, stats: getDriverStats(driver.name, driverGridType, driverSeason) }); 
+    };
     
     const abbreviateDriverName = (fullName) => {
         if (!fullName || typeof fullName !== 'string') return fullName;
@@ -883,6 +991,16 @@ function Home() {
             } else { if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
         });
         
+        // Subtrair pontos perdidos em punições para cada piloto (permite valores negativos)
+        Object.keys(totals).forEach(nomePiloto => {
+            const nomePilotoNormalizado = normalizeNomePiloto(nomePiloto);
+            const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
+            totals[nomePiloto].pontosPerdidos = pontosPerdidos;
+            if (pontosPerdidos > 0) {
+                totals[nomePiloto].points = totals[nomePiloto].points - pontosPerdidos;
+            }
+        });
+        
         // Ordenar por: 1) Pontos, 2) Melhor posição, 3) Nome alfabético
         const sorted = Object.values(totals).sort((a, b) => {
             if (b.points !== a.points) return b.points - a.points;
@@ -894,7 +1012,7 @@ function Home() {
             return a.name.localeCompare(b.name, 'pt-BR');
         });
         
-        return sorted.map((d, i) => ({ ...d, pos: i + 1 }));
+        return sorted.map((d, i) => ({ ...d, pos: i + 1, pontosPerdidos: d.pontosPerdidos || 0 }));
     };
 
     const getConstructors = () => {
@@ -906,14 +1024,15 @@ function Home() {
             if (!teamName || teamName.toLowerCase().trim() === 'reserva') return;
             
             if (!teams[teamName]) {
-                teams[teamName] = { team: teamName, points: 0, driversList: [] };
+                teams[teamName] = { team: teamName, points: 0, driversList: [], pontosPerdidos: 0 };
             }
             teams[teamName].points += d.points;
+            teams[teamName].pontosPerdidos += (d.pontosPerdidos || 0); // Somar punições dos pilotos
             if (d.name && !teams[teamName].driversList.includes(d.name)) {
                 teams[teamName].driversList.push(d.name);
             }
         });
-        return Object.values(teams).sort((a, b) => b.points - a.points).map((t, i) => ({ ...t, pos: i + 1 }));
+        return Object.values(teams).sort((a, b) => b.points - a.points).map((t, i) => ({ ...t, pos: i + 1, pontosPerdidos: t.pontosPerdidos || 0 }));
     };
     // Função para formatar nome: primeiro nome primeira letra maiúscula (sem negrito), segundo nome todo maiúsculo (negrito)
     const formatDriverName = (fullName) => {
@@ -1071,6 +1190,21 @@ function Home() {
                                             <div className="top5-points-value">{driver.points.toFixed(0)}</div>
                                             <div className="top5-points-label">PONTOS</div>
                                         </div>
+                                        {/* Punições */}
+                                        {driver.pontosPerdidos > 0 && (
+                                            <div style={{
+                                                marginTop: '8px',
+                                                padding: '4px 8px',
+                                                background: 'rgba(239, 68, 68, 0.2)',
+                                                border: '1px solid #EF4444',
+                                                borderRadius: '6px',
+                                                fontSize: '11px',
+                                                color: '#EF4444',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                -{driver.pontosPerdidos} pts
+                                            </div>
+                                        )}
                                     </div>
                                 </article>
                             );
@@ -1126,9 +1260,26 @@ function Home() {
                                                 {driver.team}
                                             </span>
                                         </div>
-                                        <div className="classification-points">
-                                            <span className="classification-points-value">{driver.points.toFixed(0)}</span>
-                                            <span className="classification-points-label">PTS</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', minWidth: '80px' }}>
+                                            <div className="classification-points">
+                                                <span className="classification-points-value">{driver.points.toFixed(0)}</span>
+                                                <span className="classification-points-label">PTS</span>
+                                            </div>
+                                            {/* Punições - Desktop */}
+                                            {driver.pontosPerdidos > 0 && (
+                                                <div style={{
+                                                    padding: '4px 10px',
+                                                    background: 'rgba(239, 68, 68, 0.25)',
+                                                    border: '1px solid #EF4444',
+                                                    borderRadius: '6px',
+                                                    fontSize: '11px',
+                                                    color: '#EF4444',
+                                                    fontWeight: 'bold',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    -{driver.pontosPerdidos} pts
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1139,7 +1290,19 @@ function Home() {
             ); 
         }
         if (viewType === 'teams') {
-            const data = getConstructors();
+            let data;
+            try {
+                data = getConstructors();
+            } catch (error) {
+                console.error('Erro ao buscar equipes:', error);
+                return <div style={{padding:'40px', textAlign:'center', color:'#EF4444'}}>Erro ao carregar equipes: {error.message}</div>;
+            }
+            
+            // Proteção: verificar se há dados
+            if (!data || data.length === 0) {
+                return <div style={{padding:'40px', textAlign:'center', color:'#94A3B8'}}>Nenhuma equipe encontrada para esta temporada.</div>;
+            }
+            
             return (
                 <>
                     <div className="classification-section-new">
@@ -1164,20 +1327,20 @@ function Home() {
                                             )}
                                         </div>
                                         <div className="classification-team-content-mobile">
-                                            <div className="classification-team-name-main">{team.team}</div>
+                                            <div className="classification-team-name-main">{team.team || 'Equipe Desconhecida'}</div>
                                             <div className="classification-team-drivers-list">
                                                 {team.driversList && team.driversList.length > 0
                                                     ? (isPhone
-                                                        ? team.driversList.map(abbreviateDriverName).join(' & ')
-                                                        : team.driversList.join(' & '))
-                                                    : ""}
+                                                        ? team.driversList.filter(Boolean).map(abbreviateDriverName).join(' & ')
+                                                        : team.driversList.filter(Boolean).join(' & '))
+                                                    : "Sem pilotos"}
                                             </div>
                                         </div>
                                     </div>
                                     <div className="classification-right classification-right-teams">
                                         {!isPhone && (
                                             <div className="team-members-photos" aria-label="Pilotos da equipe">
-                                                {(team.driversList || []).map((driverName) => (
+                                                {(team.driversList || []).filter(Boolean).map((driverName) => (
                                                     <div key={`${team.team}-${driverName}`} className="team-member-photo-frame">
                                                         <DriverImage
                                                             name={driverName}
@@ -1190,9 +1353,26 @@ function Home() {
                                                 ))}
                                             </div>
                                         )}
-                                        <div className="classification-points">
-                                            <span className="classification-points-value">{team.points.toFixed(0)}</span>
-                                            <span className="classification-points-label">PTS</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', minWidth: '80px' }}>
+                                            <div className="classification-points">
+                                                <span className="classification-points-value">{team.points.toFixed(0)}</span>
+                                                <span className="classification-points-label">PTS</span>
+                                            </div>
+                                            {/* Punições - Equipes (só mostra se > 0) */}
+                                            {(team.pontosPerdidos !== undefined && team.pontosPerdidos !== null && parseInt(team.pontosPerdidos) > 0) && (
+                                                <div style={{
+                                                    padding: '4px 10px',
+                                                    background: 'rgba(239, 68, 68, 0.25)',
+                                                    border: '1px solid #EF4444',
+                                                    borderRadius: '6px',
+                                                    fontSize: '11px',
+                                                    color: '#EF4444',
+                                                    fontWeight: 'bold',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    -{team.pontosPerdidos} pts
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1661,7 +1841,7 @@ function Home() {
                                             key={`${d.name}-light`}
                                             className="driver-card-hub"
                                             style={{ "--team-color": getTeamColor(d.team, 'light', d.isDraft) }}
-                                            onClick={() => handleDriverClick({ ...d, gridType: 'light' })}
+                                            onClick={() => handleDriverClick({ ...d, gridType: 'light', fromCarousel: true })}
                                         >
                                             <div className="dch-bg"></div>
                                             {/* Pontuação no canto superior direito - marca d'água atrás da foto */}

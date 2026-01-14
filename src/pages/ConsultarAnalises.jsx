@@ -23,17 +23,24 @@ function ConsultarAnalises() {
     const [filtroEtapa, setFiltroEtapa] = useState('todas'); // 'todas' ou número da etapa
     const [mostrarTodos, setMostrarTodos] = useState(false); // false = mostra só 5
 
-    // Função para separar nome e sobrenome
+    // Função para separar nome e sobrenome (primeira letra maiúscula)
     const separarNomeSobrenome = (nomeCompleto) => {
         if (!nomeCompleto || nomeCompleto === '-') {
             return { nome: '-', sobrenome: '' };
         }
         const partes = nomeCompleto.trim().split(/\s+/);
+        
+        // Função auxiliar para capitalizar (primeira letra maiúscula, resto minúsculo)
+        const capitalizar = (palavra) => {
+            if (!palavra) return '';
+            return palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase();
+        };
+        
         if (partes.length === 1) {
-            return { nome: partes[0], sobrenome: '' };
+            return { nome: capitalizar(partes[0]), sobrenome: '' };
         }
-        const nome = partes[0];
-        const sobrenome = partes.slice(1).join(' ');
+        const nome = capitalizar(partes[0]);
+        const sobrenome = partes.slice(1).map(capitalizar).join(' ');
         return { nome, sobrenome };
     };
 
@@ -422,19 +429,69 @@ function ConsultarAnalises() {
                             const defesa = dados.defesa || null;
                             const codigoLance = dados.codigoLance || dados.codigo || 'N/A';
 
-                            // Calcular veredito baseado nos votos do júri
+                            // Usar veredito se existir, senão calcular a partir dos votos
                             const votos = dados.votos || [];
-                            const votosCulpado = votos.filter(v => v.culpado).length;
-                            const votosInocente = votos.filter(v => !v.culpado).length;
-                            const decisao = votosCulpado >= 3 ? 'CULPADO' : 'INOCENTE';
+                            const veredito = dados.veredito || null;
+                            const isRetiradaBug = dados?.tipoSolicitacao === 'retirada_bug' || dados?.acusado?.nome === 'Administração Master League F1';
                             
-                            // Calcular punição se culpado
+                            let decisao, votosCulpado, votosInocente;
+                            
+                            if (veredito) {
+                                // Usar dados do veredito finalizado
+                                votosCulpado = votos.filter(v => v.culpado).length;
+                                votosInocente = votos.filter(v => !v.culpado).length;
+                                
+                                // Normalizar decisão do veredito (pode ser INOCENTADO ou INOCENTE)
+                                const decisaoVeredito = veredito.decisao || (veredito.culpado ? 'CULPADO' : 'INOCENTE');
+                                
+                                // Ajustar texto para retirada de bug
+                                if (isRetiradaBug) {
+                                    decisao = veredito.culpado ? 'RETIRAR PUNIÇÃO' : 'MANTER PUNIÇÃO';
+                                } else {
+                                    // Normalizar INOCENTADO para INOCENTE para consistência
+                                    decisao = decisaoVeredito === 'INOCENTADO' ? 'INOCENTE' : decisaoVeredito;
+                                }
+                            } else {
+                                // Calcular a partir dos votos (lance ainda não finalizado)
+                                votosCulpado = votos.filter(v => v.culpado).length;
+                                votosInocente = votos.filter(v => !v.culpado).length;
+                                const decisaoBase = votosCulpado >= 3 ? 'CULPADO' : (votosInocente >= 3 ? 'INOCENTE' : 'EM ANÁLISE');
+                                
+                                // Ajustar texto para retirada de bug
+                                if (isRetiradaBug) {
+                                    decisao = decisaoBase === 'CULPADO' ? 'RETIRAR PUNIÇÃO' : (decisaoBase === 'INOCENTE' ? 'MANTER PUNIÇÃO' : decisaoBase);
+                                } else {
+                                    decisao = decisaoBase;
+                                }
+                            }
+                            
+                            // Calcular punição se culpado (usar veredito se existir)
                             let punicaoFinal = null;
                             let pontosDeducted = 0;
                             let raceBan = false;
                             let temAgravante = false;
                             
-                            if (decisao === 'CULPADO') {
+                            if (veredito && veredito.culpado && !isRetiradaBug && veredito.labelPunicao) {
+                                // Usar dados do veredito
+                                const punicoes = {
+                                    'advertencia': { label: '⚠️ Advertência', pontos: 0 },
+                                    'leve': { label: '🟡 Leve', pontos: 5 },
+                                    'media': { label: '🟠 Média', pontos: 10 },
+                                    'grave': { label: '🔴 Grave', pontos: 15 },
+                                    'gravissima': { label: '⛔ Gravíssima', pontos: 20, raceBan: true }
+                                };
+                                
+                                const punicaoBase = veredito.punicao || '';
+                                const baseInfo = punicoes[punicaoBase] || { label: veredito.labelPunicao, pontos: veredito.pontosPerdidos || 0 };
+                                
+                                punicaoFinal = {
+                                    label: veredito.labelPunicao,
+                                    pontos: baseInfo.pontos
+                                };
+                                pontosDeducted = veredito.pontosPerdidos || 0;
+                                raceBan = veredito.raceBan || false;
+                                temAgravante = veredito.agravante || false;
+                            } else if (!isRetiradaBug && (decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO')) {
                                 const votosCulpadosList = votos.filter(v => v.culpado);
                                 const punicoes = {
                                     'advertencia': { label: '⚠️ Advertência', pontos: 0 },
@@ -483,21 +540,21 @@ function ConsultarAnalises() {
                                     {/* Header do Lance */}
                                     <div style={{
                                         background: 'linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%)',
-                                        padding: '20px 25px',
+                                        padding: isMobile ? '12px 15px' : '20px 25px',
                                         borderBottom: '2px solid #F59E0B',
                                         display: 'flex',
                                         alignItems: 'center',
                                         flexWrap: 'wrap',
-                                        gap: '15px'
+                                        gap: isMobile ? '8px' : '15px'
                                     }}>
                                         {/* Código do Lance e Grid Badge na mesma linha */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                                             <span style={{
                                                 background: '#E5E7EB',
                                                 color: '#1F2937',
-                                                padding: '8px 16px',
+                                                padding: isMobile ? '6px 12px' : '8px 16px',
                                                 borderRadius: '8px',
-                                                fontSize: '16px',
+                                                fontSize: isMobile ? '13px' : '16px',
                                                 fontWeight: 'bold',
                                                 fontFamily: 'monospace'
                                             }}>
@@ -508,37 +565,42 @@ function ConsultarAnalises() {
                                             <span className="grid-badge-inline" style={{
                                                 background: (etapa.grid || dados.grid) === 'carreira' ? '#8B5CF6' : '#06B6D4',
                                                 color: 'white',
-                                                padding: '4px 12px',
+                                                padding: isMobile ? '3px 10px' : '4px 12px',
                                                 borderRadius: '20px',
-                                                fontSize: '12px',
+                                                fontSize: isMobile ? '10px' : '12px',
                                                 fontWeight: 'bold'
                                             }}>
                                                 {(etapa.grid || dados.grid) === 'carreira' ? '🏆 CARREIRA' : '💡 LIGHT'}
                                             </span>
                                         </div>
 
+                                        {/* Temporada */}
+                                        <span style={{ color: '#F59E0B', fontSize: isMobile ? '11px' : '14px', fontWeight: 'bold' }}>
+                                            📊 Temporada {etapa.season || etapa.temporada || dados.season || dados.temporada || '-'}
+                                        </span>
+
                                         {/* Etapa */}
-                                        <span style={{ color: '#F8FAFC', fontSize: '16px', fontWeight: 'bold' }}>
-                                            🏁 Etapa {etapa.round} - {etapa.circuit || '-'}
+                                        <span style={{ color: '#F8FAFC', fontSize: isMobile ? '13px' : '16px', fontWeight: 'bold' }}>
+                                            🏁 Round {etapa.round || '-'} - {etapa.circuit || '-'}
                                         </span>
 
                                         {/* Data */}
-                                        <span style={{ color: '#94A3B8', fontSize: '14px' }}>
-                                            📅 {etapa.date || '-'}
+                                        <span style={{ color: '#94A3B8', fontSize: isMobile ? '11px' : '14px' }}>
+                                            📅 {etapa.date || dados.dataCorrida || '-'}
                                         </span>
                                     </div>
 
                                     {/* Pilotos envolvidos */}
                                     <div className="pilotos-envolvidos-container" style={{
-                                        padding: '15px 25px',
+                                        padding: isMobile ? '10px 15px' : '15px 25px',
                                         background: '#0F172A',
                                         display: 'flex',
                                         justifyContent: 'center',
-                                        gap: '40px',
+                                        gap: isMobile ? '20px' : '40px',
                                         flexWrap: 'wrap'
                                     }}>
                                         <div style={{ textAlign: 'center' }}>
-                                            <span style={{ color: '#EF4444', fontSize: '12px' }}>ACUSADOR</span>
+                                            <span style={{ color: '#EF4444', fontSize: isMobile ? '10px' : '12px' }}>ACUSADOR</span>
                                             <div className="piloto-nome-2linhas" style={{ color: '#F8FAFC', fontWeight: 'bold' }}>
                                                 {(() => {
                                                     const { nome, sobrenome } = separarNomeSobrenome(acusador.nome || '-');
@@ -551,12 +613,22 @@ function ConsultarAnalises() {
                                                 })()}
                                             </div>
                                         </div>
-                                        <div style={{ color: '#64748B', fontSize: '24px', alignSelf: 'center' }}>⚔️</div>
+                                        <div style={{ color: '#64748B', fontSize: isMobile ? '18px' : '24px', alignSelf: 'center' }}>⚔️</div>
                                         <div style={{ textAlign: 'center' }}>
-                                            <span style={{ color: '#F59E0B', fontSize: '12px' }}>ACUSADO</span>
+                                            <span style={{ color: '#F59E0B', fontSize: isMobile ? '10px' : '12px' }}>ACUSADO</span>
                                             <div className="piloto-nome-2linhas" style={{ color: '#F8FAFC', fontWeight: 'bold' }}>
                                                 {(() => {
-                                                    const { nome, sobrenome } = separarNomeSobrenome(acusado.nome || '-');
+                                                    // Se for retirada de bug, mostrar "ADM MLF1" ao invés do nome completo
+                                                    const nomeAcusado = acusado.nome || '-';
+                                                    if (isRetiradaBug && nomeAcusado === 'Administração Master League F1') {
+                                                        return (
+                                                            <>
+                                                                <div>ADM</div>
+                                                                <div>MLF1</div>
+                                                            </>
+                                                        );
+                                                    }
+                                                    const { nome, sobrenome } = separarNomeSobrenome(nomeAcusado);
                                                     return (
                                                         <>
                                                             <div>{nome}</div>
@@ -624,7 +696,7 @@ function ConsultarAnalises() {
 
                                     {/* Parecer da Comissão */}
                                     <div style={{
-                                        margin: '0 20px 20px',
+                                        margin: isMobile ? '0 10px 15px' : '0 20px 20px',
                                         background: '#0F172A',
                                         borderRadius: '10px',
                                         border: '1px solid #8B5CF6',
@@ -633,52 +705,52 @@ function ConsultarAnalises() {
                                         {/* Header do Parecer */}
                                         <div style={{
                                             background: 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)',
-                                            padding: '10px 15px',
+                                            padding: isMobile ? '8px 12px' : '10px 15px',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '8px'
+                                            gap: isMobile ? '6px' : '8px'
                                         }}>
-                                            <span style={{ fontSize: '16px' }}>👨‍⚖️</span>
+                                            <span style={{ fontSize: isMobile ? '14px' : '16px' }}>👨‍⚖️</span>
                                             <span style={{
                                                 color: 'white',
                                                 fontWeight: 'bold',
-                                                fontSize: '12px',
+                                                fontSize: isMobile ? '11px' : '12px',
                                                 textTransform: 'uppercase',
-                                                letterSpacing: '1px'
+                                                letterSpacing: isMobile ? '0.5px' : '1px'
                                             }}>
                                                 Veredito do Júri
                                             </span>
                                         </div>
 
                                         {/* Conteúdo do Parecer */}
-                                        <div style={{ padding: '15px' }}>
+                                        <div style={{ padding: isMobile ? '12px' : '15px' }}>
                                             {/* Decisão */}
                                             <div style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                gap: '10px',
+                                                gap: isMobile ? '6px' : '10px',
                                                 flexWrap: 'wrap',
-                                                marginBottom: '12px'
+                                                marginBottom: isMobile ? '10px' : '12px'
                                             }}>
                                                 <span style={{
-                                                    background: decisao === 'CULPADO' ? '#EF4444' : '#22C55E',
+                                                    background: (decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') ? '#EF4444' : '#22C55E',
                                                     color: 'white',
-                                                    padding: '6px 14px',
+                                                    padding: isMobile ? '5px 10px' : '6px 14px',
                                                     borderRadius: '6px',
                                                     fontWeight: 'bold',
-                                                    fontSize: '13px'
+                                                    fontSize: isMobile ? '11px' : '13px'
                                                 }}>
-                                                    {decisao === 'CULPADO' ? '❌ CULPADO' : '✅ INOCENTADO'}
+                                                    {(decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') ? `❌ ${decisao}` : `✅ ${decisao === 'INOCENTE' ? 'INOCENTADO' : decisao}`}
                                                 </span>
 
-                                                {decisao === 'CULPADO' && punicaoFinal && (
+                                                {(decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') && punicaoFinal && !isRetiradaBug && (
                                                     <span style={{
                                                         background: '#F59E0B',
                                                         color: '#1F2937',
-                                                        padding: '5px 10px',
+                                                        padding: isMobile ? '4px 8px' : '5px 10px',
                                                         borderRadius: '5px',
                                                         fontWeight: 'bold',
-                                                        fontSize: '11px'
+                                                        fontSize: isMobile ? '10px' : '11px'
                                                     }}>
                                                         {punicaoFinal.label} {pontosDeducted > 0 && `(-${pontosDeducted}pts)`}
                                                         {temAgravante && ' +Agr'}
@@ -689,10 +761,10 @@ function ConsultarAnalises() {
                                                     <span style={{
                                                         background: '#7C3AED',
                                                         color: 'white',
-                                                        padding: '5px 10px',
+                                                        padding: isMobile ? '4px 8px' : '5px 10px',
                                                         borderRadius: '5px',
                                                         fontWeight: 'bold',
-                                                        fontSize: '11px'
+                                                        fontSize: isMobile ? '10px' : '11px'
                                                     }}>
                                                         🚫 BAN
                                                     </span>
@@ -701,8 +773,106 @@ function ConsultarAnalises() {
 
                                             {/* Descrição da Decisão */}
                                             {(() => {
+                                                // Função para criar resumo coerente das justificativas
+                                                const criarResumoJustificativas = (justificativas) => {
+                                                    if (justificativas.length === 0) return '';
+                                                    if (justificativas.length === 1) return justificativas[0].trim();
+                                                    
+                                                    // Limpar e normalizar justificativas
+                                                    const textosLimpos = justificativas
+                                                        .map(j => j.trim())
+                                                        .filter(j => j.length > 0)
+                                                        .map(j => {
+                                                            // Remove pontuação final duplicada e espaços extras
+                                                            return j.replace(/[.!?]+$/, '').replace(/\s+/g, ' ').trim();
+                                                        });
+                                                    
+                                                    if (textosLimpos.length === 0) return '';
+                                                    
+                                                    // Extrair frases principais de cada justificativa
+                                                    const todasFrases = [];
+                                                    textosLimpos.forEach(texto => {
+                                                        // Dividir por pontuação, mantendo apenas frases significativas
+                                                        const partes = texto
+                                                            .split(/[.!?]+/)
+                                                            .map(p => p.trim())
+                                                            .filter(p => p.length > 15); // Frases com pelo menos 15 caracteres
+                                                        todasFrases.push(...partes);
+                                                    });
+                                                    
+                                                    if (todasFrases.length === 0) {
+                                                        // Se não conseguiu dividir, usar os textos originais
+                                                        return textosLimpos.join(' ');
+                                                    }
+                                                    
+                                                    // Remover duplicatas exatas
+                                                    const frasesUnicas = [];
+                                                    todasFrases.forEach(frase => {
+                                                        const normalizada = frase.toLowerCase().trim();
+                                                        if (!frasesUnicas.some(f => f.toLowerCase().trim() === normalizada)) {
+                                                            frasesUnicas.push(frase);
+                                                        }
+                                                    });
+                                                    
+                                                    // Remover duplicatas aproximadas (conteúdo muito similar)
+                                                    const frasesFinais = [];
+                                                    frasesUnicas.forEach(frase => {
+                                                        const palavrasFrase = frase.toLowerCase()
+                                                            .replace(/[^\w\s]/g, ' ')
+                                                            .split(/\s+/)
+                                                            .filter(w => w.length > 2);
+                                                        
+                                                        const jaExiste = frasesFinais.some(f => {
+                                                            const palavrasF = f.toLowerCase()
+                                                                .replace(/[^\w\s]/g, ' ')
+                                                                .split(/\s+/)
+                                                                .filter(w => w.length > 2);
+                                                            
+                                                            if (palavrasF.length === 0 || palavrasFrase.length === 0) return false;
+                                                            
+                                                            // Calcular similaridade: palavras em comum
+                                                            const palavrasComuns = palavrasF.filter(w => palavrasFrase.includes(w)).length;
+                                                            const totalPalavras = Math.max(palavrasF.length, palavrasFrase.length);
+                                                            return palavrasComuns / totalPalavras > 0.6; // 60% de similaridade
+                                                        });
+                                                        
+                                                        if (!jaExiste) {
+                                                            frasesFinais.push(frase);
+                                                        }
+                                                    });
+                                                    
+                                                    // Combinar as frases em um resumo coerente
+                                                    if (frasesFinais.length === 0) {
+                                                        return textosLimpos.join(' ');
+                                                    }
+                                                    
+                                                    // Ordenar por tamanho (frases maiores primeiro, geralmente mais completas)
+                                                    frasesFinais.sort((a, b) => b.length - a.length);
+                                                    
+                                                    // Pegar as 3-4 frases mais relevantes
+                                                    const frasesSelecionadas = frasesFinais.slice(0, Math.min(4, frasesFinais.length));
+                                                    
+                                                    // Combinar em um texto fluido
+                                                    let resumo = '';
+                                                    if (frasesSelecionadas.length === 1) {
+                                                        resumo = frasesSelecionadas[0];
+                                                    } else {
+                                                        // Juntar as frases de forma natural
+                                                        resumo = frasesSelecionadas.join('. ');
+                                                    }
+                                                    
+                                                    // Garantir que termina com pontuação
+                                                    resumo = resumo.trim();
+                                                    if (resumo && !/[.!?]$/.test(resumo)) {
+                                                        resumo += '.';
+                                                    }
+                                                    
+                                                    return resumo;
+                                                };
+                                                
                                                 // Pegar justificativas dos votos majoritários
-                                                const votosMajoritarios = decisao === 'CULPADO' 
+                                                const isCulpado = (decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO');
+                                                const votosMajoritarios = isCulpado 
                                                     ? votos.filter(v => v.culpado) 
                                                     : votos.filter(v => !v.culpado);
                                                 const justificativas = votosMajoritarios
@@ -710,12 +880,14 @@ function ConsultarAnalises() {
                                                     .filter(j => j && j.trim());
                                                 
                                                 if (justificativas.length > 0) {
+                                                    const resumo = criarResumoJustificativas(justificativas);
+                                                    
                                                     return (
                                                         <div style={{
                                                             background: '#1E293B',
                                                             padding: '12px 15px',
                                                             borderRadius: '8px',
-                                                            borderLeft: `3px solid ${decisao === 'CULPADO' ? '#EF4444' : '#22C55E'}`
+                                                            borderLeft: `3px solid ${(decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') ? '#EF4444' : '#22C55E'}`
                                                         }}>
                                                             <div style={{
                                                                 color: '#94A3B8',
@@ -731,9 +903,10 @@ function ConsultarAnalises() {
                                                                 fontSize: '13px',
                                                                 lineHeight: '1.6',
                                                                 margin: 0,
-                                                                fontStyle: 'italic'
+                                                                fontStyle: 'italic',
+                                                                textAlign: 'justify'
                                                             }}>
-                                                                "{justificativas[0]}"
+                                                                "{resumo}"
                                                             </p>
                                                         </div>
                                                     );
