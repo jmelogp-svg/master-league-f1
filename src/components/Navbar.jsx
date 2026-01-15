@@ -59,7 +59,7 @@ function Navbar() {
                 <Link to="/regulamento" className={`nav-link-btn ${getActiveRoute('/regulamento')}`} onClick={() => setIsMenuOpen(false)}>REGULAMENTO</Link>
                 <Link to="/halloffame" className={`nav-link-btn ${getActiveRoute('/halloffame')}`} onClick={() => setIsMenuOpen(false)}>HALL DA FAMA</Link>
                 <Link to="/powerranking" className={`nav-link-btn ${getActiveRoute('/powerranking')}`} style={{color:'#FFD700'}} onClick={() => setIsMenuOpen(false)}>POWER RANKING</Link>
-                <Link to="/minicup" className={`nav-link-btn ${getActiveRoute('/minicup')}`} style={{color:'#FF8C00'}} onClick={() => setIsMenuOpen(false)}>🏆 MINICUP</Link>
+                <a href="https://masterleaguet20-inscricao.base44.app/login?from_url=https%3A%2F%2Fmasterleaguet20-inscricao.base44.app%2F" target="_blank" rel="noopener noreferrer" className={`nav-link-btn ${getActiveRoute('/inscricao')}`} onClick={() => setIsMenuOpen(false)}>INSCRIÇÃO</a>
                 
                 <Link to="/dashboard/escolher-tipo" className="btn-login" onClick={() => setIsMenuOpen(false)}>MOTORHOME</Link>
             </div>

@@ -127,6 +127,15 @@ input:focus, textarea:focus, select:focus, button:focus {
     color: #fff;
 }
 
+.btn-regulamento {
+    background: linear-gradient(180deg, #8B1A1A 0%, #5C0A0A 100%);
+    color: #fff;
+}
+
+.btn-regulamento:hover {
+    background: linear-gradient(180deg, #A01F1F 0%, #6D0D0D 100%);
+}
+
 .btn-instagram {
     background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
     color: #fff;
@@ -3886,6 +3895,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .btn-inscricao svg { background: linear-gradient(90deg, #60a5fa 0%, #0b2a4a 100%) !important; color: white !important; }
     .btn-whatsapp svg { background: linear-gradient(180deg, #25D366 0%, #1DA851 100%) !important; color: white !important; }
     .btn-motorhome svg { background: linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%) !important; color: white !important; }
+    .btn-regulamento svg { background: linear-gradient(180deg, #8B1A1A 0%, #5C0A0A 100%) !important; color: white !important; }
     .btn-instagram svg { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%) !important; color: white !important; }
 
     .hero-btn-label {

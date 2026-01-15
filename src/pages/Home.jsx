@@ -1633,6 +1633,17 @@ function Home() {
                                     <span className="hero-btn-label">MOTORHOME</span>
                                 </button>
 
+                                <Link to="/regulamento" className="btn-regulamento hero-btn" title="Regulamento">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                                        <polyline points="10 9 9 9 8 9"></polyline>
+                                    </svg>
+                                    <span className="hero-btn-label">REGULAMENTO</span>
+                                </Link>
+
                                 <button className="btn-primary hero-btn" onClick={() => setViewType('drivers')} title="Tabelas">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -1641,14 +1652,6 @@ function Home() {
                                     </svg>
                                     <span className="hero-btn-label">TABELAS</span>
                                 </button>
-
-                                <a href="https://masterleaguet20-inscricao.base44.app/login?from_url=https%3A%2F%2Fmasterleaguet20-inscricao.base44.app%2F" target="_blank" rel="noopener noreferrer" className="btn-inscricao hero-btn" title="Inscrição">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M12 20h9"/>
-                                        <path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                                    </svg>
-                                    <span className="hero-btn-label">INSCRIÇÃO</span>
-                                </a>
 
                                 <a href="https://chat.whatsapp.com/K3UKMSXPoZv8BaYSMGRCuK" target="_blank" rel="noopener noreferrer" className="btn-whatsapp hero-btn" title="WhatsApp">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -1933,6 +1936,7 @@ function Home() {
                             <button className={`tab-btn ${getTabClass('drivers')}`} onClick={() => navigate('/?view=drivers')}>PILOTOS</button>
                             <button className={`tab-btn ${getTabClass('teams')}`} onClick={() => navigate('/?view=teams')}>EQUIPES</button>
                             <button className={`tab-btn ${getTabClass('results')}`} onClick={() => navigate('/?view=results')}>RESULTADOS</button>
+                            <Link to="/minicup" className={`tab-btn ${location.pathname === '/minicup' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} style={{color: '#FF8C00'}}>🏆 MINICUP</Link>
                         </div>
                         <div className="section-header">
                             <div className="title-container">
