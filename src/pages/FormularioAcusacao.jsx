@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { usePilotosData, useCalendarioT20 } from '../hooks/useAnalises';
-import { notifyAdminNewAccusation } from '../utils/emailService';
+import { usePilotosData, useCalendarioT20, canSubmitAcusacao } from '../hooks/useAnalises';
+import { notifyAdminNewAccusation, notifyAccusedDefenseRequest } from '../utils/emailService';
 import { getVideoEmbedUrl } from '../utils/videoEmbed';
 import CustomAlert from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
@@ -210,6 +210,15 @@ function FormularioAcusacao() {
             return;
         }
 
+        // Validar deadline
+        if (pilotoLogado && !canSubmitAcusacao(pilotoLogado.grid)) {
+            const mensagem = pilotoLogado.grid === 'light' 
+                ? '❌ Prazo para envio de acusação encerrado!\n\nGrid Light: Acusações podem ser enviadas de Segunda 20:15h até Terça 20:00h BRT.'
+                : '❌ Prazo para envio de acusação encerrado!\n\nGrid Carreira: Acusações podem ser enviadas até Sexta 20:00h BRT.';
+            await showAlert(mensagem, 'Prazo Encerrado');
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -252,6 +261,20 @@ function FormularioAcusacao() {
             notifyAdminNewAccusation(dadosAcusacao)
                 .then(result => console.log('📨 Notificação ao admin:', result))
                 .catch(err => console.warn('⚠️ Erro notificação admin:', err));
+
+            // 🔔 Notificar PILOTO ACUSADO para enviar DEFESA (apenas acusação normal)
+            if (dadosAcusacao.status === 'aguardando_defesa') {
+                notifyAccusedDefenseRequest({
+                    dadosAcusacao,
+                    acusado: {
+                        nome: pilotoAcusadoSelecionado?.nome || formData.pilotoAcusado,
+                        email: pilotoAcusadoSelecionado?.email || null,
+                        whatsapp: pilotoAcusadoSelecionado?.whatsapp || null,
+                    },
+                })
+                    .then(result => console.log('📨 Notificação ao acusado (defesa):', result))
+                    .catch(err => console.warn('⚠️ Erro notificação acusado:', err));
+            }
             
             // Mensagem para o piloto (cópia) - inclui código do lance
             const mensagemPiloto = encodeURIComponent(

@@ -251,3 +251,230 @@ export function getBRTDeadline(dayOffset = 1) {
 export function isDeadlineExceeded(deadline) {
     return new Date() > deadline;
 }
+
+/**
+ * Obtém o horário atual em BRT (UTC-3)
+ */
+function getCurrentBRT() {
+    const now = new Date();
+    return new Date(now.getTime() - (3 * 60 * 60 * 1000));
+}
+
+/**
+ * Verifica se pode enviar acusação baseado no grid e horário atual
+ * Grid Light: pode enviar de Segunda 20:15h até Terça 20:00h BRT
+ * Grid Carreira: pode enviar até Sexta 20:00h BRT
+ */
+export function canSubmitAcusacao(grid) {
+    const brtNow = getCurrentBRT();
+    const dayOfWeek = brtNow.getDay(); // 0 = Domingo, 1 = Segunda, 2 = Terça, ..., 5 = Sexta
+    const hours = brtNow.getHours();
+    const minutes = brtNow.getMinutes();
+    
+    if (grid === 'light') {
+        // Grid Light: Segunda 20:15h até Terça 20:00h
+        if (dayOfWeek === 1) {
+            // Segunda: só pode se for após 20:15h
+            return hours > 20 || (hours === 20 && minutes >= 15);
+        } else if (dayOfWeek === 2) {
+            // Terça: só pode se for antes de 20:00h
+            return hours < 20 || (hours === 20 && minutes < 0);
+        }
+        return false; // Outros dias não podem
+    } else {
+        // Grid Carreira: pode enviar até Sexta 20:00h
+        if (dayOfWeek === 5) {
+            // Sexta: só pode se for antes de 20:00h
+            return hours < 20 || (hours === 20 && minutes < 0);
+        } else if (dayOfWeek < 5) {
+            // Segunda a Quinta: pode enviar
+            return true;
+        }
+        return false; // Fim de semana não pode
+    }
+}
+
+/**
+ * Calcula o deadline para defesa baseado na data da acusação
+ * Grid Light: até Quarta 12:00h BRT (1 dia após receber acusação)
+ * Grid Carreira: até Sábado 12:00h BRT (1 dia após receber acusação)
+ */
+export function getDefesaDeadline(acusacaoDate, grid) {
+    if (!acusacaoDate) return null;
+    const acusacao = new Date(acusacaoDate);
+    const deadline = new Date(acusacao);
+    // Adicionar 1 dia e definir para 12:00h (meio-dia)
+    deadline.setDate(deadline.getDate() + 1);
+    deadline.setHours(12, 0, 0, 0);
+    return deadline;
+}
+
+/**
+ * Verifica se pode enviar defesa baseado na data da acusação e grid
+ * Grid Light: até Quarta 12:00h BRT (após receber acusação)
+ * Grid Carreira: até Sábado 12:00h BRT (após receber acusação)
+ */
+export function canSubmitDefesa(acusacaoDate, grid) {
+    if (!acusacaoDate) return false;
+    const deadline = getDefesaDeadline(acusacaoDate, grid);
+    if (!deadline) return false;
+    const now = new Date();
+    return now <= deadline;
+}
+
+/**
+ * Atualiza automaticamente lances com deadline de defesa expirado
+ * Muda status de 'aguardando_defesa' para 'aguardando_analise' quando o prazo passa
+ */
+export async function atualizarLancesComDefesaExpirada(supabase) {
+    try {
+        // Buscar todos os lances aguardando defesa
+        const { data: lancesPendentes, error: fetchError } = await supabase
+            .from('notificacoes_admin')
+            .select('id, dados, created_at')
+            .eq('tipo', 'nova_acusacao')
+            .eq('dados->>status', 'aguardando_defesa');
+
+        if (fetchError) {
+            console.error('❌ Erro ao buscar lances pendentes:', fetchError);
+            return { success: false, error: fetchError, updated: 0 };
+        }
+
+        if (!lancesPendentes || lancesPendentes.length === 0) {
+            return { success: true, updated: 0, message: 'Nenhum lance pendente encontrado' };
+        }
+
+        const now = new Date();
+        const lancesParaAtualizar = [];
+
+        // Verificar quais lances têm deadline expirado
+        for (const lance of lancesPendentes) {
+            const dados = lance.dados || {};
+            
+            // Verificar se já tem defesa enviada - se tiver, não atualizar
+            if (dados.defesa && dados.defesa.descricaoDefesa) {
+                continue; // Já tem defesa, não atualizar
+            }
+            
+            const grid = dados.acusador?.grid || dados.grid;
+            const dataAcusacao = lance.created_at || dados.dataEnvio;
+            
+            if (!dataAcusacao || !grid) continue;
+
+            const deadline = getDefesaDeadline(dataAcusacao, grid);
+            if (!deadline) continue;
+
+            // Se o deadline passou, marcar para atualizar
+            if (now > deadline) {
+                lancesParaAtualizar.push({
+                    id: lance.id,
+                    dadosAtualizados: {
+                        ...dados,
+                        status: 'aguardando_analise',
+                        // Manter defesa se existir, senão deixar null
+                        defesa: dados.defesa || null
+                    }
+                });
+            }
+        }
+
+        if (lancesParaAtualizar.length === 0) {
+            return { success: true, updated: 0, message: 'Nenhum lance com deadline expirado' };
+        }
+
+        // Atualizar todos os lances de uma vez
+        const updates = lancesParaAtualizar.map(lance => 
+            supabase
+                .from('notificacoes_admin')
+                .update({
+                    dados: lance.dadosAtualizados,
+                    lido: false // Marcar como não lido para alertar admin
+                })
+                .eq('id', lance.id)
+        );
+
+        const results = await Promise.all(updates);
+        const errors = results.filter(r => r.error);
+        
+        if (errors.length > 0) {
+            console.error('❌ Erros ao atualizar alguns lances:', errors);
+            return { 
+                success: false, 
+                updated: lancesParaAtualizar.length - errors.length,
+                errors: errors.map(e => e.error),
+                total: lancesParaAtualizar.length
+            };
+        }
+
+        console.log(`✅ ${lancesParaAtualizar.length} lance(s) atualizado(s) para 'aguardando_analise' (deadline de defesa expirado)`);
+        
+        // Notificar todos os jurados cadastrados sobre os lances movidos para análise
+        try {
+            const { data: juradosAtivos, error: errorJurados } = await supabase
+                .from('jurados')
+                .select('nome, whatsapp, email_google')
+                .eq('ativo', true)
+                .not('whatsapp', 'is', null);
+            
+            if (!errorJurados && juradosAtivos && juradosAtivos.length > 0) {
+                const SITE_URL = 'https://masterleaguef1.com.br';
+                const { sendWhatsappNotification } = await import('../utils/whatsappNotify');
+                
+                for (const lanceAtualizado of lancesParaAtualizar) {
+                    const dados = lanceAtualizado.dadosAtualizados;
+                    const codigoLance = dados.codigoLance || 'N/A';
+                    const acusador = dados.acusador?.nome || dados.acusador?.gamertag || 'N/A';
+                    const acusado = dados.acusado?.nome || dados.acusado?.gamertag || 'N/A';
+                    const etapa = dados.etapa?.circuit 
+                        ? `${dados.etapa.round} - ${dados.etapa.circuit}`
+                        : (dados.etapa?.round || 'N/A');
+                    const grid = dados.acusador?.grid?.toUpperCase() || 'N/A';
+                    
+                    const mensagemJurados = `👨‍⚖️ *NOVO LANCE PARA ANÁLISE - MASTER LEAGUE F1*\n\n` +
+                        `🔖 *Código:* ${codigoLance}\n` +
+                        `🏁 *Etapa:* ${etapa}\n` +
+                        `🏎️ *Grid:* ${grid}\n` +
+                        `👤 *Acusador:* ${acusador}\n` +
+                        `🎯 *Acusado:* ${acusado}\n` +
+                        `⚠️ *Defesa não enviada no prazo*\n\n` +
+                        `📋 *Acesse o Painel do Júri para analisar:*\n` +
+                        `🔗 ${SITE_URL}/painel-veredito\n\n` +
+                        `⏰ ${new Date().toLocaleString('pt-BR')}`;
+                    
+                    // Enviar notificação para cada jurado ativo
+                    for (const jurado of juradosAtivos) {
+                        if (jurado.whatsapp) {
+                            try {
+                                await sendWhatsappNotification({
+                                    phone: jurado.whatsapp,
+                                    email: jurado.email_google || `${jurado.whatsapp}@masterleaguef1.com`,
+                                    nome: jurado.nome || 'Jurado',
+                                    message: mensagemJurados
+                                });
+                                // Pequeno delay entre envios
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                            } catch (err) {
+                                console.error(`❌ Erro ao enviar notificação para jurado ${jurado.nome}:`, err);
+                            }
+                        }
+                    }
+                }
+                
+                console.log(`📬 Notificações enviadas para ${juradosAtivos.length} jurado(s) sobre ${lancesParaAtualizar.length} lance(s) movido(s) para análise`);
+            }
+        } catch (err) {
+            console.error('⚠️ Erro ao enviar notificações para jurados:', err);
+            // Não bloquear o fluxo principal se a notificação falhar
+        }
+        
+        return { 
+            success: true, 
+            updated: lancesParaAtualizar.length,
+            message: `${lancesParaAtualizar.length} lance(s) movido(s) para análise`
+        };
+
+    } catch (error) {
+        console.error('❌ Erro ao atualizar lances com defesa expirada:', error);
+        return { success: false, error: error.message, updated: 0 };
+    }
+}

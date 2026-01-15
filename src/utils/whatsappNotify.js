@@ -21,7 +21,9 @@ export async function sendWhatsappNotification({ phone, email, nome, message }) 
                 email: email || `${whatsapp}@masterleaguef1.com`,
                 whatsapp,
                 nomePiloto: nome || 'Piloto',
-                tipo: 'notificacao_proposta',
+                // Reaproveita o caminho de "notificação" já implementado na Edge Function
+                // (não gera código; envia mensagemCustomizada diretamente).
+                tipo: 'notificacao_aprovacao',
                 skipPilotoCheck: true,
                 mensagemCustomizada: message,
             },

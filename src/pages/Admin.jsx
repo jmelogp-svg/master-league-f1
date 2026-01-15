@@ -5,6 +5,7 @@ import VideoEmbed from '../components/VideoEmbed';
 import { clearLeagueDataCache } from '../hooks/useLeagueData';
 import { isMobileDevice } from '../utils/deviceDetection';
 import { sendWhatsappNotification } from '../utils/whatsappNotify';
+import { atualizarLancesComDefesaExpirada } from '../hooks/useAnalises';
 import '../index.css';
 
 function Admin() {
@@ -368,13 +369,18 @@ function Admin() {
 
     // Carregar notificações quando mudar para aba stewards + auto-refresh a cada 10 segundos
     useEffect(() => {
+        let intervalId;
         if (isAuthenticated && activeTab === 'stewards') {
             // Primeira carga: Mostra loading normal
             fetchNotificacoes(false);
             
             // Auto-refresh a cada 10 segundos para capturar mudanças de status
+            intervalId = setInterval(() => {
+                fetchNotificacoes(false);
+            }, 10000);
+
             return () => {
-                clearInterval(intervalId);
+                if (intervalId) clearInterval(intervalId);
             };
         }
         }, [activeTab, isAuthenticated]);
@@ -775,6 +781,9 @@ function Admin() {
         }
         
         try {
+            // Atualizar lances com deadline de defesa expirado antes de buscar
+            await atualizarLancesComDefesaExpirada(supabase);
+            
             // Buscar apenas acusações (defesas são incorporadas dentro delas)
             const { data, error } = await supabase
                 .from('notificacoes_admin')

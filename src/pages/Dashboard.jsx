@@ -2642,7 +2642,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             style={{
                                                 opacity: isReadOnly ? 0.5 : 1,
                                                 cursor: isReadOnly ? 'not-allowed' : 'pointer',
-                                                padding: deviceInfo.isMobile ? '12px' : '10px 20px',
+                                                padding: deviceInfo.isMobile ? '10px 8px' : '10px 20px',
                                                 background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)',
                                                 color: 'white',
                                                 border: 'none',
@@ -2650,12 +2650,14 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                 fontWeight: '700',
                                                 fontSize: deviceInfo.isMobile ? '1.2rem' : '0.8rem',
                                                 display: 'flex',
+                                                flexDirection: deviceInfo.isMobile ? 'column' : 'row',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                gap: deviceInfo.isMobile ? '0' : '6px',
+                                                gap: deviceInfo.isMobile ? '4px' : '6px',
                                                 transition: 'all 0.2s ease',
                                                 width: deviceInfo.isMobile ? '100%' : '170px',
-                                                height: deviceInfo.isMobile ? '44px' : '40px',
+                                                height: deviceInfo.isMobile ? 'auto' : '40px',
+                                                minHeight: deviceInfo.isMobile ? '60px' : '40px',
                                                 boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
                                                 cursor: 'pointer',
                                                 flex: deviceInfo.isMobile ? '1' : 'none'
@@ -2674,16 +2676,24 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             onMouseUp={(e) => {
                                                 e.target.style.transform = 'translateY(-2px)';
                                             }}
-                                            title={deviceInfo.isMobile ? 'Enviar Acusação' : ''}
+                                            title={deviceInfo.isMobile ? '' : ''}
                                         >
-                                            {deviceInfo.isMobile ? '⚖️' : '⚖️ Enviar Acusação'}
+                                            {deviceInfo.isMobile ? (
+                                                <>
+                                                    <span>⚖️</span>
+                                                    <span style={{ fontSize: '0.65rem', lineHeight: '1', whiteSpace: 'nowrap' }}>Enviar Análise</span>
+                                                </>
+                                            ) : (
+                                                '⚖️ Enviar Acusação'
+                                            )}
                                         </button>
                                         
                                         {/* Botão de Defesa com Badge de Notificações */}
                                         <div style={{ 
                                             position: 'relative', 
                                             width: deviceInfo.isMobile ? '100%' : '170px', 
-                                            height: deviceInfo.isMobile ? '44px' : '40px',
+                                            height: deviceInfo.isMobile ? 'auto' : '40px',
+                                            minHeight: deviceInfo.isMobile ? '60px' : '40px',
                                             flex: deviceInfo.isMobile ? '1' : 'none'
                                         }}>
                                             {acusacoesPendentes > 0 && (
@@ -2715,7 +2725,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                 style={{
                                                     opacity: isReadOnly ? 0.5 : 1,
                                                     cursor: isReadOnly ? 'not-allowed' : 'pointer',
-                                                    padding: deviceInfo.isMobile ? '12px' : '10px 20px',
+                                                    padding: deviceInfo.isMobile ? '10px 8px' : '10px 20px',
                                                     background: acusacoesPendentes > 0 
                                                         ? 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' 
                                                         : 'linear-gradient(135deg, #22C55E 0%, #15803D 100%)',
@@ -2725,12 +2735,14 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                     fontWeight: '700',
                                                     fontSize: deviceInfo.isMobile ? '1.2rem' : '0.8rem',
                                                     display: 'flex',
+                                                    flexDirection: deviceInfo.isMobile ? 'column' : 'row',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    gap: deviceInfo.isMobile ? '0' : '6px',
+                                                    gap: deviceInfo.isMobile ? '4px' : '6px',
                                                     transition: 'all 0.2s ease',
                                                     width: '100%',
-                                                    height: '100%',
+                                                    height: deviceInfo.isMobile ? 'auto' : '100%',
+                                                    minHeight: deviceInfo.isMobile ? '60px' : '40px',
                                                     boxShadow: acusacoesPendentes > 0 
                                                         ? '0 4px 15px rgba(245, 158, 11, 0.5)' 
                                                         : '0 4px 15px rgba(34, 197, 94, 0.4)',
@@ -2743,9 +2755,16 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                 onMouseLeave={(e) => {
                                                     e.currentTarget.style.transform = 'translateY(0)';
                                                 }}
-                                                title={deviceInfo.isMobile ? (acusacoesPendentes > 0 ? 'Defender-se!' : 'Enviar Defesa') : ''}
+                                                title={deviceInfo.isMobile ? '' : ''}
                                             >
-                                                {deviceInfo.isMobile ? '🛡️' : `🛡️ ${acusacoesPendentes > 0 ? 'Defender-se!' : 'Enviar Defesa'}`}
+                                                {deviceInfo.isMobile ? (
+                                                    <>
+                                                        <span>🛡️</span>
+                                                        <span style={{ fontSize: '0.65rem', lineHeight: '1', whiteSpace: 'nowrap' }}>Enviar Defesa</span>
+                                                    </>
+                                                ) : (
+                                                    `🛡️ ${acusacoesPendentes > 0 ? 'Defender-se!' : 'Enviar Defesa'}`
+                                                )}
                                             </button>
                                         </div>
                                         <button 
@@ -2755,7 +2774,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             style={{
                                                 opacity: isReadOnly ? 0.5 : 1,
                                                 cursor: isReadOnly ? 'not-allowed' : 'pointer',
-                                                padding: deviceInfo.isMobile ? '12px' : '10px 20px',
+                                                padding: deviceInfo.isMobile ? '10px 8px' : '10px 20px',
                                                 background: 'linear-gradient(135deg, #06B6D4 0%, #0E7490 100%)',
                                                 color: 'white',
                                                 border: 'none',
@@ -2763,12 +2782,14 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                 fontWeight: '700',
                                                 fontSize: deviceInfo.isMobile ? '1.2rem' : '0.8rem',
                                                 display: 'flex',
+                                                flexDirection: deviceInfo.isMobile ? 'column' : 'row',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                gap: deviceInfo.isMobile ? '0' : '6px',
+                                                gap: deviceInfo.isMobile ? '4px' : '6px',
                                                 transition: 'all 0.2s ease',
                                                 width: deviceInfo.isMobile ? '100%' : '170px',
-                                                height: deviceInfo.isMobile ? '44px' : '40px',
+                                                height: deviceInfo.isMobile ? 'auto' : '40px',
+                                                minHeight: deviceInfo.isMobile ? '60px' : '40px',
                                                 boxShadow: '0 4px 15px rgba(6, 182, 212, 0.4)',
                                                 cursor: 'pointer',
                                                 flex: deviceInfo.isMobile ? '1' : 'none'
@@ -2787,9 +2808,16 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             onMouseUp={(e) => {
                                                 e.target.style.transform = 'translateY(-2px)';
                                             }}
-                                            title={deviceInfo.isMobile ? 'Consultar Análise' : ''}
+                                            title={deviceInfo.isMobile ? '' : ''}
                                         >
-                                            {deviceInfo.isMobile ? '📋' : '📋 Consultar Análise'}
+                                            {deviceInfo.isMobile ? (
+                                                <>
+                                                    <span>📋</span>
+                                                    <span style={{ fontSize: '0.65rem', lineHeight: '1', whiteSpace: 'nowrap' }}>Ver Análise</span>
+                                                </>
+                                            ) : (
+                                                '📋 Ver Análise'
+                                            )}
                                         </button>
                                     </div>
                                 </div>
@@ -3099,7 +3127,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                         <p style={{
                             color: '#E2E8F0',
                             lineHeight: '1.8',
-                            fontSize: deviceInfo.isMobile ? '0.875rem' : '1rem',
+                            fontSize: deviceInfo.isMobile ? '0.75rem' : '1rem',
                             fontStyle: 'italic',
                             margin: 0,
                             textAlign: 'justify'

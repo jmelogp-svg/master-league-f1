@@ -8,6 +8,8 @@ export const ADMIN_CONFIG = {
     telegramChatId: '5176212626', // Chat ID do Telegram do admin
 };
 
+const SITE_URL = 'https://masterleaguef1.com.br';
+
 // Bot do Telegram da Master League F1
 const TELEGRAM_BOT_TOKEN = '8564635113:AAGjr7wnmepztm3CwmZoSw5RmC8BO1pNG04';
 
@@ -314,6 +316,57 @@ ${dadosAcusacao.descricao}
 }
 
 /**
+ * Notifica o PILOTO ACUSADO para enviar DEFESA (somente WhatsApp).
+ * Importante: só deve ser chamado quando status = 'aguardando_defesa' (acusação normal).
+ */
+export async function notifyAccusedDefenseRequest({ dadosAcusacao, acusado }) {
+    try {
+        if (!dadosAcusacao || !acusado) return { whatsapp: false };
+
+        // Não notificar se for retirada de bug (não existe defesa)
+        if (dadosAcusacao.tipoSolicitacao === 'retirada_bug' || dadosAcusacao.status !== 'aguardando_defesa') {
+            return { whatsapp: false, skipped: true };
+        }
+
+        const codigo = dadosAcusacao.codigoLance || 'N/A';
+        const etapa = dadosAcusacao.etapa?.circuit
+            ? `${dadosAcusacao.etapa.round} - ${dadosAcusacao.etapa.circuit}`
+            : `${dadosAcusacao.etapa?.round || '-'}`;
+
+        const motorhomeUrl = `${SITE_URL}/dashboard`;
+
+        const msgWhats = `🛡️ *VOCÊ FOI ACUSADO - MASTER LEAGUE F1*\n\n` +
+            `🔖 *Código:* ${codigo}\n` +
+            `👤 *Acusador:* ${dadosAcusacao.acusador?.nome || '-'}\n` +
+            `🏁 *Etapa:* ${etapa}\n\n` +
+            `📝 *Descrição:*\n${dadosAcusacao.descricao || '-'}\n\n` +
+            `🎥 *Vídeo do lance:*\n${dadosAcusacao.videoLink || '-'}\n\n` +
+            `⏰ *Prazo:* até *12:00h do dia seguinte*.\n` +
+            `✅ Envie o *vídeo de defesa* pelo *link verde do Motorhome*.\n\n` +
+            `🔗 Motorhome: ${motorhomeUrl}`;
+
+        const resultados = { whatsapp: false };
+
+        // WhatsApp (se tiver número)
+        if (acusado.whatsapp) {
+            const w = await sendWhatsappNotification({
+                phone: acusado.whatsapp,
+                email: acusado.email || `${String(acusado.whatsapp).replace(/\D/g, '')}@masterleaguef1.com`,
+                nome: acusado.nome || 'Piloto',
+                message: msgWhats,
+            });
+            resultados.whatsapp = !!w.success;
+            if (!w.success) console.warn('⚠️ Falha ao notificar acusado via WhatsApp:', w.error);
+        }
+
+        return resultados;
+    } catch (err) {
+        console.error('❌ Erro ao notificar acusado:', err);
+        return { whatsapp: false, error: err?.message || String(err) };
+    }
+}
+
+/**
  * Envia email via Supabase Edge Function
  * Necessário ter a Edge Function 'send-email' configurada
  */
@@ -396,7 +449,7 @@ export function getEmailTemplate(type, data) {
                     </div>
 
                     <p>O piloto acusado terá tempo para enviar sua defesa.</p>
-                    <p><strong>Acompanhe aqui:</strong> <a href="https://masterleague-f1.com/analises">Painel de Análises</a></p>
+                    <p><strong>Acompanhe aqui:</strong> <a href="${SITE_URL}/analises">Painel de Análises</a></p>
                     
                     <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
                     <p style="font-size: 12px; color: #666;">Master League F1 - Stewards</p>
@@ -420,7 +473,7 @@ export function getEmailTemplate(type, data) {
                     </div>
 
                     <p>Você tem direito a enviar sua <strong>DEFESA</strong>.</p>
-                    <p><a href="https://masterleague-f1.com/analises" style="background: #06B6D4; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Enviar Defesa</a></p>
+                    <p><a href="${data.defesa_url || `${SITE_URL}/defesa`}" style="background: #06B6D4; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Enviar Defesa</a></p>
                     
                     <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
                     <p style="font-size: 12px; color: #666;">Master League F1 - Stewards</p>
@@ -443,7 +496,7 @@ export function getEmailTemplate(type, data) {
                     </div>
 
                     <p>Os Stewards analisarão sua defesa em breve.</p>
-                    <p><a href="https://masterleague-f1.com/analises" style="background: #06B6D4; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Acompanhar</a></p>
+                    <p><a href="${SITE_URL}/analises" style="background: #06B6D4; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Acompanhar</a></p>
                     
                     <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
                     <p style="font-size: 12px; color: #666;">Master League F1 - Stewards</p>
@@ -469,7 +522,7 @@ export function getEmailTemplate(type, data) {
                         ${data.explanation ? `<p><strong>Explicação:</strong></p><p>${data.explanation}</p>` : ''}
                     </div>
 
-                    <p><a href="https://masterleague-f1.com/analises" style="background: #3B82F6; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Ver Análise Completa</a></p>
+                    <p><a href="${SITE_URL}/analises" style="background: #3B82F6; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Ver Análise Completa</a></p>
                     
                     <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
                     <p style="font-size: 12px; color: #666;">Master League F1 - Stewards</p>
@@ -522,6 +575,8 @@ export function getEmailTemplate(type, data) {
  */
 export async function notifyAdminNewDefense(dadosDefesa) {
     console.log('🛡️ Iniciando notificação de defesa ao admin...', dadosDefesa);
+
+    const skipDatabaseUpdate = !!dadosDefesa?.skipDatabaseUpdate;
     
     const resultados = {
         whatsapp: false,
@@ -552,50 +607,54 @@ ${dadosDefesa.videoLinkDefesa ? `🎥 Vídeo: ${dadosDefesa.videoLinkDefesa}` : 
 ⏰ ${new Date().toLocaleString('pt-BR')}`;
 
     // 1. ATUALIZAR a acusação existente com os dados da defesa (incorporar ao mesmo registro)
-    try {
-        console.log('💾 Atualizando acusação existente com defesa...');
-        
-        // Buscar a acusação original pelo código do lance
-        const { data: acusacaoExistente, error: fetchError } = await supabase
-            .from('notificacoes_admin')
-            .select('*')
-            .eq('tipo', 'nova_acusacao')
-            .filter('dados->>codigoLance', 'eq', dadosDefesa.codigoLance)
-            .single();
-        
-        if (fetchError || !acusacaoExistente) {
-            console.error('❌ Acusação original não encontrada:', fetchError);
-        } else {
-            // Incorporar a defesa nos dados da acusação
-            const dadosAtualizados = {
-                ...acusacaoExistente.dados,
-                defesa: {
-                    defensor: dadosDefesa.defensor,
-                    descricaoDefesa: dadosDefesa.descricaoDefesa,
-                    videoLinkDefesa: dadosDefesa.videoLinkDefesa,
-                    videoEmbedDefesa: dadosDefesa.videoEmbedDefesa,
-                    dataEnvioDefesa: dadosDefesa.dataEnvio,
-                },
-                status: 'aguardando_analise', // Lance completo, pronto para júri
-            };
+    // OBS: quando a defesa é enviada pelo FormularioDefesa.jsx, ele já atualiza o banco.
+    // Aqui deixamos a atualização como fallback (e dá para desabilitar via skipDatabaseUpdate).
+    if (!skipDatabaseUpdate) {
+        try {
+            console.log('💾 Atualizando acusação existente com defesa...');
             
-            const { error: updateError } = await supabase
+            // Buscar a acusação original pelo código do lance
+            const { data: acusacaoExistente, error: fetchError } = await supabase
                 .from('notificacoes_admin')
-                .update({
-                    dados: dadosAtualizados,
-                    lido: false, // Marcar como não lido para admin ver a atualização
-                })
-                .eq('id', acusacaoExistente.id);
+                .select('*')
+                .eq('tipo', 'nova_acusacao')
+                .filter('dados->>codigoLance', 'eq', dadosDefesa.codigoLance)
+                .single();
             
-            if (updateError) {
-                console.error('❌ Erro ao atualizar acusação com defesa:', updateError);
+            if (fetchError || !acusacaoExistente) {
+                console.error('❌ Acusação original não encontrada:', fetchError);
             } else {
-                resultados.database = true;
-                console.log('✅ Acusação atualizada com defesa!');
+                // Incorporar a defesa nos dados da acusação
+                const dadosAtualizados = {
+                    ...acusacaoExistente.dados,
+                    defesa: {
+                        defensor: dadosDefesa.defensor,
+                        descricaoDefesa: dadosDefesa.descricaoDefesa,
+                        videoLinkDefesa: dadosDefesa.videoLinkDefesa,
+                        videoEmbedDefesa: dadosDefesa.videoEmbedDefesa,
+                        dataEnvioDefesa: dadosDefesa.dataEnvio,
+                    },
+                    status: 'aguardando_analise', // Lance completo, pronto para júri
+                };
+                
+                const { error: updateError } = await supabase
+                    .from('notificacoes_admin')
+                    .update({
+                        dados: dadosAtualizados,
+                        lido: false, // Marcar como não lido para admin ver a atualização
+                    })
+                    .eq('id', acusacaoExistente.id);
+                
+                if (updateError) {
+                    console.error('❌ Erro ao atualizar acusação com defesa:', updateError);
+                } else {
+                    resultados.database = true;
+                    console.log('✅ Acusação atualizada com defesa!');
+                }
             }
+        } catch (err) {
+            console.error('❌ Exceção ao atualizar acusação:', err);
         }
-    } catch (err) {
-        console.error('❌ Exceção ao atualizar acusação:', err);
     }
 
     // 2. Enviar via Telegram
@@ -607,6 +666,72 @@ ${dadosDefesa.videoLinkDefesa ? `🎥 Vídeo: ${dadosDefesa.videoLinkDefesa}` : 
         resultados.whatsapp = await sendWhatsAppMessage(mensagemTelegram);
     } catch (err) {
         console.error('❌ Falha ao enviar notificações:', err);
+    }
+
+    // 3. Notificar todos os jurados cadastrados quando status mudar para aguardando_analise
+    try {
+        console.log('👨‍⚖️ Buscando jurados ativos para notificação...');
+        const { data: juradosAtivos, error: errorJurados } = await supabase
+            .from('jurados')
+            .select('nome, whatsapp, email_google')
+            .eq('ativo', true)
+            .not('whatsapp', 'is', null);
+        
+        if (!errorJurados && juradosAtivos && juradosAtivos.length > 0) {
+            const codigoLance = dadosDefesa.codigoLance || 'N/A';
+            const acusador = dadosDefesa.acusacaoOriginal?.acusador?.nome || dadosDefesa.acusacaoOriginal?.acusador?.gamertag || 'N/A';
+            const acusado = dadosDefesa.defensor?.nome || dadosDefesa.defensor?.gamertag || 'N/A';
+            const etapa = dadosDefesa.acusacaoOriginal?.etapa?.circuit 
+                ? `${dadosDefesa.acusacaoOriginal.etapa.round} - ${dadosDefesa.acusacaoOriginal.etapa.circuit}`
+                : (dadosDefesa.acusacaoOriginal?.etapa?.round || 'N/A');
+            const grid = dadosDefesa.defensor?.grid?.toUpperCase() || 'N/A';
+            
+            const mensagemJurados = `👨‍⚖️ *NOVO LANCE PARA ANÁLISE - MASTER LEAGUE F1*\n\n` +
+                `🔖 *Código:* ${codigoLance}\n` +
+                `🏁 *Etapa:* ${etapa}\n` +
+                `🏎️ *Grid:* ${grid}\n` +
+                `👤 *Acusador:* ${acusador}\n` +
+                `🎯 *Acusado:* ${acusado}\n\n` +
+                `📋 *Acesse o Painel do Júri para analisar:*\n` +
+                `🔗 ${SITE_URL}/painel-veredito\n\n` +
+                `⏰ ${new Date().toLocaleString('pt-BR')}`;
+            
+            // Enviar notificação para cada jurado ativo
+            let sucessosJurados = 0;
+            for (const jurado of juradosAtivos) {
+                if (jurado.whatsapp) {
+                    try {
+                        const result = await sendWhatsappNotification({
+                            phone: jurado.whatsapp,
+                            email: jurado.email_google || `${jurado.whatsapp}@masterleaguef1.com`,
+                            nome: jurado.nome || 'Jurado',
+                            message: mensagemJurados
+                        });
+                        
+                        if (result.success) {
+                            sucessosJurados++;
+                            console.log(`✅ Notificação enviada para jurado ${jurado.nome}`);
+                        } else {
+                            console.warn(`⚠️ Erro ao enviar para jurado ${jurado.nome}:`, result.error);
+                        }
+                        
+                        // Pequeno delay entre envios
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    } catch (err) {
+                        console.error(`❌ Erro ao enviar notificação para jurado ${jurado.nome}:`, err);
+                    }
+                }
+            }
+            
+            if (sucessosJurados > 0) {
+                console.log(`📬 Notificações enviadas para ${sucessosJurados} jurado(s) sobre lance em aguardando_analise`);
+            }
+        } else {
+            console.warn('⚠️ Nenhum jurado ativo encontrado ou sem WhatsApp configurado');
+        }
+    } catch (err) {
+        console.error('⚠️ Erro ao enviar notificações para jurados:', err);
+        // Não bloquear o fluxo principal se a notificação falhar
     }
 
     console.log('📊 Resultado das notificações de defesa:', resultados);

@@ -117,18 +117,45 @@ function HallOfFame() {
         return dayOnly > todayOnly;
     };
 
-    // Função para verificar se uma temporada está completa
-    const isSeasonComplete = (grid, season) => {
-        const dateMap = grid === 'carreira' ? (datesCarreira || {}) : (datesLight || {});
-        if (!dateMap || typeof dateMap !== 'object') return true; // Sem informação => assume completo
-        const prefix = `${season}-`;
-        const keys = Object.keys(dateMap).filter(k => k.startsWith(prefix));
-        if (keys.length === 0) return true; // Sem etapas => assume completo
-        // Se existir qualquer etapa com data futura, a temporada ainda não está completa
-        return !keys.some(k => isFutureDay(dateMap[k]));
-    };
-
     useMemo(() => {
+        // Função para verificar se uma temporada está completa
+        // Uma temporada completa deve ter 8 etapas e todas devem estar no passado (nenhuma etapa futura)
+        const isSeasonComplete = (grid, season) => {
+            const dataForGrid = grid === 'carreira' ? rawCarreira : rawLight;
+            const dateMap = grid === 'carreira' ? (datesCarreira || {}) : (datesLight || {});
+            
+            if (!dataForGrid || dataForGrid.length === 0) return false; // Sem dados = temporada não completa
+            
+            // Contar quantas etapas únicas existem nesta temporada nos dados brutos
+            const roundsInSeason = new Set();
+            dataForGrid.forEach(row => {
+                const rowSeason = extrairNumero(row[3]);
+                if (rowSeason === season) {
+                    const round = extrairNumero(row[4]);
+                    if (round >= 1 && round <= 8) {
+                        roundsInSeason.add(round);
+                    }
+                }
+            });
+            
+            // Uma temporada completa deve ter 8 etapas
+            if (roundsInSeason.size < 8) {
+                return false; // Menos de 8 etapas = temporada não completa
+            }
+            
+            // Verificar se não há etapas futuras usando o dateMap
+            if (dateMap && typeof dateMap === 'object') {
+                const prefix = `${season}-`;
+                const keys = Object.keys(dateMap).filter(k => k.startsWith(prefix));
+                // Se existir qualquer etapa com data futura, a temporada ainda não está completa
+                if (keys.some(k => isFutureDay(dateMap[k]))) {
+                    return false; // Tem etapas futuras = temporada não completa
+                }
+            }
+            
+            return true; // Tem 8 etapas e nenhuma futura = temporada completa
+        };
+
         const data = gridType === 'carreira' ? rawCarreira : rawLight;
         if (!data || data.length === 0) return;
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { usePilotosData } from '../hooks/useAnalises';
+import { usePilotosData, canSubmitDefesa } from '../hooks/useAnalises';
 import { notifyAdminNewDefense } from '../utils/emailService';
 import { getVideoEmbedUrl } from '../utils/videoEmbed';
 import CustomAlert from '../components/CustomAlert';
@@ -172,6 +172,20 @@ function FormularioDefesa() {
             return;
         }
 
+        // Validar deadline da defesa
+        if (pilotoLogado && acusacaoSelecionada) {
+            const dataAcusacao = acusacaoSelecionada.created_at || acusacaoSelecionada.dados?.dataEnvio;
+            const gridAcusacao = acusacaoSelecionada.dados?.acusador?.grid || pilotoLogado.grid;
+            
+            if (!canSubmitDefesa(dataAcusacao, gridAcusacao)) {
+                const mensagem = gridAcusacao === 'light' 
+                    ? '❌ Prazo para envio de defesa encerrado!\n\nGrid Light: Defesas devem ser enviadas até Quarta 12:00h BRT (1 dia após receber a acusação).'
+                    : '❌ Prazo para envio de defesa encerrado!\n\nGrid Carreira: Defesas devem ser enviadas até Sábado 12:00h BRT (1 dia após receber a acusação).';
+                await showAlert(mensagem, 'Prazo Encerrado');
+                return;
+            }
+        }
+
         setSubmitting(true);
 
         try {
@@ -196,8 +210,56 @@ function FormularioDefesa() {
                 dataEnvio: new Date().toISOString(),
             };
 
-            // Enviar notificação ao admin
-            notifyAdminNewDefense(dadosDefesa)
+            // 1) ATUALIZAR o lance no banco (incorporar defesa + mudar status para o Júri)
+            const dadosAtualizados = {
+                ...dadosAcusacao,
+                defesa: {
+                    defensor: dadosDefesa.defensor,
+                    descricaoDefesa: dadosDefesa.descricaoDefesa,
+                    videoLinkDefesa: dadosDefesa.videoLinkDefesa,
+                    videoEmbedDefesa: dadosDefesa.videoEmbedDefesa,
+                    dataEnvioDefesa: dadosDefesa.dataEnvio,
+                },
+                status: 'aguardando_analise',
+            };
+
+            const { data: updateData, error: updateError } = await supabase
+                .from('notificacoes_admin')
+                .update({
+                    dados: dadosAtualizados,
+                    lido: false,
+                })
+                .eq('id', acusacaoSelecionada.id)
+                .select();
+
+            if (updateError) {
+                console.error('❌ Erro ao atualizar defesa:', updateError);
+                console.error('   Código:', updateError.code);
+                console.error('   Mensagem:', updateError.message);
+                console.error('   Detalhes:', updateError.details);
+                console.error('   Hint:', updateError.hint);
+                console.error('   Dados tentados:', JSON.stringify(dadosAtualizados, null, 2));
+                
+                // Verificar se é erro de RLS/permissão
+                if (updateError.code === '42501' || updateError.message?.includes('permission') || updateError.message?.includes('RLS')) {
+                    throw new Error(`Erro de permissão: Você não tem permissão para atualizar este registro. Verifique se está logado com o email correto (${pilotoLogado.email}).`);
+                }
+                
+                throw new Error(`Erro ao salvar defesa: ${updateError.message || 'Erro desconhecido'}. Verifique o console (F12) para mais detalhes.`);
+            }
+
+            if (!updateData || updateData.length === 0) {
+                console.error('⚠️ Nenhum registro foi atualizado.');
+                console.error('   ID tentado:', acusacaoSelecionada.id);
+                console.error('   Email do piloto logado:', pilotoLogado.email);
+                console.error('   Email do acusado no registro:', dadosAcusacao.acusado?.email);
+                throw new Error('Nenhum registro foi atualizado. Verifique se você tem permissão para atualizar este registro (RLS) ou se o email corresponde.');
+            }
+            
+            console.log('✅ Defesa salva com sucesso:', updateData);
+
+            // 2) Notificar admin (e outros canais) em background (sem tentar re-escrever o banco)
+            notifyAdminNewDefense({ ...dadosDefesa, skipDatabaseUpdate: true })
                 .then(result => console.log('📨 Notificação de defesa ao admin:', result))
                 .catch(err => console.warn('⚠️ Erro notificação admin:', err));
             
@@ -236,6 +298,9 @@ Aguarde análise dos Stewards.`
             }
 
             setShowSuccess(true);
+
+            // Remover da lista local (não precisa mais defender)
+            setAcusacoesPendentes(prev => prev.filter(n => n.id !== acusacaoSelecionada.id));
             
             setTimeout(() => {
                 setShowSuccess(false);
@@ -243,8 +308,26 @@ Aguarde análise dos Stewards.`
             }, 4000);
 
         } catch (err) {
-            console.error('Erro ao enviar defesa:', err);
-            await showAlert('Erro ao enviar defesa. Tente novamente.', 'Erro');
+            console.error('❌ Erro ao enviar defesa:', err);
+            const errorMessage = err.message || 'Erro desconhecido ao enviar defesa.';
+            
+            // Mensagem mais detalhada para o usuário
+            let userMessage = 'Erro ao enviar defesa.\n\n';
+            
+            if (errorMessage.includes('RLS') || errorMessage.includes('permission') || errorMessage.includes('permissão')) {
+                userMessage += '⚠️ Problema de permissão detectado.\n';
+                userMessage += 'Por favor, faça logout e login novamente.\n';
+                userMessage += 'Se o problema persistir, entre em contato com os Stewards.';
+            } else if (errorMessage.includes('Nenhum registro foi atualizado')) {
+                userMessage += '⚠️ Não foi possível atualizar o registro.\n';
+                userMessage += 'Verifique se você está logado corretamente.\n';
+                userMessage += 'Detalhes técnicos foram salvos no console (F12).';
+            } else {
+                userMessage += `Detalhes: ${errorMessage}\n\n`;
+                userMessage += 'Verifique o console do navegador (F12) para mais informações.';
+            }
+            
+            await showAlert(userMessage, 'Erro');
         } finally {
             setSubmitting(false);
         }

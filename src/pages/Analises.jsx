@@ -1269,61 +1269,112 @@ function Analises() {
                                         {lancesParaMostrar.map(lance => {
                                     const dados = lance.dados || {};
                                     const votos = dados.votos || [];
-                                    const votosCulpado = votos.filter(v => v.culpado).length;
-                                    const votosInocente = votos.filter(v => !v.culpado).length;
-                                    const decisao = votosCulpado >= 3 ? 'CULPADO' : 'INOCENTE';
+                                    const veredito = dados.veredito || null;
+                                    const isRetiradaBug = dados.tipoSolicitacao === 'retirada_bug' || dados.acusado?.nome === 'Administração Master League F1';
+                                    
+                                    // Usar veredito se existir, senão calcular a partir dos votos
+                                    let decisao, votosCulpado, votosInocente, punicaoInfo = null;
+                                    
+                                    if (veredito) {
+                                        // Usar dados do veredito finalizado
+                                        votosCulpado = votos.filter(v => v.culpado).length;
+                                        votosInocente = votos.filter(v => !v.culpado).length;
+                                        
+                                        // Normalizar decisão do veredito (pode ser INOCENTADO ou INOCENTE)
+                                        const decisaoVeredito = veredito.decisao || (veredito.culpado ? 'CULPADO' : 'INOCENTE');
+                                        
+                                        // Ajustar texto para retirada de bug
+                                        if (isRetiradaBug) {
+                                            decisao = veredito.culpado ? 'RETIRAR PUNIÇÃO' : 'MANTER PUNIÇÃO';
+                                        } else {
+                                            // Normalizar INOCENTADO para INOCENTE para consistência
+                                            decisao = decisaoVeredito === 'INOCENTADO' ? 'INOCENTE' : decisaoVeredito;
+                                        }
+                                        
+                                        // Se culpado e não for retirada de bug, montar punicaoInfo do veredito
+                                        if (veredito.culpado && !isRetiradaBug && veredito.labelPunicao) {
+                                            const punicoes = {
+                                                'advertencia': { label: '⚠️ Advertência', pontos: 0 },
+                                                'leve': { label: '🟡 Leve - 5 pontos', pontos: 5 },
+                                                'media': { label: '🟠 Média - 10 pontos', pontos: 10 },
+                                                'grave': { label: '🔴 Grave - 15 pontos', pontos: 15 },
+                                                'gravissima': { label: '⛔ Gravíssima - 20 pontos + Race BAN', pontos: 20, raceBan: true }
+                                            };
+                                            
+                                            const punicaoBase = veredito.punicao || '';
+                                            const baseInfo = punicoes[punicaoBase] || { label: veredito.labelPunicao, pontos: veredito.pontosPerdidos || 0 };
+                                            
+                                            punicaoInfo = {
+                                                label: veredito.labelPunicao,
+                                                pontos: baseInfo.pontos,
+                                                agravante: veredito.agravante || false,
+                                                pontosTotal: veredito.pontosPerdidos || 0,
+                                                raceBan: veredito.raceBan || false
+                                            };
+                                        }
+                                    } else {
+                                        // Calcular a partir dos votos (lance ainda não finalizado)
+                                        votosCulpado = votos.filter(v => v.culpado).length;
+                                        votosInocente = votos.filter(v => !v.culpado).length;
+                                        decisao = votosCulpado >= 3 ? 'CULPADO' : (votosInocente >= 3 ? 'INOCENTE' : 'EM ANÁLISE');
+                                        
+                                        // Ajustar texto para retirada de bug
+                                        if (isRetiradaBug) {
+                                            decisao = votosCulpado >= 3 ? 'RETIRAR PUNIÇÃO' : (votosInocente >= 3 ? 'MANTER PUNIÇÃO' : 'EM ANÁLISE');
+                                        }
+                                        
+                                        // Calcular punição (se culpado e não for retirada de bug)
+                                        if (decisao === 'CULPADO' && !isRetiradaBug) {
+                                            const votosCulpadosList = votos.filter(v => v.culpado);
+                                            const punicoes = {
+                                                'advertencia': { label: '⚠️ Advertência', pontos: 0 },
+                                                'leve': { label: '🟡 Leve - 5 pontos', pontos: 5 },
+                                                'media': { label: '🟠 Média - 10 pontos', pontos: 10 },
+                                                'grave': { label: '🔴 Grave - 15 pontos', pontos: 15 },
+                                                'gravissima': { label: '⛔ Gravíssima - 20 pontos + Race BAN', pontos: 20, raceBan: true }
+                                            };
+                                            
+                                            // Contar punições
+                                            const contagemPunicoes = {};
+                                            votosCulpadosList.forEach(v => {
+                                                const key = v.punicao;
+                                                contagemPunicoes[key] = (contagemPunicoes[key] || 0) + 1;
+                                            });
+                                            
+                                            // Encontrar punição mais votada
+                                            let punicaoMaisVotada = null;
+                                            let maxVotos = 0;
+                                            Object.entries(contagemPunicoes).forEach(([punicao, count]) => {
+                                                if (count > maxVotos) {
+                                                    maxVotos = count;
+                                                    punicaoMaisVotada = punicao;
+                                                }
+                                            });
+                                            
+                                            // Verificar agravantes
+                                            const temAgravante = votosCulpadosList.filter(v => v.agravante).length > votosCulpadosList.length / 2;
+                                            
+                                            if (punicaoMaisVotada && punicoes[punicaoMaisVotada]) {
+                                                punicaoInfo = {
+                                                    ...punicoes[punicaoMaisVotada],
+                                                    agravante: temAgravante,
+                                                    pontosTotal: punicoes[punicaoMaisVotada].pontos + (temAgravante ? 5 : 0)
+                                                };
+                                            }
+                                        }
+                                    }
+                                    
                                     const acusador = dados.acusador || {};
                                     const acusado = dados.acusado || {};
                                     const etapa = dados.etapa || {};
                                     const defesa = dados.defesa || null;
-                                    
-                                    // Calcular punição (se culpado)
-                                    let punicaoInfo = null;
-                                    if (decisao === 'CULPADO') {
-                                        const votosCulpadosList = votos.filter(v => v.culpado);
-                                        const punicoes = {
-                                            'advertencia': { label: '⚠️ Advertência', pontos: 0 },
-                                            'leve': { label: '🟡 Leve - 5 pontos', pontos: 5 },
-                                            'media': { label: '🟠 Média - 10 pontos', pontos: 10 },
-                                            'grave': { label: '🔴 Grave - 15 pontos', pontos: 15 },
-                                            'gravissima': { label: '⛔ Gravíssima - 20 pontos + Race BAN', pontos: 20, raceBan: true }
-                                        };
-                                        
-                                        // Contar punições
-                                        const contagemPunicoes = {};
-                                        votosCulpadosList.forEach(v => {
-                                            const key = v.punicao;
-                                            contagemPunicoes[key] = (contagemPunicoes[key] || 0) + 1;
-                                        });
-                                        
-                                        // Encontrar punição mais votada
-                                        let punicaoMaisVotada = null;
-                                        let maxVotos = 0;
-                                        Object.entries(contagemPunicoes).forEach(([punicao, count]) => {
-                                            if (count > maxVotos) {
-                                                maxVotos = count;
-                                                punicaoMaisVotada = punicao;
-                                            }
-                                        });
-                                        
-                                        // Verificar agravantes
-                                        const temAgravante = votosCulpadosList.filter(v => v.agravante).length > votosCulpadosList.length / 2;
-                                        
-                                        if (punicaoMaisVotada && punicoes[punicaoMaisVotada]) {
-                                            punicaoInfo = {
-                                                ...punicoes[punicaoMaisVotada],
-                                                agravante: temAgravante,
-                                                pontosTotal: punicoes[punicaoMaisVotada].pontos + (temAgravante ? 5 : 0)
-                                            };
-                                        }
-                                    }
 
                                     return (
                                         <div key={lance.id} style={{
-                                            background: decisao === 'CULPADO' 
+                                            background: (decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') 
                                                 ? 'linear-gradient(135deg, rgba(127, 29, 29, 0.4) 0%, rgba(15, 23, 42, 0.9) 100%)'
                                                 : 'linear-gradient(135deg, rgba(22, 101, 52, 0.4) 0%, rgba(15, 23, 42, 0.9) 100%)',
-                                            border: `2px solid ${decisao === 'CULPADO' ? '#EF4444' : '#22C55E'}`,
+                                            border: `2px solid ${(decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') ? '#EF4444' : '#22C55E'}`,
                                             borderRadius: '16px',
                                             overflow: 'hidden'
                                         }}>
@@ -1363,8 +1414,8 @@ function Analises() {
                                                 
                                                 {/* Badge de Decisão */}
                                                 <div style={{
-                                                    background: decisao === 'CULPADO' ? '#EF4444' : '#22C55E',
-                                                    color: decisao === 'CULPADO' ? 'white' : '#0F172A',
+                                                    background: (decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') ? '#EF4444' : '#22C55E',
+                                                    color: (decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') ? 'white' : '#0F172A',
                                                     padding: '10px 20px',
                                                     borderRadius: '8px',
                                                     fontWeight: '900',
@@ -1373,50 +1424,123 @@ function Analises() {
                                                     alignItems: 'center',
                                                     gap: '8px'
                                                 }}>
-                                                    {decisao === 'CULPADO' ? '❌' : '✅'} {decisao}
-                                                    <span style={{ fontSize: '12px', fontWeight: 'normal', opacity: 0.9 }}>
-                                                        ({votosCulpado} x {votosInocente})
-                                                    </span>
+                                                    {(decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') ? '❌' : '✅'} {decisao}
+                                                    {votosCulpado !== undefined && votosInocente !== undefined && (
+                                                        <span style={{ fontSize: '12px', fontWeight: 'normal', opacity: 0.9 }}>
+                                                            ({votosCulpado} x {votosInocente})
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
 
                                             {/* Corpo do Card */}
                                             <div style={{ padding: '25px' }}>
                                                 {/* Info da Etapa e Pilotos */}
-                                                <div style={{ 
-                                                    display: 'grid', 
-                                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-                                                    gap: '20px', 
-                                                    marginBottom: '25px',
-                                                    padding: '20px',
-                                                    background: 'rgba(0,0,0,0.3)',
-                                                    borderRadius: '12px'
-                                                }}>
-                                                    <div>
-                                                        <span style={{ color: '#64748B', fontSize: '11px', textTransform: 'uppercase' }}>Etapa</span>
-                                                        <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
-                                                            Round {etapa.round} - {etapa.circuit}
+                                                {isMobile ? (
+                                                    <>
+                                                        {/* Mobile: Etapa e Volta */}
+                                                        <div style={{ 
+                                                            display: 'grid', 
+                                                            gridTemplateColumns: '1fr 1fr', 
+                                                            gap: '15px', 
+                                                            marginBottom: '20px',
+                                                            padding: '15px',
+                                                            background: 'rgba(0,0,0,0.3)',
+                                                            borderRadius: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <span style={{ color: '#64748B', fontSize: '11px', textTransform: 'uppercase' }}>Etapa</span>
+                                                                <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
+                                                                    Round {etapa.round} - {etapa.circuit}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <span style={{ color: '#64748B', fontSize: '11px', textTransform: 'uppercase' }}>Volta</span>
+                                                                <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
+                                                                    {dados.volta || '-'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {/* Mobile: Acusador e Acusado com espadas X */}
+                                                        <div style={{ 
+                                                            display: 'flex', 
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '10px',
+                                                            marginBottom: '25px',
+                                                            padding: '20px',
+                                                            background: 'rgba(0,0,0,0.3)',
+                                                            borderRadius: '12px'
+                                                        }}>
+                                                            <div style={{ 
+                                                                display: 'flex', 
+                                                                flexDirection: 'column', 
+                                                                alignItems: 'center',
+                                                                flex: 1
+                                                            }}>
+                                                                <span style={{ color: '#EF4444', fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px' }}>Acusador</span>
+                                                                <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '12px', textAlign: 'center' }}>
+                                                                    {acusador.nome || '-'}
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ 
+                                                                fontSize: '20px',
+                                                                transform: 'rotate(45deg)',
+                                                                color: '#94A3B8',
+                                                                flexShrink: 0,
+                                                                padding: '0 10px'
+                                                            }}>
+                                                                ⚔️
+                                                            </div>
+                                                            <div style={{ 
+                                                                display: 'flex', 
+                                                                flexDirection: 'column', 
+                                                                alignItems: 'center',
+                                                                flex: 1
+                                                            }}>
+                                                                <span style={{ color: '#F59E0B', fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px' }}>Acusado</span>
+                                                                <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '12px', textAlign: 'center' }}>
+                                                                    {acusado.nome || '-'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <div style={{ 
+                                                        display: 'grid', 
+                                                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                                                        gap: '20px', 
+                                                        marginBottom: '25px',
+                                                        padding: '20px',
+                                                        background: 'rgba(0,0,0,0.3)',
+                                                        borderRadius: '12px'
+                                                    }}>
+                                                        <div>
+                                                            <span style={{ color: '#64748B', fontSize: '11px', textTransform: 'uppercase' }}>Etapa</span>
+                                                            <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
+                                                                Round {etapa.round} - {etapa.circuit}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <span style={{ color: '#64748B', fontSize: '11px', textTransform: 'uppercase' }}>Volta</span>
+                                                            <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
+                                                                {dados.volta || '-'}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <span style={{ color: '#EF4444', fontSize: '11px', textTransform: 'uppercase' }}>Acusador</span>
+                                                            <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
+                                                                {acusador.nome || '-'}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <span style={{ color: '#F59E0B', fontSize: '11px', textTransform: 'uppercase' }}>Acusado</span>
+                                                            <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
+                                                                {acusado.nome || '-'}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div>
-                                                        <span style={{ color: '#64748B', fontSize: '11px', textTransform: 'uppercase' }}>Volta</span>
-                                                        <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
-                                                            {dados.volta || '-'}
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <span style={{ color: '#EF4444', fontSize: '11px', textTransform: 'uppercase' }}>Acusador</span>
-                                                        <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
-                                                            {acusador.nome || '-'}
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <span style={{ color: '#F59E0B', fontSize: '11px', textTransform: 'uppercase' }}>Acusado</span>
-                                                        <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '15px' }}>
-                                                            {acusado.nome || '-'}
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                )}
 
                                                 {/* Vídeos lado a lado */}
                                                 <div className="videos-grid-analises" style={{
@@ -1473,15 +1597,15 @@ function Analises() {
                                                             />
                                                             <div style={{ marginTop: '10px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', borderLeft: '3px solid #22C55E' }}>
                                                                 <p style={{ color: '#E2E8F0', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
-                                                                    {defesa.argumentos || 'Sem argumentos'}
+                                                                    {defesa.descricaoDefesa || defesa.argumentos || 'Sem argumentos'}
                                                                 </p>
                                                             </div>
                                                         </div>
                                                     )}
                                                 </div>
 
-                                                {/* Resultado da Punição (se culpado) */}
-                                                {decisao === 'CULPADO' && punicaoInfo && (
+                                                {/* Resultado da Punição (se culpado e não for retirada de bug) */}
+                                                {(decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO') && punicaoInfo && !isRetiradaBug && (
                                                     <div style={{
                                                         background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(0,0,0,0.3) 100%)',
                                                         border: '2px solid #EF4444',

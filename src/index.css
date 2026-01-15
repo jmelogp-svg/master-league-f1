@@ -516,7 +516,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .news-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
     .main-card { height: 250px; }
     .hub-split-section { grid-template-columns: 1fr; }
-    .quick-links-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
+    /* .quick-links-grid removido daqui - configurado mais abaixo para ser lado a lado */
 
     /* Standings Mobile */
     .hero-section { min-height: 40vh; margin-top: -60px; padding-top: 60px; }
@@ -970,7 +970,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     top: 65px;
     left: 20px;
     right: 20px;
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 900;
     font-style: italic;
     color: white;
@@ -1022,7 +1022,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 
 .news-feed-card.news-featured .news-feed-title-featured {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 900;
     color: #FFFFFF;
     line-height: 1.2;
@@ -1162,9 +1162,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     transform: translateX(3px);
 }
 
-/* Mobile: Empilha */
+/* Mobile: Lado a lado, quadrados */
 @media (max-width: 768px) {
-    .quick-links-grid { grid-template-columns: 1fr; }
+    .quick-links-grid { 
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 10px;
+    }
     .news-feed-grid { 
         grid-template-columns: 1fr; 
     }
@@ -3918,7 +3921,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .news-featured-left { padding: 0 !important; }
     .news-feed-meta-overlay { top: 10px !important; left: 10px !important; gap: 8px !important; }
     .news-feed-title-overlay { 
-        font-size: 1.2rem !important; 
+        font-size: 0.95rem !important; 
         top: 45px !important; 
         bottom: auto !important; 
         left: 15px !important; 
@@ -3939,7 +3942,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .news-feed-card.news-featured .news-feed-content { padding: 20px !important; }
     .news-feed-card.news-featured .news-feed-image { height: 220px !important; border-radius: 0 !important; }
     .news-feed-title { font-size: 0.95rem !important; line-height: 1.2 !important; }
-    .news-feed-card.news-featured .news-feed-title-featured { font-size: 1.4rem !important; margin-bottom: 12px !important; }
+    .news-feed-card.news-featured .news-feed-title-featured { font-size: 1.1rem !important; margin-bottom: 12px !important; }
     .news-feed-card.news-featured .news-feed-subtitle { font-size: 1rem !important; margin-bottom: 12px !important; }
     .news-feed-excerpt { font-size: 0.8rem !important; line-height: 1.4 !important; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .news-feed-card.news-featured .news-feed-excerpt { -webkit-line-clamp: unset !important; overflow: visible !important; display: block !important; }
@@ -3951,12 +3954,37 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .hub-container { padding: 0 10px; }
     .btn-text { font-size: 0.75rem !important; }
     
-    /* Quick Links Mobile */
-    .ql-card { padding: 12px; justify-content: center; }
-    .ql-icon { font-size: 1.5rem; }
-    .ql-info { display: none !important; }
-    .ql-info h3 { font-size: 0.85rem; }
-    .ql-info span { font-size: 0.7rem; }
+    /* Quick Links Mobile - Quadrados lado a lado */
+    .ql-card { 
+        padding: 12px; 
+        justify-content: center;
+        flex-direction: column;
+        aspect-ratio: 1;
+        min-height: 0;
+        gap: 8px;
+    }
+    .ql-icon { 
+        font-size: 1.8rem;
+        width: 50px;
+        height: 50px;
+        margin: 0 auto;
+    }
+    .ql-info { 
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 4px;
+    }
+    .ql-info h3 { 
+        font-size: 0.75rem;
+        margin: 0;
+        line-height: 1.2;
+    }
+    .ql-info span { 
+        font-size: 0.65rem;
+        display: none;
+    }
     
     /* Mini Standings Mobile */
     .ms-row { padding: 8px; }

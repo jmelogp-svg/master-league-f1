@@ -8,8 +8,8 @@ headers = []
 
 [build]
 publish = "C:\\Users\\Usuario\\Documents\\Master League F1\\Projetos_React\\master-league-f1\\dist"
-publishOrigin = "ui"
-commandOrigin = "ui"
+publishOrigin = "config"
+commandOrigin = "config"
 command = "npm run build"
 
 [build.environment]

@@ -264,7 +264,7 @@ const penaltyAggravations = [
 
 const analysisSteps = [
     { label: 'Solicitação', detail: 'Via site/app até as 20h do dia seguinte à corrida.' },
-    { label: 'Defesa', detail: 'Até 24h após notificação com vídeo onboard hospedado externamente (YouTube, Twitch, etc.).' },
+    { label: 'Defesa', detail: 'Até 12:00h do dia seguinte após notificação. Enviar o vídeo onboard pelo link verde do Motorhome (links externos: YouTube, Twitch, etc.).' },
     { label: 'Consequências', detail: 'Ausência de defesa gera perda de Pontos de Conduta e punição leve (+5 pts) sem presumir culpa.' }
 ];
 
@@ -279,7 +279,7 @@ const infographicSections = [
     { id: 'info-pontuacao', elementId: 'info-pontuacao', title: 'Sistema de Pontuação', keywords: ['pontuação', 'pontos', 'vitória', 'pódio', 'sprint', 'desempate'] },
     { id: 'info-draft', elementId: 'info-draft', title: 'Equipes, Draft & Reservas', keywords: ['draft', 'equipe', 'time', 'escolha', 'prioridade', 'reserva', 'promoção', 'grid light', 'grid carreira'] },
     { id: 'info-punicoes', elementId: 'info-punicoes', title: 'Sistema de Punições', keywords: ['punição', 'penalidade', 'carteira', 'suspensão', 'ban', 'advertência', 'agravante'] },
-    { id: 'info-analises', elementId: 'info-analises', title: 'Análises & Defesa', keywords: ['análise', 'defesa', 'vídeo', 'incidente', 'prazo', 'solicitação'] },
+    { id: 'info-analises', elementId: 'info-analises', title: 'Análises & Defesa', keywords: ['análise', 'defesa', 'vídeo', 'incidente', 'prazo', 'solicitação', 'bug', 'retirada', 'box', 'classificatória', 'qualificação'] },
     { id: 'info-ranking', elementId: 'info-ranking', title: 'Power Ranking', keywords: ['power ranking', 'ranking', 'nota', 'performance', 'conduta', 'racecraft', 'overall', 'histórico'] },
     { id: 'info-infracoes', elementId: 'info-infracoes', title: 'Infrações Críticas', keywords: ['infração', 'falta', 'wo', 'ausência', 'foto', 'formulário', 'telemetria'] },
     { id: 'info-premiacao', elementId: 'info-premiacao', title: 'Premiação e Gerais', keywords: ['premiação', 'troféu', 'troféus', 'frete', 'campeão', 'campeã', 'dupla campeã', 'inscrição grátis'] },
@@ -558,16 +558,22 @@ Suspensão: Ao atingir 20 pontos na carteira, o piloto cumpre suspensão automá
     {
         id: 'analises',
         title: '9. Análises e Defesa',
-        keywords: ['análise', 'defesa', 'vídeo', 'incidente', 'prazo', 'solicitação'],
+        keywords: ['análise', 'defesa', 'vídeo', 'incidente', 'prazo', 'solicitação', 'bug', 'retirada', 'box', 'classificatória', 'qualificação'],
         content: `6.2. Procedimento de Análise
 
-Solicitação via site/app até as 20h do dia seguinte da corrida (Vídeo Onboard). Defesa até 24h após notificação da comissão.
+Solicitação via site/app até as 20h do dia seguinte da corrida (Vídeo Onboard). Defesa até 12:00h do dia seguinte após notificação da comissão (enviar o vídeo pelo link verde do Motorhome).
 
 Obrigatório vídeo Onboard (links externos).
 
 A não apresentação de defesa não implica culpa automática, mas gera perda de Pontos de Conduta e punição leve (+5 pts na carteira).
 
-IMPORTANTE: Vídeos privados, sem nitidez, com palavrão ou que impossibilitem análise por algum motivo técnico serão automaticamente descartados pela comissão.`
+IMPORTANTE: Vídeos privados, sem nitidez, com palavrão ou que impossibilitem análise por algum motivo técnico serão automaticamente descartados pela comissão.
+
+6.3. Retirada de Punições de Bug
+
+Não serão aceitas solicitações de retirada de punições de bug que tenham sido pagas no box durante a corrida.
+
+Não serão aceitas solicitações de retirada de punições de bug ocorridas durante a sessão classificatória (qualificação).`
     },
     {
         id: 'powerranking',
@@ -1435,16 +1441,33 @@ const Regulamento = () => {
                         <p className="reg-suspension-line">
                             Suspensão: Ao atingir 20 pontos na carteira, o piloto cumpre suspensão automática na etapa seguinte. (Raceban)
                         </p>
+                    </section>
+
+                    <section id="info-analises" className="reg-section">
+                        <div className="reg-section-title">
+                            <div>
+                                <h2>Análises e Defesa</h2>
+                                <p>6.2. Procedimento de Análise - Sistema de julgamento de incidentes.</p>
+                            </div>
+                        </div>
                         <div className="info-card" style={{marginTop: '24px'}}>
                             <Info className="reg-icon" />
                             <div>
                                 <h4 style={{marginTop: 0, marginBottom: '12px', color: '#06b6d4'}}>6.2. Procedimento de Análise</h4>
                                 <p><strong>Solicitação:</strong> Via site/app até as 20h do dia seguinte da corrida (Vídeo Onboard).</p>
-                                <p><strong>Defesa:</strong> Até 24h após notificação. Obrigatório vídeo Onboard (links externos).</p>
+                                <p><strong>Defesa:</strong> Até 12:00h do dia seguinte após notificação. Enviar o vídeo onboard pelo link verde do Motorhome (links externos).</p>
                                 <p><strong>Consequências:</strong> A não apresentação de defesa não implica culpa automática, mas gera perda de Pontos de Conduta e punição leve (+5 pts na carteira).</p>
                                 <p style={{marginTop: '12px', padding: '10px', background: 'rgba(239, 68, 68, 0.1)', borderLeft: '3px solid #EF4444', borderRadius: '4px'}}>
                                     <strong style={{color: '#EF4444'}}>⚠️ IMPORTANTE:</strong> Vídeos privados, sem nitidez, com palavrão ou que impossibilitem análise por algum motivo técnico serão automaticamente descartados pela comissão.
                                 </p>
+                            </div>
+                        </div>
+                        <div className="info-card" style={{marginTop: '24px', borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.08)'}}>
+                            <AlertTriangle className="reg-icon" />
+                            <div>
+                                <h4 style={{marginTop: 0, marginBottom: '12px', color: '#F59E0B'}}>6.3. Retirada de Punições de Bug</h4>
+                                <p><strong>❌ Não serão aceitas solicitações de retirada de punições de bug que tenham sido pagas no box durante a corrida.</strong></p>
+                                <p><strong>❌ Não serão aceitas solicitações de retirada de punições de bug ocorridas durante a sessão classificatória (qualificação).</strong></p>
                             </div>
                         </div>
                     </section>
