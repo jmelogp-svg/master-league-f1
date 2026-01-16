@@ -3205,21 +3205,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                             }}>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
-                                    filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))',
+                                    filter: 'drop-shadow(0 0 15px rgba(212, 175, 55, 0.8)) brightness(1.1)',
                                     lineHeight: 1
                                 }}>🏆</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
                                     fontWeight: '900',
-                                    color: '#FFD700',
-                                    textShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
+                                    color: '#D4AF37',
+                                    textShadow: '0 0 15px rgba(212, 175, 55, 0.8), 0 2px 4px rgba(0, 0, 0, 0.5)'
                                 }}>{trofeusCarreira.ouro}</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
-                                    color: '#94A3B8',
+                                    color: '#D4AF37',
                                     textTransform: 'uppercase',
                                     letterSpacing: '1px',
-                                    fontWeight: '700'
+                                    fontWeight: '700',
+                                    textShadow: '0 0 8px rgba(212, 175, 55, 0.6)'
                                 }}>1º</div>
                             </div>
                             
@@ -3232,21 +3233,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                             }}>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
-                                    filter: 'drop-shadow(0 0 10px rgba(192, 192, 192, 0.5))',
+                                    filter: 'drop-shadow(0 0 15px rgba(192, 192, 192, 0.8)) brightness(1.1)',
                                     lineHeight: 1
                                 }}>🏆</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
                                     fontWeight: '900',
                                     color: '#C0C0C0',
-                                    textShadow: '0 0 10px rgba(192, 192, 192, 0.5)'
+                                    textShadow: '0 0 15px rgba(192, 192, 192, 0.8), 0 2px 4px rgba(0, 0, 0, 0.5)'
                                 }}>{trofeusCarreira.prata}</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
-                                    color: '#94A3B8',
+                                    color: '#C0C0C0',
                                     textTransform: 'uppercase',
                                     letterSpacing: '1px',
-                                    fontWeight: '700'
+                                    fontWeight: '700',
+                                    textShadow: '0 0 8px rgba(192, 192, 192, 0.6)'
                                 }}>2º</div>
                             </div>
                             
@@ -3259,21 +3261,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                             }}>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
-                                    filter: 'drop-shadow(0 0 10px rgba(205, 127, 50, 0.5))',
+                                    filter: 'drop-shadow(0 0 15px rgba(184, 115, 51, 0.8)) brightness(1.1)',
                                     lineHeight: 1
                                 }}>🏆</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
                                     fontWeight: '900',
-                                    color: '#CD7F32',
-                                    textShadow: '0 0 10px rgba(205, 127, 50, 0.5)'
+                                    color: '#B87333',
+                                    textShadow: '0 0 15px rgba(184, 115, 51, 0.8), 0 2px 4px rgba(0, 0, 0, 0.5)'
                                 }}>{trofeusCarreira.bronze}</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
-                                    color: '#94A3B8',
+                                    color: '#B87333',
                                     textTransform: 'uppercase',
                                     letterSpacing: '1px',
-                                    fontWeight: '700'
+                                    fontWeight: '700',
+                                    textShadow: '0 0 8px rgba(184, 115, 51, 0.6)'
                                 }}>3º</div>
                             </div>
                         </div>
@@ -3318,21 +3321,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                             }}>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
-                                    filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))',
+                                    filter: 'drop-shadow(0 0 15px rgba(212, 175, 55, 0.8)) brightness(1.1)',
                                     lineHeight: 1
                                 }}>🏆</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
                                     fontWeight: '900',
-                                    color: '#FFD700',
-                                    textShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
+                                    color: '#D4AF37',
+                                    textShadow: '0 0 15px rgba(212, 175, 55, 0.8), 0 2px 4px rgba(0, 0, 0, 0.5)'
                                 }}>{trofeusLight.ouro}</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
-                                    color: '#94A3B8',
+                                    color: '#D4AF37',
                                     textTransform: 'uppercase',
                                     letterSpacing: '1px',
-                                    fontWeight: '700'
+                                    fontWeight: '700',
+                                    textShadow: '0 0 8px rgba(212, 175, 55, 0.6)'
                                 }}>1º</div>
                             </div>
                             
@@ -3345,21 +3349,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                             }}>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
-                                    filter: 'drop-shadow(0 0 10px rgba(192, 192, 192, 0.5))',
+                                    filter: 'drop-shadow(0 0 15px rgba(192, 192, 192, 0.8)) brightness(1.1)',
                                     lineHeight: 1
                                 }}>🏆</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
                                     fontWeight: '900',
                                     color: '#C0C0C0',
-                                    textShadow: '0 0 10px rgba(192, 192, 192, 0.5)'
+                                    textShadow: '0 0 15px rgba(192, 192, 192, 0.8), 0 2px 4px rgba(0, 0, 0, 0.5)'
                                 }}>{trofeusLight.prata}</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
-                                    color: '#94A3B8',
+                                    color: '#C0C0C0',
                                     textTransform: 'uppercase',
                                     letterSpacing: '1px',
-                                    fontWeight: '700'
+                                    fontWeight: '700',
+                                    textShadow: '0 0 8px rgba(192, 192, 192, 0.6)'
                                 }}>2º</div>
                             </div>
                             
@@ -3372,21 +3377,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                             }}>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
-                                    filter: 'drop-shadow(0 0 10px rgba(205, 127, 50, 0.5))',
+                                    filter: 'drop-shadow(0 0 15px rgba(184, 115, 51, 0.8)) brightness(1.1)',
                                     lineHeight: 1
                                 }}>🏆</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
                                     fontWeight: '900',
-                                    color: '#CD7F32',
-                                    textShadow: '0 0 10px rgba(205, 127, 50, 0.5)'
+                                    color: '#B87333',
+                                    textShadow: '0 0 15px rgba(184, 115, 51, 0.8), 0 2px 4px rgba(0, 0, 0, 0.5)'
                                 }}>{trofeusLight.bronze}</div>
                                 <div style={{
                                     fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
-                                    color: '#94A3B8',
+                                    color: '#B87333',
                                     textTransform: 'uppercase',
                                     letterSpacing: '1px',
-                                    fontWeight: '700'
+                                    fontWeight: '700',
+                                    textShadow: '0 0 8px rgba(184, 115, 51, 0.6)'
                                 }}>3º</div>
                             </div>
                         </div>

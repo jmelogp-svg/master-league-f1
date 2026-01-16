@@ -1644,14 +1644,12 @@ function Home() {
                                     <span className="hero-btn-label">REGULAMENTO</span>
                                 </Link>
 
-                                <button className="btn-primary hero-btn" onClick={() => setViewType('drivers')} title="Tabelas">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                        <line x1="3" y1="9" x2="21" y2="9"></line>
-                                        <line x1="9" y1="21" x2="9" y2="9"></line>
+                                <a href="https://www.youtube.com/@MasterLeague1" target="_blank" rel="noopener noreferrer" className="btn-youtube hero-btn" title="YouTube">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                                     </svg>
-                                    <span className="hero-btn-label">TABELAS</span>
-                                </button>
+                                    <span className="hero-btn-label">YOUTUBE</span>
+                                </a>
 
                                 <a href="https://chat.whatsapp.com/K3UKMSXPoZv8BaYSMGRCuK" target="_blank" rel="noopener noreferrer" className="btn-whatsapp hero-btn" title="WhatsApp">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
