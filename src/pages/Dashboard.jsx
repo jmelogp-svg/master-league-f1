@@ -2071,6 +2071,28 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     const totalWins = dashData.statsCarreira.wins + dashData.statsLight.wins;
     const totalPodiums = dashData.statsCarreira.podiums + dashData.statsLight.podiums;
     const totalSeasons = dashData.statsCarreira.seasons.size + dashData.statsLight.seasons.size;
+    
+    // Calcular troféus separados por grid
+    const calcularTrofeusPorGrid = (racesList) => {
+        let primeiroLugar = 0;
+        let segundoLugar = 0;
+        let terceiroLugar = 0;
+        
+        (racesList || []).forEach(race => {
+            if (race.position === 1) primeiroLugar++;
+            if (race.position === 2) segundoLugar++;
+            if (race.position === 3) terceiroLugar++;
+        });
+        
+        return {
+            ouro: primeiroLugar,
+            prata: segundoLugar,
+            bronze: terceiroLugar
+        };
+    };
+    
+    const trofeusCarreira = calcularTrofeusPorGrid(dashData.statsCarreira.racesList);
+    const trofeusLight = calcularTrofeusPorGrid(dashData.statsLight.racesList);
 
     // Função para determinar o tier da equipe
     const getTeamTier = (teamName) => {
@@ -3136,7 +3158,241 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                         </p>
                     </div>
                 )}
-                
+
+                {/* ESTANTES VIRTUAIS DE TROFÉUS */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: deviceInfo.isMobile ? 'column' : 'row',
+                    gap: deviceInfo.isMobile ? '20px' : '20px',
+                    marginBottom: '40px'
+                }}>
+                    {/* Estante Grid Carreira */}
+                    <div style={{
+                        flex: 1,
+                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.6) 100%)',
+                        backdropFilter: 'blur(15px)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '20px',
+                        padding: deviceInfo.isMobile ? '20px' : '25px'
+                    }}>
+                        <h3 style={{
+                            fontSize: deviceInfo.isMobile ? '0.85rem' : '0.9rem',
+                            color: '#EF4444',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px',
+                            marginBottom: '20px',
+                            borderBottom: '1px solid rgba(239, 68, 68, 0.3)',
+                            paddingBottom: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            fontWeight: '900'
+                        }}>
+                            🏆 ESTANTE GRID CARREIRA
+                        </h3>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-around',
+                            alignItems: 'center',
+                            gap: deviceInfo.isMobile ? '15px' : '20px'
+                        }}>
+                            {/* Troféu de Ouro */}
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
+                                    filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))',
+                                    lineHeight: 1
+                                }}>🏆</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
+                                    fontWeight: '900',
+                                    color: '#FFD700',
+                                    textShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
+                                }}>{trofeusCarreira.ouro}</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
+                                    color: '#94A3B8',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px',
+                                    fontWeight: '700'
+                                }}>1º</div>
+                            </div>
+                            
+                            {/* Troféu de Prata */}
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
+                                    filter: 'drop-shadow(0 0 10px rgba(192, 192, 192, 0.5))',
+                                    lineHeight: 1
+                                }}>🏆</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
+                                    fontWeight: '900',
+                                    color: '#C0C0C0',
+                                    textShadow: '0 0 10px rgba(192, 192, 192, 0.5)'
+                                }}>{trofeusCarreira.prata}</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
+                                    color: '#94A3B8',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px',
+                                    fontWeight: '700'
+                                }}>2º</div>
+                            </div>
+                            
+                            {/* Troféu de Bronze */}
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
+                                    filter: 'drop-shadow(0 0 10px rgba(205, 127, 50, 0.5))',
+                                    lineHeight: 1
+                                }}>🏆</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
+                                    fontWeight: '900',
+                                    color: '#CD7F32',
+                                    textShadow: '0 0 10px rgba(205, 127, 50, 0.5)'
+                                }}>{trofeusCarreira.bronze}</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
+                                    color: '#94A3B8',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px',
+                                    fontWeight: '700'
+                                }}>3º</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Estante Grid Light */}
+                    <div style={{
+                        flex: 1,
+                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.6) 100%)',
+                        backdropFilter: 'blur(15px)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '20px',
+                        padding: deviceInfo.isMobile ? '20px' : '25px'
+                    }}>
+                        <h3 style={{
+                            fontSize: deviceInfo.isMobile ? '0.85rem' : '0.9rem',
+                            color: '#3B82F6',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px',
+                            marginBottom: '20px',
+                            borderBottom: '1px solid rgba(59, 130, 246, 0.3)',
+                            paddingBottom: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            fontWeight: '900'
+                        }}>
+                            🏆 ESTANTE GRID LIGHT
+                        </h3>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-around',
+                            alignItems: 'center',
+                            gap: deviceInfo.isMobile ? '15px' : '20px'
+                        }}>
+                            {/* Troféu de Ouro */}
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
+                                    filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))',
+                                    lineHeight: 1
+                                }}>🏆</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
+                                    fontWeight: '900',
+                                    color: '#FFD700',
+                                    textShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
+                                }}>{trofeusLight.ouro}</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
+                                    color: '#94A3B8',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px',
+                                    fontWeight: '700'
+                                }}>1º</div>
+                            </div>
+                            
+                            {/* Troféu de Prata */}
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
+                                    filter: 'drop-shadow(0 0 10px rgba(192, 192, 192, 0.5))',
+                                    lineHeight: 1
+                                }}>🏆</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
+                                    fontWeight: '900',
+                                    color: '#C0C0C0',
+                                    textShadow: '0 0 10px rgba(192, 192, 192, 0.5)'
+                                }}>{trofeusLight.prata}</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
+                                    color: '#94A3B8',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px',
+                                    fontWeight: '700'
+                                }}>2º</div>
+                            </div>
+                            
+                            {/* Troféu de Bronze */}
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '2.5rem' : '3rem',
+                                    filter: 'drop-shadow(0 0 10px rgba(205, 127, 50, 0.5))',
+                                    lineHeight: 1
+                                }}>🏆</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem',
+                                    fontWeight: '900',
+                                    color: '#CD7F32',
+                                    textShadow: '0 0 10px rgba(205, 127, 50, 0.5)'
+                                }}>{trofeusLight.bronze}</div>
+                                <div style={{
+                                    fontSize: deviceInfo.isMobile ? '0.65rem' : '0.75rem',
+                                    color: '#94A3B8',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px',
+                                    fontWeight: '700'
+                                }}>3º</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* GRÁFICO DE POSIÇÕES / OBJETIVOS */}
                 {dashData.chartData && dashData.chartData.length > 0 && (
                     <div style={{

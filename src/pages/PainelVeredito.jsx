@@ -1058,6 +1058,14 @@ function PainelVeredito() {
         const votosInocente = votos.filter(v => !v.culpado).length;
         const resultado = calcularResultado(votos);
         const podeFinalizarJurado = votos.length >= 3 && votos.find(isVotoDoJuradoAtual);
+        
+        // Verificar se é retirada de bug
+        const isRetiradaBug = lance.dados?.tipoSolicitacao === 'retirada_bug' ||
+                               lance.dados?.acusado?.nome === 'Administração Master League F1';
+        
+        // Definir labels baseado no tipo
+        const labelCulpado = isRetiradaBug ? 'RETIRAR' : 'CULPADO';
+        const labelInocente = isRetiradaBug ? 'MANTER' : 'INOCENTE';
 
         return (
             <div style={{ background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)', borderRadius: '12px', padding: '20px', border: '2px solid #F59E0B', marginBottom: '20px' }}>
@@ -1067,12 +1075,12 @@ function PainelVeredito() {
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '30px', marginBottom: '20px' }}>
                     <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#EF4444' }}>{votosCulpado}</div>
-                        <div style={{ color: '#EF4444', fontSize: '12px' }}>CULPADO</div>
+                        <div style={{ color: '#EF4444', fontSize: '12px' }}>{labelCulpado}</div>
                     </div>
                     <div style={{ fontSize: '24px', color: '#64748B' }}>X</div>
                     <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#22C55E' }}>{votosInocente}</div>
-                        <div style={{ color: '#22C55E', fontSize: '12px' }}>INOCENTE</div>
+                        <div style={{ color: '#22C55E', fontSize: '12px' }}>{labelInocente}</div>
                     </div>
                 </div>
 

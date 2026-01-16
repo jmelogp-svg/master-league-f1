@@ -246,10 +246,8 @@ function HallOfFame() {
             return null;
         }).filter(Boolean).sort((a, b) => b.season - a.season);
 
-        // Para Grid Light, filtrar apenas temporadas completas e pegar a última completa
-        const completeChamps = gridType === 'light' 
-            ? champs.filter(champ => isSeasonComplete('light', champ.season))
-            : champs;
+        // Filtrar apenas temporadas completas (tanto para Grid Light quanto Grid Carreira)
+        const completeChamps = champs.filter(champ => isSeasonComplete(gridType, champ.season));
 
         // Top Stats Globais
         const driversArray = Object.values(driverStats);
