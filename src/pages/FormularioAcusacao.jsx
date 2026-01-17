@@ -245,6 +245,7 @@ function FormularioAcusacao() {
                     nome: pilotoAcusadoSelecionado?.nome || formData.pilotoAcusado,
                     gamertag: pilotoAcusadoSelecionado?.gamertag || '-',
                     whatsapp: pilotoAcusadoSelecionado?.whatsapp || '-',
+                    email: pilotoAcusadoSelecionado?.email || null,
                 },
                 etapa: etapaSelecionada || { round: formData.etapa, circuit: '-' },
                 descricao: formData.descricao,
