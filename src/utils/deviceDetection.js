@@ -26,20 +26,6 @@ export function isMobileDevice() {
     // Prioriza user agent pois é mais confiável para diferenciar dispositivos reais
     const isMobile = isMobileUA || (isMobileWidth && hasTouchSupport && hasOrientation);
     
-    // Log de debug (apenas em desenvolvimento)
-    if (process.env.NODE_ENV === 'development') {
-        console.log('📱 Device Detection:', {
-            userAgent: userAgent.substring(0, 50) + '...',
-            isMobileUA,
-            isMobileWidth,
-            width: window.innerWidth,
-            hasTouchSupport,
-            hasOrientation,
-            isMobile,
-            maxTouchPoints: navigator.maxTouchPoints
-        });
-    }
-    
     return isMobile;
 }
 
@@ -104,7 +90,6 @@ export function get2FAKeyForDevice(email) {
 export function is2FAValidatedForDevice(email) {
     const key = get2FAKeyForDevice(email);
     const value = localStorage.getItem(key);
-    console.log(`[DEBUG_LOGIN] is2FAValidatedForDevice - key: ${key}, value: ${value}`);
     return value === 'true';
 }
 
@@ -115,7 +100,6 @@ export function is2FAValidatedForDevice(email) {
 export function set2FAValidatedForDevice(email) {
     const key = get2FAKeyForDevice(email);
     localStorage.setItem(key, 'true');
-    console.log('💾 2FA salvo no localStorage para dispositivo:', isMobileDevice() ? 'mobile' : 'desktop', key);
 }
 
 /**
@@ -125,7 +109,6 @@ export function set2FAValidatedForDevice(email) {
 export function clear2FAForDevice(email) {
     const key = get2FAKeyForDevice(email);
     localStorage.removeItem(key);
-    console.log('🗑️ 2FA removido do localStorage para dispositivo:', isMobileDevice() ? 'mobile' : 'desktop');
 }
 
 /**
@@ -138,6 +121,5 @@ export function clearAll2FAForEmail(email) {
     localStorage.removeItem(`${baseKey}:desktop`);
     // Também remove chave antiga (sem sufixo) para compatibilidade
     localStorage.removeItem(baseKey);
-    console.log('🗑️ Todas as flags de 2FA removidas para:', email);
 }
 

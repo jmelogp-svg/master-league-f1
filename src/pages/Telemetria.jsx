@@ -132,14 +132,85 @@ function Telemetria() {
 
         const qData = consistentDrivers.map(d => {
             const avgQualy = d.qualySum / d.racesCount;
-            const score = Math.max(0, Math.round(((21 - avgQualy) / 20) * 100));
+            // Ritmo de Classificação: baixa de 1 em 1% (1º=100%, 2º=99%, ..., 20º=81%)
+            const score = Math.max(81, Math.min(100, Math.ceil(101 - avgQualy)));
             return { name: d.name, score: score, display: `${score}%`, avgPos: avgQualy.toFixed(1), team: d.team };
         }).sort((a, b) => b.score - a.score);
 
-        const rData = consistentDrivers.map(d => {
+        // Calcular deltas e posições médias de corrida
+        const deltas = consistentDrivers.map(d => {
             const avgDelta = d.deltaSum / d.racesCount;
-            return { name: d.name, delta: parseFloat(avgDelta.toFixed(1)), team: d.team };
-        }).sort((a, b) => b.delta - a.delta);
+            const avgRace = d.raceSum / d.racesCount; // Posição média na corrida
+            return { 
+                name: d.name, 
+                delta: parseFloat(avgDelta.toFixed(1)), 
+                avgRace: parseFloat(avgRace.toFixed(1)),
+                team: d.team 
+            };
+        });
+        
+        // Encontrar o melhor e pior delta para normalização
+        const maxDelta = Math.max(...deltas.map(d => d.delta), 0);
+        const minDelta = Math.min(...deltas.map(d => d.delta), -10); // Considerar até -10 como pior caso
+        
+        // Função para converter delta em percentual
+        // Considera que manter posição (delta 0) ou perder poucas é bom ritmo
+        // ESPECIAL: Se o piloto termina entre os 5 primeiros, mesmo perdendo posições, tem bom ritmo
+        const deltaToPercent = (delta, avgRace) => {
+            const estaNoTop3 = avgRace <= 3;
+            const estaEmP4ouP5 = avgRace >= 4 && avgRace <= 5;
+            const estaNosTop5 = avgRace <= 5;
+            
+            if (delta >= 0) {
+                // Ganhou posições
+                if (delta === 0) {
+                    // Manter posição: Top 3 = 95%, P4/P5 = 90%, outros = 80%
+                    if (estaNoTop3) return 95;
+                    if (estaEmP4ouP5) return 90;
+                    return 80;
+                }
+                // Ganhou posições: base percentual até 100% (melhor delta)
+                if (maxDelta <= 0) {
+                    // Se ninguém ganhou posições além de delta 0, usar base percentual
+                    if (estaNoTop3) return 95;
+                    if (estaEmP4ouP5) return 90;
+                    return 80;
+                }
+                const basePercent = estaNoTop3 ? 95 : (estaEmP4ouP5 ? 90 : 80);
+                const calculatedPercent = basePercent + (delta / maxDelta) * (100 - basePercent);
+                return Math.ceil(Math.max(basePercent, Math.min(100, calculatedPercent)));
+            } else {
+                // Perdeu posições
+                if (estaNoTop3) {
+                    // Se está no top 3, mesmo perdendo posições, ainda tem bom ritmo
+                    // Delta -1 = 90%, -2 = 85%, -3 = 80%, etc.
+                    const percent = Math.max(70, Math.min(95, 95 + (delta * 2.5)));
+                    return Math.round(percent);
+                } else if (estaEmP4ouP5) {
+                    // Se está em P4 ou P5, mesmo perdendo posições, ainda tem bom ritmo
+                    // Delta -1 = 85%, -2 = 80%, -3 = 75%, etc.
+                    const percent = Math.max(70, Math.min(90, 90 + (delta * 3)));
+                    return Math.round(percent);
+                } else {
+                    // Fora dos top 5: penalização maior por perder posições
+                    // Delta -1 = 75%, -2 = 70%, -3 = 65%, etc.
+                    const percent = Math.max(0, Math.min(80, 80 + (delta * 5)));
+                    return Math.round(percent);
+                }
+            }
+        };
+        
+        const rData = deltas.map(d => {
+            const percent = deltaToPercent(d.delta, d.avgRace);
+            return { 
+                name: d.name, 
+                delta: d.delta, 
+                avgRace: d.avgRace,
+                percent: percent,
+                display: `${percent}%`,
+                team: d.team 
+            };
+        }).sort((a, b) => b.percent - a.percent);
 
         return { evolutionData: evolData, qualyData: qData, racePaceData: rData, topDriversList: topDrivers };
 
@@ -241,55 +312,34 @@ function Telemetria() {
                             <div className="chart-card" style={{width: '100%'}}>
                                 <div className="chart-header">
                                     <h3>RITMO DE CORRIDA</h3>
-                                    <span>Posições ganhas (Verde) ou perdidas (Vermelho)</span>
+                                    <span>Percentual de ritmo (0% a 100%)</span>
                                 </div>
                                 <div style={{ width: '100%', height: 600 }}>
                                     <ResponsiveContainer>
-                                        <BarChart data={racePaceData} layout="vertical" margin={{top: 5, right: 80, left: 80, bottom: 5}}>
+                                        <BarChart data={racePaceData} layout="vertical" margin={{top: 5, right: 50, left: 80, bottom: 5}}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                            <XAxis type="number" stroke="#94A3B8" hide domain={[dataMin => Math.min(dataMin, 0), dataMax => Math.max(dataMax, 0)]} />
+                                            <XAxis type="number" domain={[0, 100]} hide />
                                             <YAxis dataKey="name" type="category" stroke="white" width={140} tick={{fontSize: 11}} interval={0} />
                                             <Tooltip content={<div style={{display: 'none'}} />} />
-                                            <ReferenceLine x={0} stroke="#64748B" strokeWidth={2} />
-                                            <Bar dataKey="delta" name="Delta" barSize={15}>
-                                                {racePaceData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.delta >= 0 ? '#10B981' : '#EF4444'} radius={entry.delta >= 0 ? [0, 4, 4, 0] : [4, 0, 0, 4]} />)}
+                                            <Bar dataKey="percent" name="Percentual" barSize={15} radius={[0, 4, 4, 0]}>
+                                                {racePaceData.map((entry, index) => {
+                                                    // Verde para quem ganha posições, amarelo/laranja para quem mantém/perde poucas nos top 5, vermelho para quem perde muitas
+                                                    let color = '#EF4444'; // Vermelho padrão
+                                                    if (entry.delta >= 0) {
+                                                        color = '#10B981'; // Verde para ganhar posições
+                                                    } else if (entry.percent >= 70) {
+                                                        color = '#F59E0B'; // Amarelo/laranja para bom ritmo (perde poucas, especialmente nos top 5)
+                                                    } else if (entry.percent >= 50) {
+                                                        color = '#F97316'; // Laranja para ritmo médio
+                                                    }
+                                                    return <Cell key={`cell-${index}`} fill={color} />;
+                                                })}
                                                 <LabelList 
-                                                    dataKey="delta" 
-                                                    content={(props) => {
-                                                        const { x, y, width, height, value, index } = props;
-                                                        const data = racePaceData[index];
-                                                        if (!data) return null;
-                                                        
-                                                        if (data.delta >= 0) {
-                                                            return (
-                                                                <text 
-                                                                    x={Number(x) + Number(width) + 5} 
-                                                                    y={Number(y) + Number(height) / 2} 
-                                                                    fill="white" 
-                                                                    fontSize={11} 
-                                                                    fontWeight={800} 
-                                                                    textAnchor="start" 
-                                                                    dominantBaseline="middle"
-                                                                >
-                                                                    {`+${value}`}
-                                                                </text>
-                                                            );
-                                                        } else {
-                                                            return (
-                                                                <text 
-                                                                    x={Number(x) - 5} 
-                                                                    y={Number(y) + Number(height) / 2} 
-                                                                    fill="white" 
-                                                                    fontSize={11} 
-                                                                    fontWeight={800} 
-                                                                    textAnchor="end" 
-                                                                    dominantBaseline="middle"
-                                                                >
-                                                                    {value}
-                                                                </text>
-                                                            );
-                                                        }
-                                                    }}
+                                                    dataKey="display" 
+                                                    position="right" 
+                                                    fill="white" 
+                                                    fontSize={11} 
+                                                    fontWeight={800}
                                                 />
                                             </Bar>
                                         </BarChart>

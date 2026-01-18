@@ -16,6 +16,7 @@ import Standings from './pages/Standings';
 import Admin from './pages/Admin';
 import AdminSync from './pages/AdminSync';
 import AdminDraftImport from './pages/AdminDraftImport';
+import AdminPowerRanking from './pages/AdminPowerRanking';
 import Calendario from './pages/Calendario';
 import Analises from './pages/Analises';
 import ConsultarAnalises from './pages/ConsultarAnalises';
@@ -49,6 +50,7 @@ function App() {
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/admin/sync" element={<AdminSync />} />
                 <Route path="/admin/draft-import" element={<AdminDraftImport />} />
+                <Route path="/admin/power-ranking" element={<AdminPowerRanking />} />
                 {/* <Route path="/narrador" element={<Narrador />} /> */} {/* ADIADO - Sistema de narrador */}
                 <Route path="/standings" element={<Standings />} />
                 <Route path="/powerranking" element={<PowerRanking />} />

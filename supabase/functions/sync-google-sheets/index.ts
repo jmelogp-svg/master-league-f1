@@ -22,10 +22,15 @@ const SHEETS_CONFIG = {
     gid: "1687781433",
     name: "Data Light"
   },
-  power_ranking: {
+  power_ranking_carreira: {
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=984075936&single=true&output=csv",
     gid: "984075936",
-    name: "CALCULADORA PR"
+    name: "Power Ranking Carreira"
+  },
+  power_ranking_light: {
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1453010431&single=true&output=csv",
+    gid: "1453010431",
+    name: "Power Ranking Light"
   },
   calendario: {
     url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv",
@@ -480,22 +485,26 @@ async function syncEquipes(supabase: any, season: number = 20) {
 async function syncGeneric(
   supabase: any,
   tableName: string,
-  config: typeof SHEETS_CONFIG[keyof typeof SHEETS_CONFIG],
-  season?: number
+  config: any,
+  season?: number,
+  grid?: string
 ) {
   const startTime = Date.now();
   
   try {
-    console.log(`Sincronizando ${tableName}...`);
+    console.log(`Sincronizando ${tableName}${grid ? ` (${grid})` : ''}${season ? ` (S${season})` : ''}...`);
     
     const csvText = await fetchSheetCSV(config.url);
     const rows = parseCSV(csvText);
     const dataHash = await calculateHash(csvText);
     
     // Verificar se mudou
-    const query = supabase.from(tableName).select("data_hash");
+    let query = supabase.from(tableName).select("data_hash");
     if (season) {
-      query.eq("season", season);
+      query = query.eq("season", season);
+    }
+    if (grid) {
+      query = query.eq("grid", grid);
     }
     
     const { data: existing } = await query.maybeSingle();
@@ -513,7 +522,8 @@ async function syncGeneric(
       rows,
       metadata: {
         rowCount: rows.length,
-        syncedAt: new Date().toISOString()
+        syncedAt: new Date().toISOString(),
+        grid: grid
       }
     };
 
@@ -527,11 +537,18 @@ async function syncGeneric(
     if (season) {
       upsertData.season = season;
     }
+    if (grid) {
+      upsertData.grid = grid;
+    }
+
+    const onConflictFields = [];
+    if (grid) onConflictFields.push("grid");
+    if (season) onConflictFields.push("season");
 
     const { error } = await supabase
       .from(tableName)
       .upsert(upsertData, {
-        onConflict: season ? "season" : undefined
+        onConflict: onConflictFields.length > 0 ? onConflictFields.join(",") : undefined
       });
 
     if (error) throw error;
@@ -603,7 +620,11 @@ serve(async (req) => {
         break;
 
       case "power_ranking":
-        result = await syncGeneric(supabase, "power_ranking_cache", SHEETS_CONFIG.power_ranking);
+        const [prCarreira, prLight] = await Promise.all([
+          syncGeneric(supabase, "power_ranking_cache", SHEETS_CONFIG.power_ranking_carreira, undefined, "carreira"),
+          syncGeneric(supabase, "power_ranking_cache", SHEETS_CONFIG.power_ranking_light, undefined, "light")
+        ]);
+        result = { carreira: prCarreira, light: prLight };
         break;
 
       case "calendario":
@@ -624,10 +645,11 @@ serve(async (req) => {
 
       case "all":
         // Sincronizar tudo
-        const [classCarreira, classLight, pr, cal, tracks, minicup, equipes] = await Promise.all([
+        const [classCarreira, classLight, prCarreiraAll, prLightAll, cal, tracks, minicup, equipes] = await Promise.all([
           syncClassificacao(supabase, "carreira", currentSeason),
           syncClassificacao(supabase, "light", currentSeason),
-          syncGeneric(supabase, "power_ranking_cache", SHEETS_CONFIG.power_ranking),
+          syncGeneric(supabase, "power_ranking_cache", SHEETS_CONFIG.power_ranking_carreira, undefined, "carreira"),
+          syncGeneric(supabase, "power_ranking_cache", SHEETS_CONFIG.power_ranking_light, undefined, "light"),
           syncGeneric(supabase, "calendario_cache", SHEETS_CONFIG.calendario, currentSeason),
           syncGeneric(supabase, "tracks_cache", SHEETS_CONFIG.tracks),
           syncGeneric(supabase, "minicup_cache", SHEETS_CONFIG.minicup),
@@ -635,7 +657,7 @@ serve(async (req) => {
         ]);
         result = {
           classificacao: { carreira: classCarreira, light: classLight },
-          power_ranking: pr,
+          power_ranking: { carreira: prCarreiraAll, light: prLightAll },
           calendario: cal,
           tracks,
           minicup,

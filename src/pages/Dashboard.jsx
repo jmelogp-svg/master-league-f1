@@ -2070,7 +2070,9 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     const teamWallpaper = getTeamWallpaper(effectiveTeamName);
     const totalWins = dashData.statsCarreira.wins + dashData.statsLight.wins;
     const totalPodiums = dashData.statsCarreira.podiums + dashData.statsLight.podiums;
-    const totalSeasons = dashData.statsCarreira.seasons.size + dashData.statsLight.seasons.size;
+    // Unir temporadas dos dois grids para contar apenas uma vez por temporada (mesmo que tenha corrido em ambos os grids)
+    const temporadasUnidas = new Set([...dashData.statsCarreira.seasons, ...dashData.statsLight.seasons]);
+    const totalSeasons = temporadasUnidas.size;
     
     // Calcular troféus separados por grid
     const calcularTrofeusPorGrid = (racesList) => {
@@ -3642,7 +3644,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                             height: '36px',
                                                             borderRadius: '10px',
                                                             background: `linear-gradient(135deg, ${teamColor} 0%, ${teamColor}AA 100%)`,
-                                                            color: '#000',
+                                                            color: '#FFFFFF',
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'center',

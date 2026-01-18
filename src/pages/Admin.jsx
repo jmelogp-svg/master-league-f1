@@ -6,6 +6,7 @@ import { clearLeagueDataCache } from '../hooks/useLeagueData';
 import { isMobileDevice } from '../utils/deviceDetection';
 import { sendWhatsappNotification } from '../utils/whatsappNotify';
 import { atualizarLancesComDefesaExpirada } from '../hooks/useAnalises';
+import AdminPowerRanking from './AdminPowerRanking';
 import '../index.css';
 
 function Admin() {
@@ -1932,6 +1933,9 @@ function Admin() {
                     <button className={`adm-tab-btn ${activeTab === 'noticias' ? 'active' : ''}`} onClick={() => setActiveTab('noticias')}>
                         📰 NOTÍCIAS
                     </button>
+                    <button className={`adm-tab-btn ${activeTab === 'power-ranking' ? 'active' : ''}`} onClick={() => setActiveTab('power-ranking')}>
+                        📊 POWER RANKING
+                    </button>
                     <button 
                         className="adm-tab-btn"
                         onClick={() => navigate('/resultados-corrida')}
@@ -3268,6 +3272,10 @@ function Admin() {
                             </div>
                         )}
                     </div>
+                )}
+
+                {activeTab === 'power-ranking' && (
+                    <AdminPowerRanking />
                 )}
 
                 {activeTab === 'noticias' && (

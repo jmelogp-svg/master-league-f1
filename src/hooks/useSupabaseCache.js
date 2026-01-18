@@ -19,7 +19,8 @@ export function useSupabaseCache(tableName, options = {}) {
         cacheMaxAge = 10,
         enableLocalCache = true,
         fallbackUrl = null,
-        parseData = (data) => data
+        parseData = (data) => data,
+        validateData = () => true
     } = options;
 
     const [data, setData] = useState(null);
@@ -42,28 +43,63 @@ export function useSupabaseCache(tableName, options = {}) {
 
             try {
                 // 1. Tentar Supabase PRIMEIRO (fonte de verdade)
-                let query = supabase.from(tableName).select('*');
+                let supabaseData = null;
+                let supabaseError = null;
                 
-                // Aplicar filtros
-                Object.entries(filter).forEach(([key, value]) => {
-                    if (value !== undefined && value !== null) {
-                        query = query.eq(key, value);
-                    }
-                });
+                try {
+                    // Usar select('*') para evitar erro 406 (Not Acceptable) 
+                    // que pode ocorrer com select('data, last_synced_at')
+                    let query = supabase.from(tableName).select('*');
+                    
+                    // Aplicar filtros
+                    Object.entries(filter).forEach(([key, value]) => {
+                        if (value !== undefined && value !== null) {
+                            query = query.eq(key, value);
+                        }
+                    });
 
-                // Ordenar por last_synced_at DESC para pegar o mais recente
-                query = query.order('last_synced_at', { ascending: false }).limit(1);
+                    // Ordenar por last_synced_at DESC para pegar o mais recente
+                    query = query.order('last_synced_at', { ascending: false }).limit(1);
 
-                const { data: supabaseData, error: supabaseError } = await query;
-
-                if (supabaseError) {
-                    console.warn(`Erro ao buscar ${tableName} do Supabase:`, supabaseError);
+                    const result = await query;
+                    supabaseData = result.data;
+                    supabaseError = result.error;
+                } catch (queryError) {
+                    // Capturar erros de rede ou outros erros não relacionados ao Supabase
+                    supabaseError = queryError;
                 }
 
-                if (!supabaseError && supabaseData && supabaseData.length > 0) {
+                // Verificar se há erro que deve pular para fallback
+                let shouldUseFallback = false;
+                
+                if (supabaseError) {
+                    const errorStatus = supabaseError.status || supabaseError.code;
+                    const errorMessage = supabaseError.message || '';
+                    
+                    const isTableNotFound = errorStatus === 406 || 
+                                          errorStatus === 404 ||
+                                          supabaseError.code === 'PGRST116' ||
+                                          errorMessage.includes('does not exist') ||
+                                          errorMessage.includes('permission denied') ||
+                                          errorMessage.includes('Not Acceptable');
+                    
+                    if (isTableNotFound) {
+                        shouldUseFallback = true;
+                        supabaseData = null; // Garantir que não tenta processar dados
+                    }
+                }
+
+                // Só processar dados do Supabase se não houver erro que requer fallback
+                if (!shouldUseFallback && !supabaseError && supabaseData && supabaseData.length > 0) {
                     const record = supabaseData[0];
-                    const lastSync = new Date(record.last_synced_at);
-                    const age = (Date.now() - lastSync.getTime()) / (1000 * 60);
+                    const dataToValidate = record?.data;
+                    const isValid = validateData(dataToValidate);
+                    console.log(`🔍 Validação de dados para ${tableName}:`, isValid ? 'VÁLIDO' : 'INVÁLIDO - usando fallback');
+                    if (!isValid) {
+                        shouldUseFallback = true;
+                    } else {
+                        const lastSync = new Date(record.last_synced_at);
+                        const age = (Date.now() - lastSync.getTime()) / (1000 * 60);
 
                     // Se a idade for negativa (data no futuro), provavelmente é problema de timezone
                     // Tratar como cache válido se a diferença for menor que 24 horas
@@ -71,16 +107,10 @@ export function useSupabaseCache(tableName, options = {}) {
                     const absAge = Math.abs(age);
                     
                     if (isNegativeAge) {
-                        console.log(`📊 ${tableName} encontrado no Supabase, idade: ${age.toFixed(1)} minutos (data no futuro - provável problema de timezone)`);
                         // Se a diferença for menor que 24 horas, considerar válido (problema de timezone)
-                        if (absAge < 24 * 60) {
-                            console.log(`✅ Considerando cache válido apesar da idade negativa (diferença: ${absAge.toFixed(1)} min < 24h)`);
-                        } else {
-                            console.log(`⚠️ Cache do Supabase para ${tableName} tem data muito no futuro (${absAge.toFixed(1)} min > 24h), usando fallback`);
+                        if (absAge >= 24 * 60) {
                             // Pular para fallback
                         }
-                    } else {
-                        console.log(`📊 ${tableName} encontrado no Supabase, idade: ${age.toFixed(1)} minutos`);
                     }
 
                     // Se cache está atualizado OU se é idade negativa mas dentro de 24h (timezone), usar
@@ -88,6 +118,7 @@ export function useSupabaseCache(tableName, options = {}) {
                         const processedData = parseData(record.data);
                         
                         if (isMounted.current) {
+                            console.log(`✅ Usando dados do SUPABASE para ${tableName}`);
                             setData(processedData);
                             setSource('supabase');
                             setLoading(false);
@@ -101,21 +132,17 @@ export function useSupabaseCache(tableName, options = {}) {
                                 }));
                             }
                         }
-                        console.log(`✅ ${tableName} carregado do Supabase`);
                         return;
                     } else {
-                        if (!isNegativeAge) {
-                            console.log(`⚠️ Cache do Supabase para ${tableName} expirado (${age.toFixed(1)} min > ${cacheMaxAge} min), usando fallback`);
-                        }
+                        shouldUseFallback = true; // Cache expirado, usar fallback
                     }
-                } else {
-                    console.log(`⚠️ Nenhum dado encontrado no Supabase para ${tableName}, usando fallback`);
                 }
+            } else {
+                shouldUseFallback = true; // Sem dados, usar fallback
+            }
 
                 // 3. Fallback para Google Sheets se necessário
-                if (fallbackUrl) {
-                    console.log(`Cache do Supabase expirado ou indisponível, usando fallback: ${fallbackUrl}`);
-                    
+                if (shouldUseFallback && fallbackUrl) {
                     try {
                         const response = await fetch(fallbackUrl);
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -147,6 +174,7 @@ export function useSupabaseCache(tableName, options = {}) {
                         const processedData = parseData({ rows, metadata: { rowCount: rows.length } });
                         
                         if (isMounted.current) {
+                            console.log(`✅ Usando dados do GOOGLE SHEETS (fallback) para ${tableName}`);
                             setData(processedData);
                             setSource('sheets');
                             setLoading(false);
@@ -172,8 +200,6 @@ export function useSupabaseCache(tableName, options = {}) {
                                 const { data: cachedData, timestamp } = JSON.parse(cached);
                                 const age = (Date.now() - timestamp) / (1000 * 60);
                                 
-                                console.log(`⚠️ Usando cache local como último recurso para ${tableName}, idade: ${age.toFixed(1)} minutos`);
-                                
                                 if (isMounted.current) {
                                     setData(parseData(cachedData));
                                     setSource('local');
@@ -181,7 +207,6 @@ export function useSupabaseCache(tableName, options = {}) {
                                     return;
                                 }
                             } catch (e) {
-                                console.warn('Erro ao ler cache local:', e);
                             }
                         }
                     }
@@ -234,10 +259,10 @@ async function updateSupabaseCache(tableName, filter, data) {
                     'Authorization': `Bearer ${supabase.supabaseKey}`
                 },
                 body: JSON.stringify({ sheetType, force: false })
-            }).catch(err => console.warn('Erro ao atualizar cache:', err));
+            }).catch(() => {});
         }
     } catch (err) {
-        console.warn('Erro ao tentar atualizar cache:', err);
+        // Silenciar falhas de atualização de cache
     }
 }
 
@@ -271,15 +296,46 @@ export function useMinicupCache() {
 }
 
 /**
- * Hook específico para Power Ranking
+ * Hook específico para Power Ranking (Carreira)
  */
-export function usePowerRankingCache() {
+export function usePowerRankingCache(season = 20) {
     const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=984075936&single=true&output=csv';
 
     return useSupabaseCache('power_ranking_cache', {
+        filter: { grid: 'carreira' },
         cacheMaxAge: 15,
         fallbackUrl,
-        parseData: (data) => data.rows || []
+        parseData: (data) => data.rows || [],
+        validateData: (data) => {
+            const rows = data?.rows || [];
+            // Verificar se tem dados da temporada solicitada
+            const hasSeason = rows.some(row => String(row[9]).trim() === String(season));
+            // Se tiver metadata de grid (nas novas sincronizações), validar também
+            const matchesGrid = !data.metadata?.grid || data.metadata.grid === 'carreira';
+            return hasSeason && matchesGrid;
+        }
+    });
+}
+
+/**
+ * Hook específico para Power Ranking Light
+ */
+export function usePowerRankingLightCache(season = 20) {
+    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1453010431&single=true&output=csv';
+
+    return useSupabaseCache('power_ranking_cache', {
+        filter: { grid: 'light' },
+        cacheMaxAge: 15,
+        fallbackUrl,
+        parseData: (data) => data.rows || [],
+        validateData: (data) => {
+            const rows = data?.rows || [];
+            // Verificar se tem dados da temporada solicitada
+            const hasSeason = rows.some(row => String(row[9]).trim() === String(season));
+            // Se tiver metadata de grid (nas novas sincronizações), validar também
+            const matchesGrid = !data.metadata?.grid || data.metadata.grid === 'light';
+            return hasSeason && matchesGrid;
+        }
     });
 }
 

@@ -6150,81 +6150,605 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 
 @media (max-width: 768px) {
     .regulamento-page {
-        padding: 70px 16px 50px;
+        padding: 70px 12px 50px;
+    }
+    .regulamento-header {
+        padding: 20px 0;
     }
     .regulamento-header h1 {
-        font-size: 1.8rem;
+        font-size: 1.5rem;
+        line-height: 1.2;
+    }
+    .regulamento-header p {
+        font-size: 0.85rem;
+        margin-top: 10px;
+    }
+    .reg-pill-row {
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .reg-header-actions {
+        gap: 8px;
+    }
+    .reg-action-btn-icon {
+        width: 36px;
+        height: 36px;
+        padding: 8px;
+    }
+    .reg-view-toggle {
+        gap: 10px;
+        font-size: 0.8rem;
+        margin: 15px 0;
+    }
+    .reg-search-container {
+        max-width: 100%;
+        margin: 20px 0 0;
+    }
+    .reg-search-box {
+        padding: 12px 16px;
+    }
+    .reg-search-box input {
+        font-size: 0.9rem;
     }
     .reg-hero-grid {
         grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .reg-hero-card {
+        padding: 20px;
+    }
+    .reg-hero-icon {
+        width: 48px;
+        height: 48px;
+    }
+    .stat-icon {
+        width: 24px;
+        height: 24px;
+    }
+    .reg-hero-card h3 {
+        font-size: 1rem;
+        margin-top: 12px;
+    }
+    .reg-hero-card p {
+        font-size: 0.85rem;
+        margin-top: 8px;
     }
     .regulamento-grid {
         grid-template-columns: 1fr;
     }
     .reg-highlight-grid {
         grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .reg-highlight-card {
+        padding: 18px;
+    }
+    .reg-highlight-icon {
+        width: 40px;
+        height: 40px;
+    }
+    .reg-highlight-card h3 {
+        font-size: 0.95rem;
+    }
+    .reg-highlight-card p {
+        font-size: 0.85rem;
     }
     .reg-calendar-grid {
         grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .reg-calendar-card {
+        padding: 20px;
+    }
+    .reg-calendar-card h3 {
+        font-size: 1.2rem;
+    }
+    .reg-calendar-sub {
+        font-size: 0.85rem;
     }
     .reg-calendar-tables {
         grid-template-columns: 1fr;
+        gap: 20px;
+        margin-top: 20px;
+    }
+    .reg-calendar-table-wrapper {
+        padding: 16px;
+    }
+    .reg-calendar-table-title {
+        font-size: 0.95rem;
+        margin-bottom: 12px;
     }
     .reg-calendar-table {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
     }
     .reg-calendar-table th,
     .reg-calendar-table td {
-        padding: 10px 6px;
+        padding: 8px 4px;
+        font-size: 0.7rem;
+    }
+    .circuit-info-cell {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .flag-img {
+        width: 20px;
+        height: auto;
+        flex-shrink: 0;
+    }
+    .circuit-name {
+        font-size: 0.7rem;
+        margin-left: 0 !important;
+    }
+    .reg-calendar-legenda {
+        margin-top: 12px;
+        padding: 12px;
+        background: rgba(250, 204, 21, 0.05);
+        border-radius: 8px;
+    }
+    .legenda-time,
+    .legenda-notes {
+        font-size: 0.65rem;
+        margin: 4px 0;
     }
     .reg-session-grid {
         grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .reg-session-card {
+        padding: 18px;
+    }
+    .reg-session-icon {
+        width: 36px;
+        height: 36px;
+    }
+    .reg-session-card h3 {
+        font-size: 0.95rem;
+    }
+    .reg-session-card p {
+        font-size: 0.85rem;
     }
     .reg-lobby-steps {
         grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .reg-lobby-step {
+        padding: 14px 16px;
+        gap: 12px;
+    }
+    .reg-lobby-step span {
+        width: 28px;
+        height: 28px;
+        font-size: 0.95rem;
+    }
+    .reg-lobby-step p {
+        font-size: 0.85rem;
     }
     .reg-section-technical .reg-tech-grid {
         grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .reg-tech-card {
+        padding: 18px;
+    }
+    .reg-tech-card h3 {
+        font-size: 0.9rem;
+    }
+    .reg-tech-card p {
+        font-size: 0.85rem;
+    }
+    .reg-number-card {
+        padding: 18px;
+        gap: 14px;
+    }
+    .reg-number-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .reg-number-icon {
+        width: 36px;
+        height: 36px;
+    }
+    .reg-number-card-header h3 {
+        font-size: 1rem;
+    }
+    .reg-number-card-header p {
+        font-size: 0.8rem;
+    }
+    .reg-number-card ul li {
+        font-size: 0.85rem;
+        padding: 6px 10px;
+    }
+    .reg-number-note {
+        font-size: 0.8rem;
+    }
+    .reg-scoring-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .score-card {
+        padding: 18px;
+        min-height: auto;
+    }
+    .score-icon {
+        width: 32px;
+        height: 32px;
+    }
+    .score-card h3 {
+        font-size: 1rem;
+    }
+    .score-card ul li {
+        font-size: 0.85rem;
     }
     .draft-grid {
         grid-template-columns: 1fr;
+        gap: 18px;
+    }
+    .draft-card {
+        padding: 20px;
+    }
+    .draft-card h3 {
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+    }
+    .draft-card li {
+        font-size: 0.85rem;
+        padding: 8px 12px;
+    }
+    .reg-promotion-rule {
+        flex-direction: column;
+        padding: 16px;
+        gap: 12px;
+    }
+    .reg-promotion-icon {
+        font-size: 1.5rem;
+    }
+    .reg-promotion-content h4 {
+        font-size: 1rem;
+    }
+    .reg-promotion-content p {
+        font-size: 0.9rem;
     }
     .analysis-steps {
         grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .analysis-step {
+        padding: 18px;
     }
     .penalties-grid {
         grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    .penalty-card {
+        padding: 16px;
+    }
+    .penalty-card h3 {
+        font-size: 0.85rem;
+    }
+    .penalty-points {
+        font-size: 1.4rem;
+    }
+    .penalty-card p {
+        font-size: 0.8rem;
+    }
+    .reg-aggravations {
+        padding: 18px;
+    }
+    .aggravation-title {
+        font-size: 0.9rem;
+    }
+    .reg-suspension-line {
+        font-size: 0.85rem;
+        padding: 14px;
     }
     .info-card {
         grid-column: span 1;
         flex-direction: column;
-        text-align: center;
+        text-align: left;
+        padding: 18px;
+        gap: 14px;
+    }
+    .reg-icon {
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+    }
+    .info-card h4 {
+        font-size: 1rem;
+        margin-bottom: 10px;
+    }
+    .info-card p {
+        font-size: 0.85rem;
+    }
+    .info-card ul {
+        font-size: 0.85rem;
+        padding-left: 18px;
+    }
+    .info-card ul li {
+        margin-bottom: 8px;
     }
     .reg-section-title {
         flex-direction: column;
         gap: 12px;
+        padding-bottom: 16px;
+    }
+    .reg-section-title h2 {
+        font-size: 1.5rem;
+    }
+    .reg-section-title p {
+        font-size: 0.85rem;
     }
     .reg-mini-pill {
         align-self: flex-start;
+        font-size: 0.65rem;
+        padding: 6px 14px;
+    }
+    .reg-section {
+        margin-bottom: 50px;
+        gap: 20px;
+    }
+    .reg-card {
+        padding: 18px;
     }
     .reg-card h3 {
-        font-size: 1.3rem;
+        font-size: 1.1rem;
+    }
+    .reg-card p {
+        font-size: 0.85rem;
+    }
+    /* Power Ranking Grid no Regulamento */
+    .pr-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .pr-card {
+        min-height: auto;
+        padding: 18px;
+    }
+    .reg-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    .reg-pill-number {
+        font-size: 0.75rem;
+    }
+    .reg-icon-wrapper {
+        width: 36px;
+        height: 36px;
+    }
+    .reg-icon-wrapper .reg-icon {
+        width: 20px;
+        height: 20px;
+    }
+    .pr-hero-card {
+        padding: 20px 16px;
+        min-height: auto;
+        gap: 10px;
+    }
+    .pr-hero-icon {
+        width: 56px;
+        height: 56px;
+    }
+    .pr-main-icon {
+        width: 32px;
+        height: 32px;
+    }
+    .pr-hero-card h3 {
+        font-size: 0.9rem;
+    }
+    .pr-hero-card p {
+        font-size: 0.75rem;
+        padding: 0;
+    }
+    .pr-info-card {
+        padding: 18px;
     }
     .conduct-panel {
-        padding: 20px;
+        padding: 18px;
+    }
+    .conduct-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .conduct-header h2 {
+        font-size: 1.4rem;
+    }
+    .conduct-list {
+        gap: 12px;
+    }
+    .conduct-item {
+        padding: 12px;
+        gap: 10px;
+    }
+    .conduct-item .reg-icon {
+        width: 20px;
+        height: 20px;
+    }
+    .conduct-item span {
+        font-size: 0.85rem;
+    }
+    .conduct-tip {
+        margin-top: 18px;
+        padding: 14px;
+        gap: 10px;
+    }
+    .conduct-tip p {
+        font-size: 0.85rem;
+    }
+    .reg-lobby-config-section {
+        margin-top: 20px;
+    }
+    .reg-lobby-config-section h3 {
+        font-size: 1.1rem;
+        margin-top: 24px;
+        margin-bottom: 16px;
+    }
+    /* Sugestões de busca mobile */
+    .reg-search-suggestions {
+        max-height: 300px;
+        padding: 6px;
+        border-radius: 12px;
+    }
+    .reg-suggestion-item {
+        padding: 12px;
+        gap: 10px;
+    }
+    .reg-suggestion-item strong {
+        font-size: 0.85rem;
+    }
+    .reg-suggestion-item span {
+        font-size: 0.75rem;
+    }
+    /* Botão scroll to top mobile */
+    .scroll-to-top {
+        bottom: 20px;
+        right: 20px;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
     }
 }
 
 @media (max-width: 480px) {
-    .penalties-grid {
-        grid-template-columns: 1fr;
+    .regulamento-page {
+        padding: 70px 8px 50px;
     }
-    .reg-section-title h2 {
-        font-size: 1.4rem;
+    .regulamento-header h1 {
+        font-size: 1.3rem;
     }
     .regulamento-header-pill {
-        font-size: 0.6rem;
-        padding: 6px 14px;
+        font-size: 0.55rem;
+        padding: 5px 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    .reg-view-toggle {
+        font-size: 0.75rem;
+    }
+    .reg-search-box {
+        padding: 10px 14px;
+    }
+    .reg-search-box input {
+        font-size: 0.85rem;
+    }
+    .reg-hero-card {
+        padding: 16px;
+    }
+    .reg-hero-icon {
+        width: 40px;
+        height: 40px;
+    }
+    .reg-hero-card h3 {
+        font-size: 0.9rem;
+    }
+    .reg-hero-card p {
+        font-size: 0.8rem;
+    }
+    .reg-highlight-card {
+        padding: 16px;
+    }
+    .reg-highlight-icon {
+        width: 36px;
+        height: 36px;
+    }
+    .reg-calendar-card {
+        padding: 16px;
+    }
+    .reg-calendar-table-wrapper {
+        padding: 12px;
+    }
+    .reg-calendar-table-title {
+        font-size: 0.85rem;
+    }
+    .reg-calendar-table {
+        font-size: 0.65rem;
+    }
+    .reg-calendar-table th,
+    .reg-calendar-table td {
+        padding: 6px 3px;
+        font-size: 0.65rem;
+    }
+    .flag-img {
+        width: 18px;
+    }
+    .circuit-name {
+        font-size: 0.65rem;
+    }
+    .reg-lobby-step {
+        padding: 12px;
+    }
+    .reg-lobby-step span {
+        width: 24px;
+        height: 24px;
+        font-size: 0.85rem;
+    }
+    .reg-tech-card {
+        padding: 16px;
+    }
+    .reg-number-card {
+        padding: 16px;
+    }
+    .score-card {
+        padding: 16px;
+    }
+    .penalties-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .penalty-card {
+        padding: 14px;
+    }
+    .penalty-points {
+        font-size: 1.2rem;
+    }
+    .reg-section-title h2 {
+        font-size: 1.3rem;
+    }
+    .reg-section-title p {
+        font-size: 0.8rem;
+    }
+    .pr-hero-card {
+        padding: 16px 12px;
+    }
+    .pr-hero-icon {
+        width: 48px;
+        height: 48px;
+    }
+    .pr-main-icon {
+        width: 28px;
+        height: 28px;
+    }
+    .info-card {
+        padding: 16px;
+    }
+    .conduct-panel {
+        padding: 16px;
+    }
+    .conduct-header h2 {
+        font-size: 1.2rem;
+    }
+    .conduct-item span {
+        font-size: 0.8rem;
+    }
+    .reg-search-suggestions {
+        max-height: 250px;
+    }
+    .reg-suggestion-item {
+        padding: 10px;
+    }
+    .scroll-to-top {
+        bottom: 15px;
+        right: 15px;
+        width: 36px;
+        height: 36px;
     }
 }/* --- NEW POWER RANKING DESIGN (REFINED) --- */
 .pr-new-wrapper {

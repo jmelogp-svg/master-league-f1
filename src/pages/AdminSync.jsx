@@ -63,7 +63,8 @@ function AdminSync() {
         const tables = [
             { name: 'classificacao_cache', label: 'Classificação', grid: 'carreira', season: 20 },
             { name: 'classificacao_cache', label: 'Classificação Light', grid: 'light', season: 20 },
-            { name: 'power_ranking_cache', label: 'Power Ranking' },
+            { name: 'power_ranking_cache', label: 'Power Ranking', grid: 'carreira' },
+            { name: 'power_ranking_cache', label: 'Power Ranking Light', grid: 'light' },
             { name: 'calendario_cache', label: 'Calendário', season: 20 },
             { name: 'tracks_cache', label: 'Tracks' },
             { name: 'minicup_cache', label: 'Minicup' },

@@ -127,34 +127,37 @@ export const useLeagueData = () => {
                     // Buscar classificação do Supabase
                     const { data: carreiraData } = await supabase
                         .from('classificacao_cache')
-                        .select('data')
+                        .select('*')
                         .eq('grid', 'carreira')
                         .eq('season', season)
                         .single();
 
                     const { data: lightData } = await supabase
                         .from('classificacao_cache')
-                        .select('data')
+                        .select('*')
                         .eq('grid', 'light')
                         .eq('season', season)
                         .single();
 
-                    // Buscar tracks do Supabase
-                    const { data: tracksData } = await supabase
+                    // Buscar tracks do Supabase (pegar registro mais recente)
+                    const { data: tracksRows } = await supabase
                         .from('tracks_cache')
-                        .select('data')
-                        .single();
+                        .select('*')
+                        .order('last_synced_at', { ascending: false })
+                        .limit(1);
+                    const tracksData = tracksRows && tracksRows.length > 0 ? tracksRows[0] : null;
 
                 // Buscar Power Ranking do Supabase (com tratamento de erro específico)
                 let prData = null;
                 try {
-                    const { data, error } = await supabase
+                    const { data: prRows, error } = await supabase
                         .from('power_ranking_cache')
-                        .select('data')
-                        .single();
+                        .select('*')
+                        .order('last_synced_at', { ascending: false })
+                        .limit(1);
                     
-                    if (!error && data) {
-                        prData = { data };
+                    if (!error && prRows && prRows.length > 0) {
+                        prData = { data: prRows[0] };
                     }
                 } catch (prError) {
                     // Ignora erro 406 ou outros erros do Supabase para power_ranking_cache
@@ -165,21 +168,7 @@ export const useLeagueData = () => {
                 if (carreiraData?.data?.rows && lightData?.data?.rows) {
                     rowsC = carreiraData.data.rows;
                     rowsL = lightData.data.rows;
-                    console.log('📊 Dados de classificação carregados do Supabase');
-                    console.log(`  - Carreira: ${rowsC.length} linhas`);
-                    console.log(`  - Light: ${rowsL.length} linhas`);
-                    
-                    // Verificar equipes da temporada 20
-                    const teamsS20 = new Set();
-                    rowsC.forEach(row => {
-                        if (row && row.length > 10 && parseInt(row[3]) === 20) {
-                            const team = (row[10] || '').trim();
-                            if (team) teamsS20.add(team);
-                        }
-                    });
-                    console.log(`  - Equipes T20 (Carreira): ${Array.from(teamsS20).sort().join(', ')}`);
                 } else {
-                    console.log('📊 Buscando classificação do Google Sheets (não encontrada no Supabase)');
                     const [resC, resL] = await Promise.all([
                         fetch(PROXY_URL + encodeURIComponent(LINKS.carreira)).catch(() => ({ text: async () => '[]' })),
                         fetch(PROXY_URL + encodeURIComponent(LINKS.light)).catch(() => ({ text: async () => '[]' }))
@@ -190,18 +179,14 @@ export const useLeagueData = () => {
 
                 if (tracksData?.data?.rows) {
                     rowsT = tracksData.data.rows;
-                    console.log('📊 Dados de tracks carregados do Supabase');
                 } else {
-                    console.log('📊 Buscando tracks do Google Sheets (não encontradas no Supabase)');
                     const resT = await fetch(PROXY_URL + encodeURIComponent(LINKS.tracks)).catch(() => ({ text: async () => '[]' }));
                     rowsT = await parseCSV(await resT.text());
                 }
 
                 if (prData?.data?.rows) {
                     rowsPR = prData.data.rows;
-                    console.log('📊 Dados de Power Ranking carregados do Supabase');
                 } else {
-                    console.log('📊 Buscando Power Ranking do Google Sheets (não encontrado no Supabase)');
                     const resPR = await fetch(PROXY_URL + encodeURIComponent(LINKS.pr)).catch(() => ({ text: async () => '[]' }));
                     rowsPR = await parseCSV(await resPR.text());
                 }
@@ -218,7 +203,6 @@ export const useLeagueData = () => {
                 rowsDL = await parseCSV(await resDL.text());
 
             } catch (supabaseError) {
-                console.warn('Erro ao buscar do Supabase, usando fallback total:', supabaseError);
                 const [resC, resL, resT, resPR, resG20, resDC, resDL] = await Promise.all([
                     fetch(PROXY_URL + encodeURIComponent(LINKS.carreira)).catch(() => ({ text: async () => '[]' })),
                     fetch(PROXY_URL + encodeURIComponent(LINKS.light)).catch(() => ({ text: async () => '[]' })),
@@ -237,23 +221,6 @@ export const useLeagueData = () => {
                 rowsDC = await parseCSV(await resDC.text());
                 rowsDL = await parseCSV(await resDL.text());
             }
-                
-                console.log('📊 useLeagueData - Dados carregados:');
-                console.log('  - BD_CARREIRA:', rowsC?.length || 0, 'linhas');
-                console.log('  - BD_LIGHT:', rowsL?.length || 0, 'linhas');
-                console.log('  - Tracks:', rowsT?.length || 0, 'linhas');
-                console.log('  - PR:', rowsPR?.length || 0, 'linhas');
-                console.log('  - Grids T20:', rowsG20?.length || 0, 'linhas');
-                console.log('  - Draft Carreira:', rowsDC?.length || 0, 'linhas');
-                console.log('  - Draft Light:', rowsDL?.length || 0, 'linhas');
-                
-                if (rowsC && rowsC.length > 0) {
-                    console.log('  - Primeira linha Carreira:', rowsC[0]);
-                }
-                if (rowsL && rowsL.length > 0) {
-                    console.log('  - Primeira linha Light:', rowsL[0]);
-                }
-
                 const trackMap = {};
                 
                 // --- FUNÇÃO DE EXTRAÇÃO E CORREÇÃO DE IMAGENS ---
