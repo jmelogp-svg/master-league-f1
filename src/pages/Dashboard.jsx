@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { usePowerRankingCache, usePowerRankingLightCache } from '../hooks/useSupabaseCache';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Papa from 'papaparse';
@@ -410,6 +411,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     const [statsAdicionais, setStatsAdicionais] = useState(null); // Estatísticas adicionais calculadas
     const [loadingAuth, setLoadingAuth] = useState(true);
     const [dashData, setDashData] = useState(null);
+    const [powerRanking, setPowerRanking] = useState(null);
     const [acusacoesPendentes, setAcusacoesPendentes] = useState(0);
     const [propostas, setPropostas] = useState([]); // Propostas recebidas pelo piloto
     const [contratoFechado, setContratoFechado] = useState(null); // Contrato assinado
@@ -749,7 +751,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             melhorResultado: null, // number
             totalTemporadas: new Set(),
             gridsParticipados: new Set(),
-            statsPorTemporada: {} // { [temporada]: { vitorias, podios, pontos, corridas } }
+            statsPorTemporada: {}, // { [temporada]: { vitorias, podios, pontos, corridas } }
+            totalFaltas: 0
         };
         
         // Agrupar dados por temporada e grid para calcular campeonatos
@@ -911,6 +914,32 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             };
         }
         
+        // Calcular faltas na temporada atual (20)
+        // Verificar em qual grid o piloto está correndo na temporada atual
+        let activeGrid = 'carreira';
+        const inCarreira = rawCarreira.some(r => r[9] === nomePiloto && parseInt(r[3]) === temporadaAtual);
+        const inLight = rawLight.some(r => r[9] === nomePiloto && parseInt(r[3]) === temporadaAtual);
+        if (inLight && !inCarreira) activeGrid = 'light';
+
+        const currentData = activeGrid === 'light' ? rawLight : rawCarreira;
+        const currentDates = activeGrid === 'light' ? datesLightMap : datesCarreiraMap;
+        const etapas = ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08'];
+        
+        etapas.forEach(r => {
+            const roundNum = parseInt(r.replace('R', ''));
+            const hasParticipated = currentData.some(row => 
+                row[9] === nomePiloto && 
+                parseInt(row[3]) === temporadaAtual && 
+                parseInt(row[4]) === roundNum
+            );
+            if (!hasParticipated && currentDates) {
+                const dateStr = currentDates[`${temporadaAtual}-${roundNum}`];
+                if (dateStr && !isFutureDay(dateStr)) {
+                    stats.totalFaltas++;
+                }
+            }
+        });
+
         return stats;
     };
 
@@ -1468,6 +1497,50 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     }, [session?.user?.email, pilotoEmailProp]); // Incluído pilotoEmailProp para modo narrador
 
     // Buscar acusações pendentes
+    // --- BUSCAR POWER RANKING DO BANCO (Fonte de Verdade Consolidada com Real-time) ---
+    useEffect(() => {
+        if (!profile?.id) return;
+
+        const fetchPR = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('power_ranking_stats')
+                    .select('power_ranking')
+                    .eq('piloto_id', profile.id)
+                    .eq('season', 20)
+                    .single();
+                
+                if (data && !error) {
+                    setPowerRanking(data.power_ranking);
+                }
+            } catch (err) {
+                console.warn('Erro ao buscar Power Ranking consolidado:', err);
+            }
+        };
+
+        fetchPR();
+
+        // Inscrição em tempo real para atualizações automáticas
+        const subscription = supabase
+            .channel(`pr_updates_${profile.id}`)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'power_ranking_stats',
+                filter: `piloto_id=eq.${profile.id}`
+            }, (payload) => {
+                console.log('🔄 Atualização de Power Ranking recebida em tempo real:', payload);
+                if (payload.new && payload.new.power_ranking !== undefined) {
+                    setPowerRanking(payload.new.power_ranking);
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
+    }, [profile?.id]);
+
     useEffect(() => {
         const buscarAcusacoesPendentes = async () => {
             if (!profile?.nome) return;
@@ -2642,9 +2715,9 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             }}>
                                                 <div><div className="lc-label">LICENÇA MLF1</div><div className="lc-value">{codIdml || 'N/A'}</div></div>
                                                 <div style={{ textAlign: 'center' }}>
-                                                    <div className="lc-label">OVERALL</div>
-                                                    <div className="lc-value" style={{color:'#22C55E'}}>
-                                                        {Math.round((dashData?.statsCarreira?.currentPoints || 0) + (dashData?.statsLight?.currentPoints || 0))}
+                                                    <div className="lc-label">POWER RANKING</div>
+                                                    <div className="lc-value" style={{color:'#FFD700'}}>
+                                                        {powerRanking || '-'}
                                                     </div>
                                                 </div>
                                             </div>

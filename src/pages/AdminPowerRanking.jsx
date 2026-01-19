@@ -23,6 +23,7 @@ export default function AdminPowerRanking() {
     const [selectedGrid, setSelectedGrid] = useState('all'); // 'all', 'carreira', 'light'
     const [selectedSeason, setSelectedSeason] = useState(20); // Mantido para carregar dados
     const [saving, setSaving] = useState({}); // { piloto_id_round: true/false }
+    const [isPublishing, setIsPublishing] = useState(false);
     
     const { data: rawPRCarreira, loading: loadingPRCarreira } = usePowerRankingCache(selectedSeason);
     const { data: rawPRLight, loading: loadingPRLight } = usePowerRankingLightCache(selectedSeason);
@@ -37,6 +38,90 @@ export default function AdminPowerRanking() {
     const [telemetriaData, setTelemetriaData] = useState({}); // { nome_piloto: { ritmoCorrida: delta, ritmoClassificacao: score } }
     const [pontosData, setPontosData] = useState({}); // { nome_piloto: { corrida: total, sprint: total, qualy: total } }
     const [objetivosData, setObjetivosData] = useState({}); // { nome_piloto: { objetivo1: pontos, objetivo2: pontos, ... } }
+    const [punicoesData, setPunicoesData] = useState({}); // { nome_piloto: total_pontos_veredito }
+    const [defesasFaltantesData, setDefesasFaltantesData] = useState({}); // { nome_piloto: quantidade_faltas_defesa }
+
+    // Função para calcular faltas verificando se o piloto tem registro em cada etapa nos Resultados
+    const calcularFaltasPorResultados = useCallback((pilotoObj) => {
+        if (!pilotoObj || (!rawCarreira.length && !rawLight.length)) return 0;
+        
+        const gridPiloto = (pilotoObj.grid || 'carreira').toLowerCase();
+        const dados = gridPiloto === 'light' ? rawLight : rawCarreira;
+        const nomePiloto = (pilotoObj.nome || '').trim();
+        
+        const normalizarNomeLocal = (nome) => {
+            if (!nome) return '';
+            return String(nome)
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+        
+        const nomePilotoNorm = normalizarNomeLocal(nomePiloto);
+        const etapas = ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08'];
+        const etapasNumeros = ['1', '2', '3', '4', '5', '6', '7', '8'];
+        
+        const etapasRealizadas = new Set();
+        dados.forEach(row => {
+            const season = parseInt(row[3] || '0');
+            const round = (row[4] || '').trim();
+            if (season === parseInt(selectedSeason) && round && (etapas.includes(round) || etapasNumeros.includes(round))) {
+                const roundNormalizado = etapasNumeros.includes(round) ? `R0${round}` : round;
+                etapasRealizadas.add(roundNormalizado);
+            }
+        });
+        
+        if (etapasRealizadas.size === 0) return 0;
+        
+        const etapasComPresenca = new Set();
+        dados.forEach(row => {
+            const nome = (row[9] || '').trim();
+            const season = parseInt(row[3] || '0');
+            const round = (row[4] || '').trim();
+            const nomeNorm = normalizarNomeLocal(nome);
+            const roundNormalizado = etapasNumeros.includes(round) ? `R0${round}` : round;
+            
+            if (season === parseInt(selectedSeason) && nomeNorm === nomePilotoNorm && round && etapasRealizadas.has(roundNormalizado)) {
+                etapasComPresenca.add(roundNormalizado);
+            }
+        });
+        
+        return Math.max(0, etapasRealizadas.size - etapasComPresenca.size);
+    }, [rawCarreira, rawLight, selectedSeason]);
+
+    // Função auxiliar para buscar pontos de punição com matching flexível
+    const buscarPunicoes = useCallback((nomePiloto) => {
+        if (!nomePiloto) return 0;
+        // Tentar match exato primeiro
+        if (punicoesData[nomePiloto] !== undefined) {
+            return punicoesData[nomePiloto];
+        }
+        // Tentar match normalizado
+        const nomeNorm = (nomePiloto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+        const nomeEncontrado = Object.keys(punicoesData).find(n => {
+            const nNorm = (n || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+            return nNorm === nomeNorm;
+        });
+        return nomeEncontrado ? punicoesData[nomeEncontrado] : 0;
+    }, [punicoesData]);
+
+    // Função auxiliar para buscar defesas faltantes com matching flexível
+    const buscarDefesasFaltantes = useCallback((nomePiloto) => {
+        if (!nomePiloto) return 0;
+        // Tentar match exato primeiro
+        if (defesasFaltantesData[nomePiloto] !== undefined) {
+            return defesasFaltantesData[nomePiloto];
+        }
+        // Tentar match normalizado
+        const nomeNorm = (nomePiloto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+        const nomeEncontrado = Object.keys(defesasFaltantesData).find(n => {
+            const nNorm = (n || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+            return nNorm === nomeNorm;
+        });
+        return nomeEncontrado ? defesasFaltantesData[nomeEncontrado] : 0;
+    }, [defesasFaltantesData]);
 
     // Carregar pilotos baseado nas tabelas de classificação (Carreira e Light)
     // Determinar grid verificando em qual tabela o piloto aparece com equipe
@@ -329,6 +414,137 @@ export default function AdminPowerRanking() {
         if (selectedSeason) {
             carregarConduta();
         }
+    }, [selectedSeason]);
+    
+    // Carregar punições e defesas da Central de Análises e Tabela de Vereditos
+    useEffect(() => {
+        const carregarDadosAdministrativos = async () => {
+            if (!selectedSeason) return;
+            
+            try {
+                // Conjunto para evitar duplicidade de punições pelo mesmo lance_id
+                const punicoesPorLance = new Map(); // Map<lance_id, {nome, pontos}>
+                const faltasDefesaPorPiloto = {};
+
+                // 1. Buscar da Central de Análises (notificacoes_admin - Sistema de Júri)
+                const { data: notificacoes, error: notifyError } = await supabase
+                    .from('notificacoes_admin')
+                    .select('*');
+
+                if (notifyError) throw notifyError;
+
+                const punicoesTabela = {
+                    'advertencia': { pontos: 0 },
+                    'leve': { pontos: 5 },
+                    'media': { pontos: 10 },
+                    'grave': { pontos: 15 },
+                    'gravissima': { pontos: 20 }
+                };
+
+                notificacoes?.forEach(item => {
+                    if (item.tipo !== 'nova_acusacao' && item.tipo !== 'analise_realizada') return;
+                    
+                    const dados = item.dados || {};
+                    const season = parseInt(dados.season || dados.temporada || 0);
+                    if (season !== parseInt(selectedSeason)) return;
+
+                    const nomeAcusado = typeof dados.acusado === 'string' ? dados.acusado : dados.acusado?.nome;
+                    if (!nomeAcusado) return;
+
+                    const lanceId = dados.id || dados.lance_id || item.id;
+                    const votos = dados.votos || [];
+                    const votosCulpadoCount = votos.filter(v => v.culpado).length;
+                    const votosInocenteCount = votos.filter(v => !v.culpado).length;
+                    const decidido = dados.status === 'analise_realizada' || votosCulpadoCount >= 3 || votosInocenteCount >= 3;
+
+                    if (decidido) {
+                        const temDefesa = dados.defesa && (dados.defesa.descricaoDefesa || dados.defesa.videoLinkDefesa);
+                        if (!temDefesa) {
+                            faltasDefesaPorPiloto[nomeAcusado] = (faltasDefesaPorPiloto[nomeAcusado] || 0) + 1;
+                        }
+                    }
+
+                    let pontosDeducted = 0;
+                    const veredito = dados.veredito;
+                    
+                    if (veredito && veredito.culpado) {
+                        pontosDeducted = veredito.pontosPerdidos || 0;
+                    } else if (votosCulpadoCount >= 3) {
+                        const contagemPunicoes = {};
+                        let temAgravante = false;
+                        votos.filter(v => v.culpado).forEach(v => {
+                            const key = v.punicao;
+                            contagemPunicoes[key] = (contagemPunicoes[key] || 0) + 1;
+                            if (v.agravante) temAgravante = true;
+                        });
+                        let punicaoMaisVotada = null;
+                        let maxVotos = 0;
+                        Object.entries(contagemPunicoes).forEach(([punicao, count]) => {
+                            if (count > maxVotos) { maxVotos = count; punicaoMaisVotada = punicao; }
+                        });
+                        if (punicaoMaisVotada && punicoesTabela[punicaoMaisVotada]) {
+                            pontosDeducted = punicoesTabela[punicaoMaisVotada].pontos + (temAgravante ? 5 : 0);
+                        }
+                    }
+
+                    if (pontosDeducted > 0 && lanceId) {
+                        // Salvar punição do lance, priorizando o valor maior se já houver registro
+                        const existing = punicoesPorLance.get(lanceId);
+                        if (!existing || pontosDeducted > existing.pontos) {
+                            punicoesPorLance.set(lanceId, { nome: nomeAcusado, pontos: pontosDeducted });
+                        }
+                    }
+                });
+
+                // 2. Buscar da Tabela de Vereditos (verdicts - Sistema de Stewards)
+                const { data: verdicts, error: verdictsError } = await supabase
+                    .from('verdicts')
+                    .select(`
+                        id,
+                        pontos_deducted,
+                        lance_id,
+                        lances!inner (
+                            season,
+                            acusacoes!inner (
+                                piloto_acusado_id,
+                                pilotos!piloto_acusado_id (nome)
+                            )
+                        )
+                    `)
+                    .eq('lances.season', selectedSeason)
+                    .eq('resultado', 'culpado');
+
+                if (!verdictsError && verdicts) {
+                    verdicts.forEach(v => {
+                        const acusacoes = v.lances?.acusacoes;
+                        if (acusacoes && Array.isArray(acusacoes)) {
+                            acusacoes.forEach(acc => {
+                                const nomePiloto = acc.pilotos?.nome;
+                                if (nomePiloto && v.lance_id) {
+                                    const pontos = parseInt(v.pontos_deducted || 0);
+                                    // Salvar punição do lance, priorizando veredito dos stewards se já existir do júri
+                                    punicoesPorLance.set(v.lance_id, { nome: nomePiloto, pontos: pontos });
+                                }
+                            });
+                        }
+                    });
+                }
+
+                // Somar punições finais por piloto (já sem duplicidade de lances)
+                const punicoesFinais = {};
+                punicoesPorLance.forEach((data) => {
+                    punicoesFinais[data.nome] = (punicoesFinais[data.nome] || 0) + data.pontos;
+                });
+
+                setPunicoesData(punicoesFinais);
+                setDefesasFaltantesData(faltasDefesaPorPiloto);
+
+            } catch (err) {
+                console.error('❌ Erro ao carregar dados administrativos:', err);
+            }
+        };
+
+        carregarDadosAdministrativos();
     }, [selectedSeason]);
 
     // Estado para armazenar o maior PR histórico (meta de 100%) - separado por grid
@@ -674,8 +890,8 @@ export default function AdminPowerRanking() {
         // 0. Inicializar prMap e pilaresMap com todos os pilotos da tabela para garantir que ninguém fique de fora
         pilotos.forEach(p => {
             if (!prMap[p.nome]) {
-                prMap[p.nome] = { total: 0, grid: p.grid || 'carreira', performance: 60, conduta: 0, racecraft: 60, overall: 0, historico: 0 };
-                pilaresMap[p.nome] = { performance: 60, conduta: 0, racecraft: 60, overall: 0, historico: 0 };
+                prMap[p.nome] = { total: 0, grid: p.grid || 'carreira', performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
+                pilaresMap[p.nome] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
             }
         });
 
@@ -714,8 +930,8 @@ export default function AdminPowerRanking() {
                     }
                     
                     if (!prMap[nomePilotoParaUsar]) {
-                        prMap[nomePilotoParaUsar] = { total: 0, grid: 'carreira', performance: 60, conduta: 0, racecraft: 60, overall: 0, historico: 0 };
-                        pilaresMap[nomePilotoParaUsar] = { performance: 60, conduta: 0, racecraft: 60, overall: 0, historico: 0 };
+                        prMap[nomePilotoParaUsar] = { total: 0, grid: 'carreira', performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
+                        pilaresMap[nomePilotoParaUsar] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
                     }
                     // Se veio da planilha carreira, assume carreira se não tiver grid definido
                     if (!prMap[nomePilotoParaUsar].grid) prMap[nomePilotoParaUsar].grid = 'carreira';
@@ -762,8 +978,8 @@ export default function AdminPowerRanking() {
                     }
 
                     if (!prMap[nomePilotoParaUsar]) {
-                        prMap[nomePilotoParaUsar] = { total: 0, grid: 'light', performance: 60, conduta: 0, racecraft: 60, overall: 0, historico: 0 };
-                        pilaresMap[nomePilotoParaUsar] = { performance: 60, conduta: 0, racecraft: 60, overall: 0, historico: 0 };
+                        prMap[nomePilotoParaUsar] = { total: 0, grid: 'light', performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
+                        pilaresMap[nomePilotoParaUsar] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
                     }
                     // Se veio da planilha light, assume light se não tiver grid definido
                     if (!prMap[nomePilotoParaUsar].grid) prMap[nomePilotoParaUsar].grid = 'light';
@@ -792,8 +1008,8 @@ export default function AdminPowerRanking() {
 
         // Calcular pilares
         Object.keys(prMap).forEach(nome => {
-            // Performance: normalizar PR total da temporada atual em relação ao maior PR do seu grid (60-100)
-            // Usa o mesmo cálculo do HISTÓRICO: normalizar para escala 60-100
+            // Performance: normalizar PR total da temporada atual em relação ao maior PR do seu grid (60-84)
+            // Usa o mesmo cálculo do HISTÓRICO: normalizar para escala 60-84
             const prTotal = prMap[nome].total;
             const gridPiloto = prMap[nome].grid || gridPorPiloto[nome] || 'carreira';
             const maxPRDoGrid = maxPRPorGrid[gridPiloto] || 0;
@@ -801,17 +1017,17 @@ export default function AdminPowerRanking() {
             if (maxPRDoGrid > 0 && prTotal > 0) {
                 // Calcular percentual: (PR do piloto / maior PR do grid) * 100
                 const percentual = (prTotal / maxPRDoGrid) * 100;
-                // Normalizar para escala 60-100: percentual de 0-100% vira 60-100
-                const performanceNormalizado = 60 + (percentual / 100) * 40; // 60 + (percentual * 0.4)
-                // Arredondar para cima e limitar no máximo 100
+                // Normalizar para escala 60-84: percentual de 0-100% vira 60-84
+                const performanceNormalizado = 60 + (percentual / 100) * 24; // 60 + (percentual * 0.24)
+                // Arredondar para cima e limitar no máximo 100 (para comportar bônus NC/Punish)
                 pilaresMap[nome].performance = Math.ceil(Math.min(100, performanceNormalizado));
             } else {
                 // Se não tem PR ou maxPR é 0, trazer o mínimo aceitável que é 60
                 pilaresMap[nome].performance = 60;
             }
             
-            // Conduta: inicializar com 0, será atualizado se houver dados
-            pilaresMap[nome].conduta = 0;
+            // Conduta: inicializar com 100, será atualizado se houver dados
+            pilaresMap[nome].conduta = 100;
             
             // Racecraft: inicializar com 0, será atualizado se houver dados
             pilaresMap[nome].racecraft = 0;
@@ -819,17 +1035,14 @@ export default function AdminPowerRanking() {
             // Overall: inicializar com 0, será atualizado se houver dados
             pilaresMap[nome].overall = 0;
             
-            // Histórico: calcular média ponderada das últimas 5 temporadas
-            const historicoCalc = calcularMediaPonderadaHistorico(nome);
-            pilaresMap[nome].historico = historicoCalc;
+            // Histórico: inicializar com 60, será calculado com normalização no próximo efeito
+            pilaresMap[nome].historico = 60;
         });
 
         setPrData(prMap);
-        setPilaresData(pilaresMap);
         
         // Atualizar ref com os valores calculados
         pilaresDataRef.current = pilaresMap;
-        setPilaresData(pilaresMap);
     }, [rawPRCarreira, rawPRLight, selectedSeason, calcularMediaPonderadaHistorico, pilotos]);
 
         // Função auxiliar para normalizar nome (reutilizar)
@@ -858,10 +1071,10 @@ export default function AdminPowerRanking() {
                 // Se não existe, criar mas preservar performance se já foi calculado
                 updatedPilares[piloto.nome] = { 
                     performance: (performancePreservado !== undefined && performancePreservado !== 0) ? performancePreservado : (pilaresData[piloto.nome]?.performance || 60), 
-                    conduta: 0, 
+                    conduta: 100, 
                     racecraft: pilaresData[piloto.nome]?.racecraft || 60, 
                     overall: pilaresData[piloto.nome]?.overall || 0, 
-                    historico: 0 
+                    historico: 60 
                 };
             } else {
                 // CRÍTICO: Preservar performance, racecraft e overall se já foram calculados
@@ -872,28 +1085,13 @@ export default function AdminPowerRanking() {
                     racecraft: updatedPilares[piloto.nome].racecraft || pilaresData[piloto.nome]?.racecraft || 60,
                     overall: updatedPilares[piloto.nome].overall || pilaresData[piloto.nome]?.overall || 0,
                     conduta: updatedPilares[piloto.nome].conduta || 0,
-                    historico: updatedPilares[piloto.nome].historico || 0
+                    historico: updatedPilares[piloto.nome].historico || 60
                 };
             }
 
-            // Calcular pontos de conduta baseado nas flags
+            // Calcular pontos de conduta baseado nas flags (apenas base para condutaData)
             if (condutaData && Object.keys(condutaData).length > 0) {
-                let pontosConduta = 100; // Base
-                const rounds = Object.keys(condutaData[piloto.id] || {});
-                
-                rounds.forEach(round => {
-                    const data = condutaData[piloto.id][round];
-                    if (data.foto_oficial_enviada === false) pontosConduta -= 5;
-                    if (data.falta_wo === true) pontosConduta -= 10;
-                    if (data.lista_presenca_respondida === false) pontosConduta -= 5;
-                    if (data.telemetria_fechada === true) pontosConduta -= 5;
-                    if (data.numeracao_errada === true) pontosConduta -= 5;
-                    if (data.defesa_nao_enviada === true) pontosConduta -= 10;
-                    if (data.pontos_descontados) pontosConduta -= data.pontos_descontados;
-                });
-
-                // Garantir mínimo de 0
-                updatedPilares[piloto.nome].conduta = Math.max(0, pontosConduta);
+                // Não subtrair aqui, o cálculo final é feito no motor unificado
             }
 
             // Calcular valor bruto do histórico (média ponderada) - considerando apenas o grid atual
@@ -923,40 +1121,41 @@ export default function AdminPowerRanking() {
         maxHistoricoPorGrid.light = historicosLight.length > 0 ? Math.max(...historicosLight) : 0;
         
         // Cada piloto recebe o percentual que sua média ponderada representa do máximo histórico do seu grid
-        // Depois faz média ponderada com TEMPORADAS (55% HISTÓRICO + 45% TEMPORADAS)
+        // Depois faz média ponderada com TEMPORADAS (60% HISTÓRICO NORMALIZADO + 40% TEMPORADAS)
         pilotos.forEach(piloto => {
             const valorBruto = valoresHistoriaBrutos[piloto.nome] || 0;
             const gridPiloto = (piloto.grid || 'carreira').toLowerCase();
             const maxHistoricoDoGrid = maxHistoricoPorGrid[gridPiloto] || 0;
             
-            let historicoNormalizado = 0; // Valor padrão (sem dados)
+            let historicoNormalizado = 60; // Valor mínimo base
             
             if (valorBruto > 0 && maxHistoricoDoGrid > 0) {
                 // Calcular percentual: (média ponderada do piloto / maior pontuação do histórico do grid) * 100
                 const percentual = (valorBruto / maxHistoricoDoGrid) * 100;
                 // Normalizar para escala 60-100: percentual de 0-100% vira 60-100
                 historicoNormalizado = 60 + (percentual / 100) * 40; // 60 + (percentual * 0.4)
-                historicoNormalizado = Math.ceil(Math.min(100, historicoNormalizado));
+                historicoNormalizado = Math.min(100, historicoNormalizado);
             }
             
-            // Fazer média ponderada com TEMPORADAS (55% HISTÓRICO + 45% TEMPORADAS)
-            const pontuacaoTemporadas = temporadasData[piloto.nome] || 0;
+            // Fazer média ponderada com TEMPORADAS (60% HISTÓRICO NORMALIZADO + 40% TEMPORADAS)
+            // Se o piloto não tem temporadas registradas, o mínimo é 60
+            const pontuacaoTemporadas = Math.max(60, temporadasData[piloto.nome] || 0);
             
-            // Se não houver dados de histórico nem de temporadas, deixar 0 (será exibido como "-")
-            if (valorBruto === 0 && pontuacaoTemporadas === 0) {
-                updatedPilares[piloto.nome].historico = 0;
+            const historicoFinal = (historicoNormalizado * 0.60) + (pontuacaoTemporadas * 0.40);
+            
+            // Arredondar para cima e limitar entre 60 e 100
+            const valorFinal = Math.ceil(Math.max(60, Math.min(100, historicoFinal)));
+            
+            if (!updatedPilares[piloto.nome]) {
+                updatedPilares[piloto.nome] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: valorFinal };
             } else {
-                const historicoFinal = (historicoNormalizado * 0.55) + (pontuacaoTemporadas * 0.45);
-                // Arredondar para cima e limitar no máximo 100
-                updatedPilares[piloto.nome].historico = Math.ceil(Math.min(100, historicoFinal));
+                updatedPilares[piloto.nome].historico = valorFinal;
             }
         });
 
-
-        // Atualizar ref e state
+        // Atualizar ref apenas (Conduta será calculada no motor unificado)
         pilaresDataRef.current = updatedPilares;
-        setPilaresData(updatedPilares);
-    }, [condutaData, pilotos, calcularMediaPonderadaHistorico, maxPRHistorico, temporadasData]);
+    }, [condutaData, pilotos, calcularMediaPonderadaHistorico, maxPRHistorico, temporadasData, punicoesData, defesasFaltantesData, buscarPunicoes, buscarDefesasFaltantes]);
 
     // Contar temporadas que cada piloto participou (todas as temporadas, não apenas últimas 5)
     useEffect(() => {
@@ -1221,7 +1420,7 @@ export default function AdminPowerRanking() {
                 const racecraft = (corrida * 0.30) + (posQ * 0.20) + (qualy * 0.20) + (posR * 0.30);
                 
                 if (!updatedPilares[nomePiloto]) {
-                    updatedPilares[nomePiloto] = { performance: 60, conduta: 0, racecraft: 60, overall: 0, historico: 0 };
+                    updatedPilares[nomePiloto] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
                 }
                 updatedPilares[nomePiloto].racecraft = Math.max(60, Math.ceil(racecraft));
             });
@@ -1633,17 +1832,8 @@ export default function AdminPowerRanking() {
                     const stats = calcularEstatisticasPiloto(piloto.nome, contrato.grid || piloto.grid);
                     const etapasInfo = calcularEtapasTemporada(contrato.grid || piloto.grid);
                     
-                    // Calcular total de faltas (W.O.) do piloto na temporada atual
-                    let totalFaltas = 0;
-                    if (condutaData && piloto.id && condutaData[piloto.id]) {
-                        const rounds = Object.keys(condutaData[piloto.id]);
-                        rounds.forEach(round => {
-                            const data = condutaData[piloto.id][round];
-                            if (data && data.falta_wo === true) {
-                                totalFaltas++;
-                            }
-                        });
-                    }
+                    // Calcular total de faltas (W.O.) do piloto - automático por resultados
+                    const totalFaltas = calcularFaltasPorResultados(piloto);
 
                     const pontosObjetivos = {
                         objetivo1: objetivos[0] ? verificarObjetivo(objetivos[0], stats, totalFaltas, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
@@ -1665,29 +1855,176 @@ export default function AdminPowerRanking() {
         calcularObjetivos();
     }, [pilotos, rawCarreira, rawLight, selectedSeason, condutaData]);
 
-    // Atualizar pilar OVERALL com base nos objetivos contratuais
+    // --- MOTOR DE CÁLCULO UNIFICADO ---
+    // Este efeito centraliza o cálculo de TODOS os pilares para garantir consistência e evitar sobreposição
     useEffect(() => {
-        if (Object.keys(objetivosData).length === 0) return;
+        const calculateEverything = () => {
+            if (pilotos.length === 0) return;
+            if (loadingPR) return; // Aguardar dados do Power Ranking carregarem
 
-        setPilaresData(prev => {
-            const updated = { ...prev };
-            Object.keys(objetivosData).forEach(nomePiloto => {
-                const objetivos = objetivosData[nomePiloto];
-                // OVERALL = soma dos 5 objetivos (0-100)
-                const overall = (objetivos.objetivo1 || 0) + 
-                               (objetivos.objetivo2 || 0) + 
-                               (objetivos.objetivo3 || 0) + 
-                               (objetivos.objetivo4 || 0) + 
-                               (objetivos.objetivo5 || 0);
-                
-                if (!updated[nomePiloto]) {
-                    updated[nomePiloto] = { performance: 60, conduta: 0, racecraft: 60, overall: 0, historico: 0 };
-                }
-                updated[nomePiloto].overall = Math.ceil(overall);
+            console.log('⚡ Iniciando cálculo unificado de pilares...');
+
+            const updated = {};
+            
+            // 1. Preparar dados base para normalização
+            const maxPRPorGrid = { carreira: 0, light: 0 };
+            const prTotaisS20 = {}; // { nome: totalPR }
+            const historicosBrutos = {}; // { nome: mediaPonderada }
+
+            // Processar PR S20 para Performance
+            const processarPR = (data) => {
+                data.forEach(row => {
+                    const nomeRaw = (row[0] || '').toString().trim();
+                    const season = (row[9] || '').toString().trim();
+                    const totalPR = parseFloat((row[8] || '0').toString().replace(',', '.'));
+                    if (nomeRaw && season === String(selectedSeason) && !isNaN(totalPR) && totalPR > 0) {
+                        const nomeAtual = (row[0] || '').toString().trim(); 
+                        // Tentar converter se for nome antigo conhecido
+                        const nomesAntigos = { 'egon drews': 'Egon Jackson', 'egondrews': 'Egon Jackson' };
+                        const nNorm = nomeAtual.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+                        const nomeFinal = nomesAntigos[nNorm] || nomeAtual;
+                        prTotaisS20[nomeFinal] = Math.max(prTotaisS20[nomeFinal] || 0, totalPR);
+                    }
+                });
+            };
+            processarPR(rawPRCarreira || []);
+            processarPR(rawPRLight || []);
+
+            // Calcular Máximos e Médias Ponderadas
+            pilotos.forEach(p => {
+                const grid = (p.grid || 'carreira').toLowerCase();
+                const total = prTotaisS20[p.nome] || 0;
+                if (total > maxPRPorGrid[grid]) maxPRPorGrid[grid] = total;
+                historicosBrutos[p.nome] = calcularMediaPonderadaHistorico(p.nome, grid);
             });
-            return updated;
-        });
-    }, [objetivosData]);
+
+            // Máximos de Histórico
+            const maxHistPorGrid = { carreira: 0, light: 0 };
+            pilotos.forEach(p => {
+                const hb = historicosBrutos[p.nome] || 0;
+                const grid = (p.grid || 'carreira').toLowerCase();
+                if (hb > maxHistPorGrid[grid]) maxHistPorGrid[grid] = hb;
+            });
+
+            // 2. Calcular cada pilar para cada piloto
+            pilotos.forEach(piloto => {
+                const nome = piloto.nome;
+                const grid = (piloto.grid || 'carreira').toLowerCase();
+
+                // --- PILAR 1: PERFORMANCE (60-84) + Extras (NC/Punish) ---
+                let perf = 60;
+                const totalS20 = prTotaisS20[nome] || 0;
+                const maxS20 = maxPRPorGrid[grid] || 0;
+                if (totalS20 > 0 && maxS20 > 0) {
+                    const pct = (totalS20 / maxS20) * 100;
+                    perf = 60 + (pct * 0.24);
+                }
+
+                // Somar/Subtrair pontos de NC RACE e PUNISH RACE
+                // Para um desconto de apenas 1 ponto:
+                // Desmarcado (limpo) = +1 ponto, Marcado (X) = 0 pontos (perde o bônus)
+                for (let r = 1; r <= 8; r++) {
+                    const rData = (condutaData && condutaData[piloto.id] && condutaData[piloto.id][r]) || {};
+                    
+                    // NC RACE
+                    if (rData.nc !== true) perf += 1;
+
+                    // PUNISH RACE
+                    if (rData.punish_race !== true) perf += 1;
+                }
+
+                // --- PILAR 2: CONDUTA (Base 100) ---
+                let cond = 100;
+                if (condutaData && condutaData[piloto.id]) {
+                    const rounds = condutaData[piloto.id];
+                    let jaDescontouFoto = false;
+                    Object.values(rounds).forEach(data => {
+                        // Foto (-5) - Agora true significa INFRAÇÃO (X Vermelho)
+                        if (data.foto_oficial_enviada === true && !jaDescontouFoto) {
+                            cond -= 5;
+                            jaDescontouFoto = true;
+                        }
+                        // X Vermelho (-1 cada) - Agora true significa INFRAÇÃO (X Vermelho) em todas
+                        if (data.lista_presenca_respondida === true) cond -= 1;
+                        if (data.numeracao_errada === true) cond -= 1;
+                        if (data.telemetria_fechada === true) cond -= 1;
+                        // Manual (-X)
+                        if (data.pontos_descontados) cond -= data.pontos_descontados;
+                    });
+                }
+                // Faltas W.O. (-2 cada)
+                cond -= (calcularFaltasPorResultados(piloto) * 2);
+                
+                // Análises (Metade do valor exibido)
+                const punicaoIncidentes = buscarPunicoes(nome);
+                const faltasDefesaQtde = buscarDefesasFaltantes(nome);
+                const valorExibidoDefesa = faltasDefesaQtde * 5;
+                const valorExibidoPunicoesReal = Math.max(0, punicaoIncidentes - valorExibidoDefesa);
+                
+                cond -= (valorExibidoDefesa / 2);
+                cond -= (valorExibidoPunicoesReal / 2);
+
+                // --- PILAR 3: RACECRAFT (Mínimo 60) ---
+                const rt = telemetriaData[nome] || {};
+                let race = Math.max(60, rt.racecraft || 60);
+
+                // --- PILAR 4: OVERALL (Soma metas) ---
+                const obj = objetivosData[nome] || {};
+                let over = (obj.objetivo1 || 0) + (obj.objetivo2 || 0) + (obj.objetivo3 || 0) + (obj.objetivo4 || 0) + (obj.objetivo5 || 0);
+
+                // --- PILAR 5: HISTÓRICO (60-100, Peso 60/40) ---
+                let hbNorm = 60;
+                const hbVal = historicosBrutos[nome] || 0;
+                const maxHb = maxHistPorGrid[grid] || 0;
+                if (hbVal > 0 && maxHb > 0) hbNorm = 60 + ((hbVal / maxHb) * 40);
+                const pontTemp = Math.max(60, temporadasData[nome] || 0);
+                let histFinal = (hbNorm * 0.60) + (pontTemp * 0.40);
+
+                const finalPerf = Math.ceil(Math.min(100, perf));
+                const finalCond = Math.max(0, cond);
+                const finalRace = Math.ceil(Math.min(100, race));
+                const finalOver = Math.ceil(Math.min(100, over));
+                const finalHist = Math.ceil(Math.max(60, Math.min(100, histFinal)));
+
+                const prCalculado = Math.ceil(
+                    (finalPerf * 0.30) + 
+                    (finalRace * 0.25) + 
+                    (finalOver * 0.20) + 
+                    (finalCond * 0.15) + 
+                    (finalHist * 0.10)
+                );
+
+                updated[nome] = {
+                    performance: finalPerf,
+                    conduta: finalCond,
+                    racecraft: finalRace,
+                    overall: finalOver,
+                    historico: finalHist,
+                    power_ranking: prCalculado
+                };
+            });
+
+            // Garantir entrada para todos
+            pilotos.forEach(p => {
+                if (!updated[p.nome]) {
+                    const defaultP = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
+                    defaultP.power_ranking = Math.ceil(
+                        (defaultP.performance * 0.30) + 
+                        (defaultP.racecraft * 0.25) + 
+                        (defaultP.overall * 0.20) + 
+                        (defaultP.conduta * 0.15) + 
+                        (defaultP.historico * 0.10)
+                    );
+                    updated[p.nome] = defaultP;
+                }
+            });
+
+            setPilaresData(updated);
+            setHistoricoBrutoData(historicosBrutos);
+        };
+
+        calculateEverything();
+    }, [pilotos, selectedSeason, loadingPR, rawPRCarreira, rawPRLight, condutaData, punicoesData, defesasFaltantesData, telemetriaData, objetivosData, temporadasData, calcularMediaPonderadaHistorico, buscarPunicoes, buscarDefesasFaltantes, calcularFaltasPorResultados]);
 
     // Marcar como carregado
     useEffect(() => {
@@ -1709,9 +2046,12 @@ export default function AdminPowerRanking() {
         });
 
     // Função para atualizar flag manual
-    const handleUpdateFlag = async (pilotoId, round, flagName, value) => {
-        const key = `${pilotoId}_${round}`;
+    const handleUpdateFlag = async (pilotoId, roundLabel, flagName, value) => {
+        const key = `${pilotoId}_${roundLabel}`;
         setSaving(prev => ({ ...prev, [key]: true }));
+
+        // Converter "R01" para 1, etc.
+        const round = parseInt(roundLabel.toString().replace(/[^\d]/g, '')) || 1;
 
         try {
             const { data: existing } = await supabase
@@ -1767,8 +2107,98 @@ export default function AdminPowerRanking() {
         }
     };
 
+    // Função para publicar resultados no Motorhome (Silenciosa para Auto-save)
+    const publicarSilencioso = useCallback(async (dadosPilares) => {
+        if (!pilotos.length || Object.keys(dadosPilares).length === 0) return;
+        
+        try {
+            const statsToUpsert = pilotos.map(p => {
+                const stats = dadosPilares[p.nome];
+                if (!stats) return null;
+                
+                return {
+                    piloto_id: p.id,
+                    season: selectedSeason,
+                    performance: stats.performance || 0,
+                    racecraft: stats.racecraft || 0,
+                    conduta: stats.conduta || 0,
+                    overall: stats.overall || 0,
+                    historico: stats.historico || 0,
+                    power_ranking: stats.power_ranking || 0,
+                    updated_at: new Date().toISOString()
+                };
+            }).filter(Boolean);
+
+            if (statsToUpsert.length > 0) {
+                await supabase
+                    .from('power_ranking_stats')
+                    .upsert(statsToUpsert, { onConflict: 'piloto_id, season' });
+                console.log('🔄 Sincronização automática com Motorhome concluída.');
+            }
+        } catch (err) {
+            console.warn('Erro na sincronização automática:', err);
+        }
+    }, [pilotos, selectedSeason]);
+
+    // Auto-save: sempre que pilaresData mudar, sincronizar com o banco após 2 segundos de inatividade
+    useEffect(() => {
+        if (Object.keys(pilaresData).length === 0) return;
+        
+        const timer = setTimeout(() => {
+            publicarSilencioso(pilaresData);
+        }, 2000);
+
+        return () => clearTimeout(timer);
+    }, [pilaresData, publicarSilencioso]);
+
+    // Função para publicar resultados no Motorhome
+    const handlePublicarMotorhome = async () => {
+        if (!window.confirm('Deseja publicar as pontuações atuais para visualização no Motorhome dos pilotos?')) return;
+        
+        setIsPublishing(true);
+        try {
+            const statsToUpsert = pilotos.map(p => {
+                const stats = pilaresData[p.nome];
+                if (!stats) return null;
+                
+                return {
+                    piloto_id: p.id,
+                    season: selectedSeason,
+                    performance: stats.performance || 0,
+                    racecraft: stats.racecraft || 0,
+                    conduta: stats.conduta || 0,
+                    overall: stats.overall || 0,
+                    historico: stats.historico || 0,
+                    power_ranking: stats.power_ranking || 0,
+                    updated_at: new Date().toISOString()
+                };
+            }).filter(Boolean);
+
+            if (statsToUpsert.length === 0) {
+                alert('⚠️ Nenhum dado calculado para publicar.');
+                return;
+            }
+
+            // Realizar o upsert em lotes ou de uma vez
+            const { error } = await supabase
+                .from('power_ranking_stats')
+                .upsert(statsToUpsert, { onConflict: 'piloto_id, season' });
+
+            if (error) throw error;
+
+            alert('✅ Pontuações publicadas com sucesso! Agora elas aparecerão no Motorhome dos pilotos.');
+        } catch (err) {
+            console.error('Erro ao publicar no Motorhome:', err);
+            alert('❌ Erro ao publicar: ' + (err.message || 'Erro desconhecido'));
+        } finally {
+            setIsPublishing(false);
+        }
+    };
+
     // Obter valor da flag
-    const getFlagValue = (pilotoId, round, flagName, defaultValue = false) => {
+    const getFlagValue = (pilotoId, roundLabel, flagName, defaultValue = false) => {
+        // Converter label para número da etapa para buscar no objeto indexado por número
+        const round = typeof roundLabel === 'string' ? (parseInt(roundLabel.replace(/[^\d]/g, '')) || 1) : roundLabel;
         return condutaData[pilotoId]?.[round]?.[flagName] ?? defaultValue;
     };
 
@@ -1800,12 +2230,15 @@ export default function AdminPowerRanking() {
         { key: 'piloto', label: 'PILOTO', color: COLORS.PILOTO, width: 200, sticky: true },
         { key: 'power_ranking', label: 'POWER RANKING', color: COLORS.POWER_RANKING, width: 120 },
         { key: 'performance', label: 'PERFORMANCE', color: COLORS.PERFORMANCE, width: 120 },
+        { key: 'nc', label: 'NC RACE', color: COLORS.PERFORMANCE, width: 200, subitem: true, editable: true },
+        { key: 'punish_race', label: 'PUNISH RACE', color: COLORS.PERFORMANCE, width: 200, subitem: true, editable: true },
         { key: 'pr_races', label: 'PR RACES', color: COLORS.PERFORMANCE, width: 100, subitem: true },
         { key: 'conduta', label: 'CONDUTA', color: COLORS.CONDUTA, width: 120 },
         { key: 'envio_foto', label: 'ENVIO DE FOTO', color: COLORS.CONDUTA, width: 120, subitem: true, editable: true },
         { key: 'faltas', label: 'FALTAS', color: COLORS.CONDUTA, width: 100, subitem: true },
         { key: 'lista', label: 'LISTA', color: COLORS.CONDUTA, width: 200, subitem: true, editable: true },
         { key: 'num_id', label: 'NUM-ID', color: COLORS.CONDUTA, width: 200, subitem: true, editable: true },
+        { key: 'telemetria_conduta', label: 'TELEMETRIA', color: COLORS.CONDUTA, width: 200, subitem: true, editable: true },
         { key: 'defesa', label: 'DEFESA', color: COLORS.CONDUTA, width: 100, subitem: true },
         { key: 'punicoes', label: 'PUNIÇÕES', color: COLORS.CONDUTA, width: 100, subitem: true },
         { key: 'racecraft', label: 'RACECRAFT', color: COLORS.RACECRAFT, width: 120 },
@@ -1882,6 +2315,30 @@ export default function AdminPowerRanking() {
                             <option value="light">Light</option>
                         </select>
                     </div>
+
+                    <div style={{ marginLeft: 'auto' }}>
+                        <button
+                            onClick={handlePublicarMotorhome}
+                            disabled={isPublishing || loading}
+                            style={{
+                                padding: '10px 20px',
+                                background: 'linear-gradient(135deg, #FFD700 0%, #FDB931 100%)',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: '#0F172A',
+                                fontWeight: '800',
+                                fontSize: '14px',
+                                cursor: (isPublishing || loading) ? 'not-allowed' : 'pointer',
+                                opacity: (isPublishing || loading) ? 0.7 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                boxShadow: '0 4px 15px rgba(255, 215, 0, 0.2)'
+                            }}
+                        >
+                            {isPublishing ? 'PUBLICANDO...' : '🚀 PUBLICAR NO MOTORHOME'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Tabela estilo planilha */}
@@ -1946,93 +2403,8 @@ export default function AdminPowerRanking() {
                                     
                                     // Definir as 8 etapas da temporada (aceita ambos formatos: "1" e "R01")
                                     const etapas = ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08'];
-                                    const etapasNumeros = ['1', '2', '3', '4', '5', '6', '7', '8'];
                                     
-                                    // Calcular faltas verificando se o piloto tem registro em cada etapa nos Resultados
-                                    const calcularFaltasPorResultados = () => {
-                                        const gridPiloto = (piloto.grid || 'carreira').toLowerCase();
-                                        const dados = gridPiloto === 'light' ? rawLight : rawCarreira;
-                                        const nomePiloto = piloto.nome.trim();
-                                        
-                                        // Normalizar nome do piloto para comparação (mesma função usada no resto do código)
-                                        const normalizarNome = (nome) => {
-                                            if (!nome) return '';
-                                            return String(nome)
-                                                .toLowerCase()
-                                                .normalize('NFD')
-                                                .replace(/[\u0300-\u036f]/g, '')
-                                                .replace(/\s+/g, ' ')
-                                                .trim();
-                                        };
-                                        
-                                        const nomePilotoNorm = normalizarNome(nomePiloto);
-                                        
-                                        // Debug: configurar antes de qualquer return
-                                        const fazerLogDebug = false; // Desativado - debug completo desligado
-                                        const pilotosDebugEspecíficos = ['lucas monteiro', 'roberto azevedo', 'lucas raiol', 'lucas searom'];
-                                        const nomePilotoNormLower = nomePilotoNorm.toLowerCase();
-                                        const shouldDebugEspecifico = pilotosDebugEspecíficos.some(p => {
-                                            const pLower = p.toLowerCase();
-                                            const partesNome = nomePilotoNormLower.split(' ');
-                                            const partesDebug = pLower.split(' ');
-                                            return nomePilotoNormLower.includes(pLower) || 
-                                                   pLower.includes(nomePilotoNormLower) ||
-                                                   partesNome.some(parte => pLower.includes(parte)) ||
-                                                   partesDebug.some(parte => nomePilotoNormLower.includes(parte));
-                                        });
-                                        
-                                        // Primeiro: identificar quais etapas realmente foram realizadas (existem nos dados)
-                                        const etapasRealizadas = new Set();
-                                        const temporadasEncontradas = new Set();
-                                        const roundsEncontrados = new Set();
-                                        dados.forEach(row => {
-                                            const season = parseInt(row[3] || '0');
-                                            const round = (row[4] || '').trim();
-                                            
-                                            if (season) temporadasEncontradas.add(season);
-                                            if (season === parseInt(selectedSeason)) {
-                                                roundsEncontrados.add(round); // Adicionar TODOS os rounds da temporada selecionada
-                                            }
-                                            
-                                            // Aceitar tanto "R01" quanto "1" como formatos válidos
-                                            if (season === parseInt(selectedSeason) && round && (etapas.includes(round) || etapasNumeros.includes(round))) {
-                                                // Normalizar para formato "R01" se vier como "1"
-                                                const roundNormalizado = etapasNumeros.includes(round) ? `R0${round}` : round;
-                                                etapasRealizadas.add(roundNormalizado);
-                                            }
-                                        });
-                                        
-                                        // Se nenhuma etapa foi realizada ainda, não há faltas
-                                        if (etapasRealizadas.size === 0) {
-                                            return 0;
-                                        }
-                                        
-                                        // Segundo: verificar em quais etapas realizadas o piloto participou
-                                        const etapasComPresenca = new Set();
-                                        
-                                        dados.forEach(row => {
-                                            const nome = (row[9] || '').trim();
-                                            const season = parseInt(row[3] || '0');
-                                            const round = (row[4] || '').trim();
-                                            const nomeNorm = normalizarNome(nome);
-                                            
-                                            // Normalizar round para formato "R01" se vier como "1"
-                                            const roundNormalizado = etapasNumeros.includes(round) ? `R0${round}` : round;
-                                            
-                                            // Verificar se é o mesmo piloto, mesma temporada e etapa realizada
-                                            if (season === parseInt(selectedSeason) && 
-                                                nomeNorm === nomePilotoNorm && 
-                                                round && etapasRealizadas.has(roundNormalizado)) {
-                                                etapasComPresenca.add(roundNormalizado);
-                                            }
-                                        });
-                                        
-                                        // Contar faltas: etapas realizadas sem presença do piloto
-                                        const totalFaltas = etapasRealizadas.size - etapasComPresenca.size;
-                                        return totalFaltas;
-                                    };
-                                    
-                                    const totalFaltas = calcularFaltasPorResultados();
+                                    const totalFaltas = calcularFaltasPorResultados(piloto);
                                     
                                     const flags = {
                                         faltas: totalFaltas,
@@ -2076,35 +2448,37 @@ export default function AdminPowerRanking() {
                                             case 'piloto':
                                                 return piloto.nome;
                                             case 'power_ranking':
-                                                return prTotal > 0 ? prTotal.toFixed(2) : '-';
+                                                return (pilares.power_ranking !== undefined) ? pilares.power_ranking.toString() : '-';
                                             case 'performance':
                                                 return (pilares.performance && pilares.performance > 0) ? Math.ceil(pilares.performance).toString() : '-';
                                             case 'pr_races':
                                                 // PR RACES: mostrar o PR total da temporada atual
                                                 return prTotal > 0 ? prTotal.toFixed(2) : '-';
                                             case 'conduta':
-                                                return (pilares.conduta && pilares.conduta > 0) ? pilares.conduta.toFixed(2) : '-';
+                                                const valConduta = pilares.conduta !== undefined ? pilares.conduta : 0;
+                                                return valConduta.toFixed(2);
                                             case 'envio_foto':
                                                 // ENVIO DE FOTO: apenas um checkbox (usar R01 como referência)
                                                 return 'SINGLE_CHECKBOX';
                                             case 'lista':
                                             case 'num_id':
+                                            case 'telemetria_conduta':
+                                            case 'nc':
+                                            case 'punish_race':
                                                 // Retornar array de etapas para renderizar checkboxes
                                                 return 'CHECKBOXES'; // Marcador especial
                                             case 'faltas':
                                                 return flags.faltas > 0 ? `${flags.faltas}` : '0';
                                             case 'defesa':
-                                                return flags.defesa > 0 ? `${flags.defesa}` : '0';
+                                                const faltasDefesaVal = buscarDefesasFaltantes(piloto.nome);
+                                                const pontosFaltaDefesaDisplay = faltasDefesaVal * 5;
+                                                return pontosFaltaDefesaDisplay > 0 ? pontosFaltaDefesaDisplay.toString() : '0';
                                             case 'punicoes':
-                                                // Calcular total de pontos descontados (punicao) de todas as etapas
-                                                let totalPunicoes = 0;
-                                                etapas.forEach(round => {
-                                                    const data = condutaData[piloto.id]?.[round];
-                                                    if (data && data.pontos_descontados) {
-                                                        totalPunicoes += data.pontos_descontados;
-                                                    }
-                                                });
-                                                return totalPunicoes > 0 ? totalPunicoes.toString() : '0';
+                                                // Mostrar apenas punições de incidentes (subtraindo o desconto de defesa do total)
+                                                const totalPunicoesVal = buscarPunicoes(piloto.nome);
+                                                const descontoDefesa = buscarDefesasFaltantes(piloto.nome) * 5;
+                                                const punicoesIncidentes = Math.max(0, totalPunicoesVal - descontoDefesa);
+                                                return punicoesIncidentes > 0 ? punicoesIncidentes.toString() : '0';
                                             case 'racecraft':
                                                 return (pilares.racecraft && pilares.racecraft > 0) ? Math.ceil(pilares.racecraft).toString() : '-';
                                             case 'corrida':
@@ -2124,7 +2498,8 @@ export default function AdminPowerRanking() {
                                                 const ritmo = buscarTelemetria('ritmo');
                                                 return ritmo !== undefined ? ritmo.toString() : '-';
                                             case 'overall':
-                                                return (pilares.overall && pilares.overall > 0) ? Math.ceil(pilares.overall).toString() : '-';
+                                                const valOverall = pilares.overall || 0;
+                                                return valOverall > 0 ? Math.ceil(valOverall).toString() : '0';
                                             case 'objetivo1':
                                             case 'objetivo2':
                                             case 'objetivo3':
@@ -2132,19 +2507,19 @@ export default function AdminPowerRanking() {
                                             case 'objetivo5':
                                                 const objetivoNum = colKey.replace('objetivo', '');
                                                 const objetivoKey = `objetivo${objetivoNum}`;
-                                                const pontosObjetivo = objetivosData[piloto.nome]?.[objetivoKey] || 0;
-                                                return pontosObjetivo > 0 ? pontosObjetivo.toString() : '-';
+                                                const pontosObjetivo = objetivosData[piloto.nome]?.[objetivoKey];
+                                                return (pontosObjetivo !== undefined) ? pontosObjetivo.toString() : '-';
                                             case 'historico':
-                                                // Mostrar pontuação normalizada de 0-100 (arredondada para cima)
-                                                return (pilares.historico && pilares.historico > 0) ? Math.ceil(pilares.historico).toString() : '-';
+                                                // Mostrar pontuação normalizada de 60-100 (arredondada para cima)
+                                                const valHistorico = pilares.historico || 60;
+                                                return Math.ceil(valHistorico).toString();
                                             case 'historia':
                                                 // Mostrar o valor bruto da média ponderada (para referência)
-                                                const valorBrutoHistoria = historicoBrutoData[piloto.nome] || 0;
-                                                return valorBrutoHistoria > 0 ? valorBrutoHistoria.toFixed(2) : '-';
+                                                const valBrutoHistoria = historicoBrutoData[piloto.nome] || 0;
+                                                return valBrutoHistoria > 0 ? valBrutoHistoria.toFixed(2) : '0.00';
                                             case 'temporadas':
-                                                const pontuacaoTemporadas = temporadasData[piloto.nome] || 0;
-                                                return pontuacaoTemporadas > 0 ? pontuacaoTemporadas.toString() : '-';
-                                                return valorBrutoHistoria > 0 ? valorBrutoHistoria.toFixed(2) : '-';
+                                                const pontTemporadas = Math.max(60, temporadasData[piloto.nome] || 0);
+                                                return pontTemporadas.toString();
                                             default:
                                                 return '-';
                                         }
@@ -2154,18 +2529,17 @@ export default function AdminPowerRanking() {
                                         const map = {
                                             'envio_foto': 'foto_oficial_enviada',
                                             'lista': 'lista_presenca_respondida',
-                                            'num_id': 'numeracao_errada'
+                                            'num_id': 'numeracao_errada',
+                                            'telemetria_conduta': 'telemetria_fechada',
+                                            'nc': 'nc',
+                                            'punish_race': 'punish_race'
                                         };
                                         return map[colKey];
                                     };
 
                                     const getDefaultValue = (colKey) => {
-                                        const map = {
-                                            'envio_foto': true, // foto_oficial_enviada - padrão true (enviada)
-                                            'lista': true, // lista_presenca_respondida - padrão true (respondida)
-                                            'num_id': false // numeracao_errada - padrão false (correta)
-                                        };
-                                        return map[colKey] ?? false;
+                                        // Padrão: false (Limpo/Sem infração) para todos os novos registros
+                                        return false;
                                     };
 
                                     return (
@@ -2202,40 +2576,37 @@ export default function AdminPowerRanking() {
                                                             (() => {
                                                                 const flagNameAtual = getFlagName(col.key);
                                                                 const defaultValue = getDefaultValue(col.key);
-                                                                const round = 'R01'; // Usar R01 como referência para foto
-                                                                const checked = getFlagValue(piloto.id, round, flagNameAtual, defaultValue);
-                                                                const savingKey = `${piloto.id}_${round}`;
+                                                                const isInfraction = getFlagValue(piloto.id, 'R01', flagNameAtual, defaultValue);
+                                                                
+                                                                const savingKey = `${piloto.id}_R01`;
                                                                 const isSavingRound = saving[savingKey] || false;
                                                                 
                                                                 return (
-                                                                    <label
+                                                                    <div
+                                                                        onClick={() => {
+                                                                            if (isSavingRound) return;
+                                                                            handleUpdateFlag(piloto.id, 'R01', flagNameAtual, !isInfraction);
+                                                                        }}
                                                                         style={{
+                                                                            width: '20px',
+                                                                            height: '20px',
+                                                                            borderRadius: '4px',
+                                                                            border: '1px solid #475569',
+                                                                            background: isInfraction ? '#EF4444' : '#1E293B',
                                                                             display: 'flex',
                                                                             alignItems: 'center',
                                                                             justifyContent: 'center',
+                                                                            margin: '0 auto',
                                                                             cursor: isSavingRound ? 'not-allowed' : 'pointer',
-                                                                            opacity: isSavingRound ? 0.5 : 1
+                                                                            opacity: isSavingRound ? 0.5 : 1,
+                                                                            transition: 'all 0.2s ease',
+                                                                            color: 'white',
+                                                                            fontSize: '12px',
+                                                                            fontWeight: 'bold'
                                                                         }}
                                                                     >
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={checked}
-                                                                            onChange={(e) => {
-                                                                                handleUpdateFlag(
-                                                                                    piloto.id,
-                                                                                    round,
-                                                                                    flagNameAtual,
-                                                                                    e.target.checked
-                                                                                );
-                                                                            }}
-                                                                            disabled={isSavingRound}
-                                                                            style={{
-                                                                                width: '18px',
-                                                                                height: '18px',
-                                                                                cursor: isSavingRound ? 'not-allowed' : 'pointer'
-                                                                            }}
-                                                                        />
-                                                                    </label>
+                                                                        {isInfraction && '✕'}
+                                                                    </div>
                                                                 );
                                                             })()
                                                         ) : isEditable && value === 'CHECKBOXES' ? (
@@ -2247,43 +2618,43 @@ export default function AdminPowerRanking() {
                                                                 alignItems: 'center',
                                                                 flexWrap: 'wrap'
                                                             }}>
-                                                                {etapas.map((round) => {
+                                                                {etapas.map((round, idx) => {
                                                                     const flagNameAtual = getFlagName(col.key);
                                                                     const defaultValue = getDefaultValue(col.key);
-                                                                    const checked = getFlagValue(piloto.id, round, flagNameAtual, defaultValue);
+                                                                    const isInfraction = getFlagValue(piloto.id, round, flagNameAtual, defaultValue);
+                                                                    
                                                                     const savingKey = `${piloto.id}_${round}`;
                                                                     const isSavingRound = saving[savingKey] || false;
                                                                     
                                                                     return (
-                                                                        <label
-                                                                            key={round}
-                                                                            title={round}
-                                                                            style={{
-                                                                                display: 'flex',
-                                                                                alignItems: 'center',
-                                                                                cursor: isSavingRound ? 'not-allowed' : 'pointer',
-                                                                                opacity: isSavingRound ? 0.5 : 1
-                                                                            }}
-                                                                        >
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={checked}
-                                                                                onChange={(e) => {
-                                                                                    handleUpdateFlag(
-                                                                                        piloto.id,
-                                                                                        round,
-                                                                                        flagNameAtual,
-                                                                                        e.target.checked
-                                                                                    );
+                                                                        <div key={round} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                                            <span style={{ fontSize: '9px', color: '#94A3B8', fontWeight: 'bold' }}>{idx + 1}</span>
+                                                                            <div
+                                                                                onClick={() => {
+                                                                                    if (isSavingRound) return;
+                                                                                    handleUpdateFlag(piloto.id, round, flagNameAtual, !isInfraction);
                                                                                 }}
-                                                                                disabled={isSavingRound}
+                                                                                title={`${round} - Etapa ${idx + 1}`}
                                                                                 style={{
-                                                                                    width: '16px',
-                                                                                    height: '16px',
-                                                                                    cursor: isSavingRound ? 'not-allowed' : 'pointer'
+                                                                                    width: '18px',
+                                                                                    height: '18px',
+                                                                                    borderRadius: '4px',
+                                                                                    border: '1px solid #475569',
+                                                                                    background: isInfraction ? '#EF4444' : '#1E293B',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    justifyContent: 'center',
+                                                                                    cursor: isSavingRound ? 'not-allowed' : 'pointer',
+                                                                                    opacity: isSavingRound ? 0.5 : 1,
+                                                                                    transition: 'all 0.2s ease',
+                                                                                    color: 'white',
+                                                                                    fontSize: '11px',
+                                                                                    fontWeight: 'bold'
                                                                                 }}
-                                                                            />
-                                                                        </label>
+                                                                            >
+                                                                                {isInfraction && '✕'}
+                                                                            </div>
+                                                                        </div>
                                                                     );
                                                                 })}
                                                             </div>

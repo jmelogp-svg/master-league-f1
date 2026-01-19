@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS power_ranking_conduta (
     numeracao_errada BOOLEAN DEFAULT false,
     defesa_nao_enviada BOOLEAN DEFAULT false,
     falta_wo BOOLEAN DEFAULT false, -- Detecção automática
+    nc BOOLEAN DEFAULT false, -- Pilar 01: Performance (+1 ponto)
+    punish_race BOOLEAN DEFAULT false, -- Pilar 01: Performance (+1 ponto)
     
     -- Metadados
     pontos_descontados DECIMAL(5,2) DEFAULT 0, -- Total de pontos descontados nesta etapa
