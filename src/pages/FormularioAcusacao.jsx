@@ -57,8 +57,13 @@ function FormularioAcusacao() {
     const { pilotos: pilotosInscritos, loading: loadingPilotos } = usePilotosData();
     const { etapas: etapasRaw, loading: loadingCalendario } = useCalendarioT20();
     
+    const [pilotoLogado, setPilotoLogado] = useState(null);
+    const [loadingPage, setLoadingPage] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
+
     // Remover etapas duplicadas baseado no round e ajustar datas para o Grid Light
-    const etapasCalendario = etapasRaw
+    const etapasCalendario = (etapasRaw || [])
         .filter((etapa, index, self) =>
             index === self.findIndex(e => e.round === etapa.round)
         )
@@ -72,11 +77,6 @@ function FormularioAcusacao() {
             }
             return etapa;
         });
-    
-    const [pilotoLogado, setPilotoLogado] = useState(null);
-    const [loadingPage, setLoadingPage] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false);
     
     // Estados do formulário
     const [pilotosGrid, setPilotosGrid] = useState([]);
