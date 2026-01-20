@@ -278,7 +278,7 @@ function Standings() {
         return resultado;
     };
 
-    // Função auxiliar para encontrar a temporada e etapa mais recentes
+    // Função auxiliar para encontrar a temporada e etapa mais recentes (que possuam resultados)
     const filtrarMaisRecente = (dados) => {
         if (!dados || dados.length === 0) {
             console.warn('⚠️ [filtrarMaisRecente] Dados vazios ou inválidos');
@@ -287,21 +287,10 @@ function Standings() {
 
         // 1. Identifica todas as temporadas disponíveis
         const todasTemporadas = new Set();
-        dados.forEach((row, idx) => {
+        dados.forEach((row) => {
             const s = extrairNumero(row[3]);
             if (s > 0) todasTemporadas.add(s);
-            // Log das primeiras 3 linhas
-            if (idx < 3) {
-                console.log(`📋 [filtrarMaisRecente] Row ${idx}:`, {
-                    row3: row[3],
-                    row4: row[4],
-                    extractedSeason: extrairNumero(row[3]),
-                    extractedRound: extrairNumero(row[4])
-                });
-            }
         });
-
-        console.log('📊 [filtrarMaisRecente] Todas temporadas encontradas:', Array.from(todasTemporadas));
 
         if (todasTemporadas.size === 0) {
             console.warn('⚠️ [filtrarMaisRecente] Nenhuma temporada encontrada');
@@ -310,29 +299,39 @@ function Standings() {
 
         // 2. Identifica a maior temporada
         const temporadaAtual = Math.max(...Array.from(todasTemporadas));
-        console.log('🏆 [filtrarMaisRecente] Temporada atual (maior):', temporadaAtual);
 
         // 3. Filtra apenas os dados dessa temporada
         const dadosDaTemporada = dados.filter(row => extrairNumero(row[3]) === temporadaAtual);
-        console.log('📦 [filtrarMaisRecente] Dados da temporada', temporadaAtual, ':', dadosDaTemporada.length, 'linhas');
 
-        // 4. Identifica todas as etapas dessa temporada
-        const todasEtapas = new Set();
+        // 4. Identifica todas as etapas dessa temporada que POSSUEM resultados (posição na coluna 8)
+        const etapasComResultados = new Set();
         dadosDaTemporada.forEach(row => {
             const r = extrairNumero(row[4]);
-            if (r > 0) todasEtapas.add(r);
+            const pos = parseInt(row[8]);
+            // Se r > 0 e possui uma posição válida (ex: 1º lugar)
+            if (r > 0 && !isNaN(pos) && pos > 0) {
+                etapasComResultados.add(r);
+            }
         });
 
-        console.log('📊 [filtrarMaisRecente] Todas etapas encontradas:', Array.from(todasEtapas));
-
-        if (todasEtapas.size === 0) {
-            console.warn('⚠️ [filtrarMaisRecente] Nenhuma etapa encontrada para temporada', temporadaAtual);
-            return { temporada: temporadaAtual, etapa: 0 };
+        // Se não houver nenhuma etapa com resultados, pegar a maior etapa disponível apenas
+        if (etapasComResultados.size === 0) {
+            const todasEtapas = new Set();
+            dadosDaTemporada.forEach(row => {
+                const r = extrairNumero(row[4]);
+                if (r > 0) todasEtapas.add(r);
+            });
+            
+            if (todasEtapas.size === 0) return { temporada: temporadaAtual, etapa: 0 };
+            
+            return {
+                temporada: temporadaAtual,
+                etapa: Math.max(...Array.from(todasEtapas))
+            };
         }
 
-        // 5. Identifica a maior etapa dentro da temporada atual
-        const etapaAtual = Math.max(...Array.from(todasEtapas));
-        console.log('🎯 [filtrarMaisRecente] Etapa atual (maior):', etapaAtual);
+        // 5. Identifica a maior etapa que possui resultados
+        const etapaAtual = Math.max(...Array.from(etapasComResultados));
 
         return {
             temporada: temporadaAtual,
@@ -382,7 +381,8 @@ function Standings() {
         if (!rawData || rawData.length === 0) return;
 
         const roundSet = new Set();
-        let maxRoundNumber = 0;
+        const roundsComResultados = new Set();
+        let maxRoundWithResults = 0;
         
         const targetSeason = parseInt(selectedSeason);
 
@@ -392,7 +392,11 @@ function Standings() {
                 const r = extrairNumero(row[4]);
                 if (r > 0) {
                     roundSet.add(r);
-                    if (r > maxRoundNumber) maxRoundNumber = r;
+                    const pos = parseInt(row[8]);
+                    if (!isNaN(pos) && pos > 0) {
+                        roundsComResultados.add(r);
+                        if (r > maxRoundWithResults) maxRoundWithResults = r;
+                    }
                 }
             }
         });
@@ -400,9 +404,14 @@ function Standings() {
         const sortedRounds = Array.from(roundSet).sort((a, b) => b - a);
         setRounds(sortedRounds);
         
-        // Se estivermos na aba de resultados, sempre força a maior etapa daquela temporada
-        if (viewType === 'results' && maxRoundNumber > 0) {
-            setSelectedRound(maxRoundNumber);
+        // Se estivermos na aba de resultados, prioriza a maior etapa que POSSUI resultados
+        if (viewType === 'results') {
+            if (maxRoundWithResults > 0) {
+                setSelectedRound(maxRoundWithResults);
+            } else if (sortedRounds.length > 0) {
+                // Se nenhuma tem resultados ainda, pega a maior disponível (etapa 1, etc)
+                setSelectedRound(sortedRounds[0]);
+            }
         } else if (selectedRound === 0 && sortedRounds.length > 0) {
             setSelectedRound(sortedRounds[0]);
         }
@@ -657,11 +666,15 @@ function Standings() {
     const getRaceResults = () => { 
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight; 
         const raceResults = [];
+        const currentSeasonInt = parseInt(selectedSeason);
+        const currentRoundInt = parseInt(selectedRound);
+
         rawData.forEach(row => {
-            const s = parseInt(row[3]); const r = parseInt(row[4]);
-            if (s === parseInt(selectedSeason) && r === parseInt(selectedRound)) {
+            const s = parseInt(row[3]); 
+            const r = parseInt(row[4]);
+            if (s === currentSeasonInt && r === currentRoundInt && r > 0) {
                 const pos = parseInt(row[8]);
-                if (!isNaN(pos)) {
+                if (!isNaN(pos) && pos > 0) {
                     let stagePoints = 0; 
                     if (pos >= 1 && pos <= 10) stagePoints += POINTS_RACE[pos - 1]; 
                     const sprintPos = parseInt(row[7]); 
@@ -693,10 +706,18 @@ function Standings() {
     };
     const getCalendar = () => { /* Mesma Lógica */ 
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight; const raceMap = new Map();
+        const currentSeasonInt = parseInt(selectedSeason);
         rawData.forEach(row => {
-            const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return; const r = parseInt(row[4]);
-            if(!isNaN(r) && !raceMap.has(r)) { raceMap.set(r, { round: r, date: row[0], gp: row[5], winner: null, winnerTeam: null }); }
-            if(parseInt(row[8]) === 1) { const race = raceMap.get(r); if(race) { race.winner = row[9]; race.winnerTeam = row[10]; } }
+            const s = parseInt(row[3]); 
+            if (s !== currentSeasonInt) return; 
+            const r = parseInt(row[4]);
+            if(!isNaN(r) && r > 0 && !raceMap.has(r)) { 
+                raceMap.set(r, { round: r, date: row[0], gp: row[5], winner: null, winnerTeam: null }); 
+            }
+            if(r > 0 && parseInt(row[8]) === 1) { 
+                const race = raceMap.get(r); 
+                if(race) { race.winner = row[9]; race.winnerTeam = row[10]; } 
+            }
         });
         const races = Array.from(raceMap.values()).sort((a,b) => a.round - b.round);
         const parseDate = (dateStr) => { if (!dateStr) return 0; if (dateStr.includes('/')) { const [d, m, y] = dateStr.split('/'); return new Date(`${y}-${m}-${d}`).getTime(); } return new Date(dateStr).getTime(); };
@@ -1271,10 +1292,7 @@ function Standings() {
             if (maisRecente.temporada > 0) {
                 console.log('✅ [RESULTS] Aplicando temporada:', maisRecente.temporada, 'etapa:', maisRecente.etapa);
                 setSelectedSeason(maisRecente.temporada);
-                // Não sobrescrever gridType se já foi definido pela URL
-                if (!gridFromURL) {
-                    setGridType('carreira');
-                }
+                
                 if (maisRecente.etapa > 0) {
                     setSelectedRound(maisRecente.etapa);
                 }
