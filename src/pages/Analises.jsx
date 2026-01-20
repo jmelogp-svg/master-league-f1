@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { supabase } from '../supabaseClient';
-import { generateLanceCode, calculatePenaltyPoints, getBRTDeadline, isDeadlineExceeded } from '../hooks/useAnalises';
+import { generateLanceCode, calculatePenaltyPoints, getBRTDeadline, isDeadlineExceeded, calcLightDate } from '../hooks/useAnalises';
 import { sendEmailNotification, getEmailTemplate } from '../utils/emailService';
 import { syncPilotosFromSheet } from '../utils/syncPilotosFromSheet';
 import VideoEmbed from '../components/VideoEmbed';
@@ -174,7 +174,12 @@ function Analises() {
             const season = parseInt(row[3]);
             const round = parseInt(row[4]);
             const gpName = row[5];
-            const date = row[0];
+            let date = row[0];
+
+            // Ajuste para Grid Light: se o piloto for light, converte quinta em segunda
+            if (pilotoLogado.grid === 'light') {
+                date = calcLightDate(date);
+            }
 
             if (season === selectedSeason && round && gpName && date) {
                 etapasMap.set(round, { round, gpName, date });

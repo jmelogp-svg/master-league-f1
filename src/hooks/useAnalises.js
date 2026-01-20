@@ -132,6 +132,34 @@ export function usePilotosData() {
 }
 
 /**
+ * Converte uma data de quinta-feira (Carreira) para a segunda-feira anterior (Light)
+ * Subtrai 3 dias da data original (DD/MM/YY)
+ */
+export const calcLightDate = (carreiraDate) => {
+    if (!carreiraDate || !carreiraDate.includes('/')) return carreiraDate;
+    try {
+        const parts = carreiraDate.split('/');
+        if (parts.length !== 3) return carreiraDate;
+        
+        const [day, month, year] = parts;
+        const fullYear = year.length === 2 ? 2000 + parseInt(year) : parseInt(year);
+        const date = new Date(fullYear, parseInt(month) - 1, parseInt(day));
+        
+        // Subtrai 3 dias (Quinta -> Segunda)
+        date.setDate(date.getDate() - 3);
+        
+        const newDay = String(date.getDate()).padStart(2, '0');
+        const newMonth = String(date.getMonth() + 1).padStart(2, '0');
+        const newYear = String(date.getFullYear()).slice(-2);
+        
+        return `${newDay}/${newMonth}/${newYear}`;
+    } catch (e) {
+        console.error('Erro ao calcular data Light:', e);
+        return carreiraDate;
+    }
+};
+
+/**
  * Hook para buscar etapas do calendário da T20
  * Planilha "CALENDÁRIO ML1" - Linhas começam no índice 14
  * Coluna A = "Etapa N", C = Data, D = Circuito

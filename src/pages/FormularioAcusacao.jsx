@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { usePilotosData, useCalendarioT20, canSubmitAcusacao } from '../hooks/useAnalises';
+import { usePilotosData, useCalendarioT20, canSubmitAcusacao, calcLightDate } from '../hooks/useAnalises';
 import { notifyAdminNewAccusation, notifyAccusedDefenseRequest } from '../utils/emailService';
 import { getVideoEmbedUrl } from '../utils/videoEmbed';
 import CustomAlert from '../components/CustomAlert';
@@ -57,10 +57,21 @@ function FormularioAcusacao() {
     const { pilotos: pilotosInscritos, loading: loadingPilotos } = usePilotosData();
     const { etapas: etapasRaw, loading: loadingCalendario } = useCalendarioT20();
     
-    // Remover etapas duplicadas baseado no round
-    const etapasCalendario = etapasRaw.filter((etapa, index, self) =>
-        index === self.findIndex(e => e.round === etapa.round)
-    );
+    // Remover etapas duplicadas baseado no round e ajustar datas para o Grid Light
+    const etapasCalendario = etapasRaw
+        .filter((etapa, index, self) =>
+            index === self.findIndex(e => e.round === etapa.round)
+        )
+        .map(etapa => {
+            // Se o piloto for do Grid Light, ajustar a data (quinta -> segunda)
+            if (pilotoLogado?.grid === 'light') {
+                return {
+                    ...etapa,
+                    date: calcLightDate(etapa.date)
+                };
+            }
+            return etapa;
+        });
     
     const [pilotoLogado, setPilotoLogado] = useState(null);
     const [loadingPage, setLoadingPage] = useState(true);
