@@ -81,9 +81,8 @@ function Telemetria() {
             const s = parseInt(row[3]);
             if (s !== parseInt(selectedSeason)) continue;
 
-            const name = row[9];
             const round = parseInt(row[4]);
-            if (!name) continue;
+            if (!name || isNaN(round) || round <= 0) continue;
 
             const qualy = parseInt(row[6]);
             const race = parseInt(row[8]);

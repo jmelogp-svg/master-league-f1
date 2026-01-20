@@ -794,7 +794,7 @@ function Home() {
             if (s === targetSeason) {
                 const r = extrairNumero(row[4]); 
                 const dateStr = row[0];
-                if (!isNaN(r)) {
+                if (!isNaN(r) && r > 0) {
                     roundSet.add(r);
                     if (r > maxRoundAll) maxRoundAll = r;
                     const rDate = parseDate(dateStr);
@@ -803,7 +803,7 @@ function Home() {
             }
         });
 
-        const sortedRounds = Array.from(roundSet).sort((a, b) => a - b);
+        const sortedRounds = Array.from(roundSet).filter(r => r > 0).sort((a, b) => a - b);
         setRounds(sortedRounds);
 
         if (sortedRounds.length > 0) {

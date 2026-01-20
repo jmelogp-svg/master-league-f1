@@ -114,13 +114,13 @@ function Standings() {
             const s = parseInt(row[3]);
             if (s === parseInt(selectedSeason)) {
                 const r = parseInt(row[4]); const dateStr = row[0];
-                if (!isNaN(r)) {
+                if (!isNaN(r) && r > 0) {
                     roundSet.add(r); const rDate = parseDate(dateStr);
                     if (rDate <= today && rDate > lastRaceDate) { lastRaceDate = rDate; maxRound = r; }
                 }
             }
         });
-        const sortedRounds = Array.from(roundSet).sort((a, b) => b - a);
+        const sortedRounds = Array.from(roundSet).filter(r => r > 0).sort((a, b) => b - a);
         setRounds(sortedRounds);
         if (maxRound > 0) setSelectedRound(maxRound); else if (sortedRounds.length > 0) setSelectedRound(sortedRounds[0]);
     }, [selectedSeason, gridType, rawCarreira, rawLight]);

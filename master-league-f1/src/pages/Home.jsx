@@ -669,14 +669,14 @@ function Home() {
             const s = parseInt(row[3]);
             if (s === parseInt(selectedSeason)) {
                 const r = parseInt(row[4]); const dateStr = row[0];
-                if (!isNaN(r)) {
+                if (!isNaN(r) && r > 0) {
                     roundSet.add(r);
                     const rDate = parseDate(dateStr);
                     if (rDate <= today) { if (r > maxRound) maxRound = r; }
                 }
             }
         });
-        const sortedRounds = Array.from(roundSet).sort((a, b) => a - b);
+        const sortedRounds = Array.from(roundSet).filter(r => r > 0).sort((a, b) => a - b);
         setRounds(sortedRounds);
         if (sortedRounds.length > 0) {
              if (selectedRound === 0 || !sortedRounds.includes(selectedRound)) {
