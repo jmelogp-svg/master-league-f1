@@ -1,10 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLeagueData } from '../hooks/useLeagueData';
+import { supabase } from '../supabaseClient';
 import { 
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     BarChart, Bar, Cell, ReferenceLine, LabelList
 } from 'recharts';
 import '../index.css';
+
+// --- CONSTANTES DE PONTUAÇÃO ---
+const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
 
 const getTeamColor = (teamName) => {
     if(!teamName) return "#94A3B8";
@@ -49,7 +54,69 @@ function Telemetria() {
     const [gridType, setGridType] = useState('carreira');
     const [selectedSeason, setSelectedSeason] = useState(0);
     const [showCharts, setShowCharts] = useState(false);
-    
+    const [punicoes, setPunicoes] = useState({});
+
+    // Função auxiliar para normalizar nome do piloto (usada para comparação de punições)
+    const normalizeNomePiloto = (nome) => {
+        if (!nome) return '';
+        return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, ' ').toLowerCase();
+    };
+
+    // Função auxiliar para extrair número de uma string (ex: "Etapa 8" -> 8)
+    const extrairNumero = (str) => {
+        if (!str) return 0;
+        const texto = String(str).trim();
+        const num = parseInt(texto);
+        if (!isNaN(num)) return num;
+        const match = texto.match(/\d+/);
+        return match ? parseInt(match[0]) : 0;
+    };
+
+    const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
+
+    // Buscar punições do Supabase (vereditos finalizados)
+    useEffect(() => {
+        const buscarPunicoes = async () => {
+            const seasonValido = selectedSeason && parseInt(selectedSeason) > 0;
+            if (!seasonValido) { setPunicoes({}); return; }
+            try {
+                const { data, error } = await supabase
+                    .from('notificacoes_admin')
+                    .select('dados')
+                    .eq('dados->>status', 'analise_realizada');
+
+                if (error) {
+                    setPunicoes({});
+                    return;
+                }
+
+                const punicoesMap = {};
+                (data || []).forEach((item) => {
+                    const veredito = item.dados?.veredito;
+                    const acusado = item.dados?.acusado;
+                    const etapa = item.dados?.etapa || {};
+                    const temporadaLance = etapa?.season || etapa?.temporada || item.dados?.season || item.dados?.temporada || null;
+                    const gridLance = etapa?.grid || item.dados?.grid || null;
+                    const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === parseInt(selectedSeason) : true;
+                    const gridCompativel = gridLance ? gridLance === gridType : true;
+                    
+                    if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && temporadaCompativel && gridCompativel) {
+                        const nomePilotoNormalizado = normalizeNomePiloto(acusado.nome);
+                        const pontosPerdidos = parseInt(veredito.pontosPerdidos) || 0;
+                        if (pontosPerdidos > 0 && nomePilotoNormalizado) {
+                            punicoesMap[nomePilotoNormalizado] = (punicoesMap[nomePilotoNormalizado] || 0) + pontosPerdidos;
+                        }
+                    }
+                });
+                setPunicoes(punicoesMap);
+            } catch (err) {
+                console.error('❌ [Telemetria] Erro ao buscar punições:', err);
+                setPunicoes({});
+            }
+        };
+        buscarPunicoes();
+    }, [selectedSeason, gridType]);
+
     useEffect(() => {
         if (!loading && seasons.length > 0 && selectedSeason === 0) {
             setSelectedSeason(seasons[0]);
@@ -71,24 +138,52 @@ function Telemetria() {
         const data = gridType === 'carreira' ? rawCarreira : rawLight;
         if (!data || data.length === 0 || !selectedSeason) return { evolutionData: [], qualyData: [], racePaceData: [], topDriversList: [] };
 
-        // Otimização: usar Map em vez de objeto para melhor performance
+        console.log(`📊 [Telemetria] DEBUG START`);
+        console.log(`📊 [Telemetria] gridType: ${gridType}`);
+        console.log(`📊 [Telemetria] selectedSeason: ${selectedSeason}`);
+        console.log(`📊 [Telemetria] Total lines: ${data.length}`);
+        
+        const targetS = extrairNumero(selectedSeason);
         const driverMap = new Map();
         const roundsMap = new Set();
 
-        // Loop único com menos processamento
+        let matchedLines = 0;
+
         for (let i = 0; i < data.length; i++) {
             const row = data[i];
-            const s = parseInt(row[3]);
-            if (s !== parseInt(selectedSeason)) continue;
+            const s = extrairNumero(row[3]);
+            
+            if (s !== targetS) continue;
+            matchedLines++;
 
             const name = row[9];
-            const round = parseInt(row[4]);
-            if (!name || isNaN(round) || round <= 0) continue;
+            const round = extrairNumero(row[4]);
+            
+            if (i < 10) {
+                console.log(`📊 [Telemetria] Line ${i} match: name=${name}, round=${round}, s=${s}`);
+            }
+
+            if (!name || round <= 0) continue;
 
             const qualy = parseInt(row[6]);
-            const race = parseInt(row[8]);
-            let points = parseFloat((row[15] || '0').replace(',', '.'));
-            if (isNaN(points)) points = 0;
+            const racePos = parseInt(row[8]);
+            const sprintPos = parseInt(row[7]);
+            
+            // Cálculo robusto de pontos (idêntico ao Standings.jsx)
+            let points = 0;
+            if (s >= 20) {
+                if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
+                    points = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, ''));
+                    if (isNaN(points)) points = 0;
+                }
+                if (points === 0) {
+                    if (racePos >= 1 && racePos <= 10) points = POINTS_RACE[racePos - 1];
+                    if (sprintPos >= 1 && sprintPos <= 8) points += POINTS_SPRINT[sprintPos - 1];
+                }
+            } else {
+                if (racePos >= 1 && racePos <= 10) points = POINTS_RACE[racePos - 1];
+                if (sprintPos >= 1 && sprintPos <= 8) points += POINTS_SPRINT[sprintPos - 1];
+            }
 
             roundsMap.add(round);
 
@@ -100,10 +195,10 @@ function Telemetria() {
             }
 
             const driver = driverMap.get(name);
-            if (!isNaN(qualy) && !isNaN(race)) {
+            if (!isNaN(qualy) && !isNaN(racePos)) {
                 driver.qualySum += qualy;
-                driver.raceSum += race;
-                driver.deltaSum += (qualy - race); 
+                driver.raceSum += racePos;
+                driver.deltaSum += (qualy - racePos); 
                 driver.racesCount++;
             }
 
@@ -111,10 +206,24 @@ function Telemetria() {
             driver.pointsHistory[round] = driver.totalPoints;
         }
 
+        console.log(`📊 [Telemetria] Matched lines for season: ${matchedLines}`);
+        console.log(`📊 [Telemetria] Unique drivers found: ${driverMap.size}`);
+        console.log(`📊 [Telemetria] Unique rounds found: ${roundsMap.size}`);
+
+        // Aplicar punições antes de definir o Top 5
+        driverMap.forEach((driver, name) => {
+            const nomeNormalizado = normalizeNomePiloto(name);
+            const pontosPerdidos = punicoes[nomeNormalizado] || 0;
+            driver.totalPoints -= pontosPerdidos;
+        });
+
         const sortedDrivers = Array.from(driverMap.values()).sort((a, b) => b.totalPoints - a.totalPoints);
         const topDrivers = sortedDrivers.slice(0, 5); 
         const rounds = Array.from(roundsMap).sort((a, b) => a - b);
         
+        console.log(`📊 [Telemetria] Top drivers:`, topDrivers.map(d => d.name));
+        console.log(`📊 [Telemetria] Rounds:`, rounds);
+
         const evolData = rounds.map(r => {
             const point = { name: `R${r}` };
             for (const d of topDrivers) {
@@ -214,7 +323,93 @@ function Telemetria() {
 
         return { evolutionData: evolData, qualyData: qData, racePaceData: rData, topDriversList: topDrivers };
 
-    }, [gridType, selectedSeason, rawCarreira, rawLight, showCharts]);
+        const consistentDrivers = sortedDrivers.filter(d => d.racesCount > 0).slice(0, 20);
+
+        const qData = consistentDrivers.map(d => {
+            const avgQualy = d.qualySum / d.racesCount;
+            // Ritmo de Classificação: baixa de 1 em 1% (1º=100%, 2º=99%, ..., 20º=81%)
+            const score = Math.max(81, Math.min(100, Math.ceil(101 - avgQualy)));
+            return { name: d.name, score: score, display: `${score}%`, avgPos: avgQualy.toFixed(1), team: d.team };
+        }).sort((a, b) => b.score - a.score);
+
+        // Calcular deltas e posições médias de corrida
+        const deltas = consistentDrivers.map(d => {
+            const avgDelta = d.deltaSum / d.racesCount;
+            const avgRace = d.raceSum / d.racesCount; // Posição média na corrida
+            return { 
+                name: d.name, 
+                delta: parseFloat(avgDelta.toFixed(1)), 
+                avgRace: parseFloat(avgRace.toFixed(1)),
+                team: d.team 
+            };
+        });
+        
+        // Encontrar o melhor e pior delta para normalização
+        const maxDelta = Math.max(...deltas.map(d => d.delta), 0);
+        const minDelta = Math.min(...deltas.map(d => d.delta), -10); // Considerar até -10 como pior caso
+        
+        // Função para converter delta em percentual
+        // Considera que manter posição (delta 0) ou perder poucas é bom ritmo
+        // ESPECIAL: Se o piloto termina entre os 5 primeiros, mesmo perdendo posições, tem bom ritmo
+        const deltaToPercent = (delta, avgRace) => {
+            const estaNoTop3 = avgRace <= 3;
+            const estaEmP4ouP5 = avgRace >= 4 && avgRace <= 5;
+            const estaNosTop5 = avgRace <= 5;
+            
+            if (delta >= 0) {
+                // Ganhou posições
+                if (delta === 0) {
+                    // Manter posição: Top 3 = 95%, P4/P5 = 90%, outros = 80%
+                    if (estaNoTop3) return 95;
+                    if (estaEmP4ouP5) return 90;
+                    return 80;
+                }
+                // Ganhou posições: base percentual até 100% (melhor delta)
+                if (maxDelta <= 0) {
+                    // Se ninguém ganhou posições além de delta 0, usar base percentual
+                    if (estaNoTop3) return 95;
+                    if (estaEmP4ouP5) return 90;
+                    return 80;
+                }
+                const basePercent = estaNoTop3 ? 95 : (estaEmP4ouP5 ? 90 : 80);
+                const calculatedPercent = basePercent + (delta / maxDelta) * (100 - basePercent);
+                return Math.ceil(Math.max(basePercent, Math.min(100, calculatedPercent)));
+            } else {
+                // Perdeu posições
+                if (estaNoTop3) {
+                    // Se está no top 3, mesmo perdendo posições, ainda tem bom ritmo
+                    // Delta -1 = 90%, -2 = 85%, -3 = 80%, etc.
+                    const percent = Math.max(70, Math.min(95, 95 + (delta * 2.5)));
+                    return Math.round(percent);
+                } else if (estaEmP4ouP5) {
+                    // Se está em P4 ou P5, mesmo perdendo posições, ainda tem bom ritmo
+                    // Delta -1 = 85%, -2 = 80%, -3 = 75%, etc.
+                    const percent = Math.max(70, Math.min(90, 90 + (delta * 3)));
+                    return Math.round(percent);
+                } else {
+                    // Fora dos top 5: penalização maior por perder posições
+                    // Delta -1 = 75%, -2 = 70%, -3 = 65%, etc.
+                    const percent = Math.max(0, Math.min(80, 80 + (delta * 5)));
+                    return Math.round(percent);
+                }
+            }
+        };
+        
+        const rData = deltas.map(d => {
+            const percent = deltaToPercent(d.delta, d.avgRace);
+            return { 
+                name: d.name, 
+                delta: d.delta, 
+                avgRace: d.avgRace,
+                percent: percent,
+                display: `${percent}%`,
+                team: d.team 
+            };
+        }).sort((a, b) => b.percent - a.percent);
+
+        return { evolutionData: evolData, qualyData: qData, racePaceData: rData, topDriversList: topDrivers };
+
+    }, [gridType, selectedSeason, rawCarreira, rawLight, showCharts, punicoes]);
 
     if (loading) return <div style={{padding:'100px', textAlign:'center', color:'white'}}>Carregando Telemetria...</div>;
 
