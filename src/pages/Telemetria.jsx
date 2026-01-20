@@ -64,7 +64,7 @@ function Telemetria() {
 
     // Função auxiliar para extrair número de uma string (ex: "Etapa 8" -> 8)
     const extrairNumero = (str) => {
-        if (!str) return 0;
+        if (!str && str !== 0) return 0;
         const texto = String(str).trim();
         const num = parseInt(texto);
         if (!isNaN(num)) return num;
@@ -159,10 +159,6 @@ function Telemetria() {
             const name = row[9];
             const round = extrairNumero(row[4]);
             
-            if (i < 10) {
-                console.log(`📊 [Telemetria] Line ${i} match: name=${name}, round=${round}, s=${s}`);
-            }
-
             if (!name || round <= 0) continue;
 
             const qualy = parseInt(row[6]);
@@ -236,92 +232,6 @@ function Telemetria() {
             }
             return point;
         });
-
-        const consistentDrivers = sortedDrivers.filter(d => d.racesCount > 0).slice(0, 20);
-
-        const qData = consistentDrivers.map(d => {
-            const avgQualy = d.qualySum / d.racesCount;
-            // Ritmo de Classificação: baixa de 1 em 1% (1º=100%, 2º=99%, ..., 20º=81%)
-            const score = Math.max(81, Math.min(100, Math.ceil(101 - avgQualy)));
-            return { name: d.name, score: score, display: `${score}%`, avgPos: avgQualy.toFixed(1), team: d.team };
-        }).sort((a, b) => b.score - a.score);
-
-        // Calcular deltas e posições médias de corrida
-        const deltas = consistentDrivers.map(d => {
-            const avgDelta = d.deltaSum / d.racesCount;
-            const avgRace = d.raceSum / d.racesCount; // Posição média na corrida
-            return { 
-                name: d.name, 
-                delta: parseFloat(avgDelta.toFixed(1)), 
-                avgRace: parseFloat(avgRace.toFixed(1)),
-                team: d.team 
-            };
-        });
-        
-        // Encontrar o melhor e pior delta para normalização
-        const maxDelta = Math.max(...deltas.map(d => d.delta), 0);
-        const minDelta = Math.min(...deltas.map(d => d.delta), -10); // Considerar até -10 como pior caso
-        
-        // Função para converter delta em percentual
-        // Considera que manter posição (delta 0) ou perder poucas é bom ritmo
-        // ESPECIAL: Se o piloto termina entre os 5 primeiros, mesmo perdendo posições, tem bom ritmo
-        const deltaToPercent = (delta, avgRace) => {
-            const estaNoTop3 = avgRace <= 3;
-            const estaEmP4ouP5 = avgRace >= 4 && avgRace <= 5;
-            const estaNosTop5 = avgRace <= 5;
-            
-            if (delta >= 0) {
-                // Ganhou posições
-                if (delta === 0) {
-                    // Manter posição: Top 3 = 95%, P4/P5 = 90%, outros = 80%
-                    if (estaNoTop3) return 95;
-                    if (estaEmP4ouP5) return 90;
-                    return 80;
-                }
-                // Ganhou posições: base percentual até 100% (melhor delta)
-                if (maxDelta <= 0) {
-                    // Se ninguém ganhou posições além de delta 0, usar base percentual
-                    if (estaNoTop3) return 95;
-                    if (estaEmP4ouP5) return 90;
-                    return 80;
-                }
-                const basePercent = estaNoTop3 ? 95 : (estaEmP4ouP5 ? 90 : 80);
-                const calculatedPercent = basePercent + (delta / maxDelta) * (100 - basePercent);
-                return Math.ceil(Math.max(basePercent, Math.min(100, calculatedPercent)));
-            } else {
-                // Perdeu posições
-                if (estaNoTop3) {
-                    // Se está no top 3, mesmo perdendo posições, ainda tem bom ritmo
-                    // Delta -1 = 90%, -2 = 85%, -3 = 80%, etc.
-                    const percent = Math.max(70, Math.min(95, 95 + (delta * 2.5)));
-                    return Math.round(percent);
-                } else if (estaEmP4ouP5) {
-                    // Se está em P4 ou P5, mesmo perdendo posições, ainda tem bom ritmo
-                    // Delta -1 = 85%, -2 = 80%, -3 = 75%, etc.
-                    const percent = Math.max(70, Math.min(90, 90 + (delta * 3)));
-                    return Math.round(percent);
-                } else {
-                    // Fora dos top 5: penalização maior por perder posições
-                    // Delta -1 = 75%, -2 = 70%, -3 = 65%, etc.
-                    const percent = Math.max(0, Math.min(80, 80 + (delta * 5)));
-                    return Math.round(percent);
-                }
-            }
-        };
-        
-        const rData = deltas.map(d => {
-            const percent = deltaToPercent(d.delta, d.avgRace);
-            return { 
-                name: d.name, 
-                delta: d.delta, 
-                avgRace: d.avgRace,
-                percent: percent,
-                display: `${percent}%`,
-                team: d.team 
-            };
-        }).sort((a, b) => b.percent - a.percent);
-
-        return { evolutionData: evolData, qualyData: qData, racePaceData: rData, topDriversList: topDrivers };
 
         const consistentDrivers = sortedDrivers.filter(d => d.racesCount > 0).slice(0, 20);
 
