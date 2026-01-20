@@ -264,10 +264,10 @@ export function shouldApplyRaceBan(totalPoints) {
 
 /**
  * Formata timezone BRT (UTC-3)
+ * Retorna uma data ajustada para o fuso de Brasília (America/Sao_Paulo)
  */
 export function getBRTDeadline(dayOffset = 1) {
-    const now = new Date();
-    const brtDate = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // Convert to BRT
+    const brtDate = getCurrentBRT();
     brtDate.setDate(brtDate.getDate() + dayOffset);
     brtDate.setHours(20, 0, 0, 0); // 20:00 BRT
     return brtDate;
@@ -277,15 +277,18 @@ export function getBRTDeadline(dayOffset = 1) {
  * Verifica se deadline de acusação foi atingido (para Grid Light)
  */
 export function isDeadlineExceeded(deadline) {
-    return new Date() > deadline;
+    return getCurrentBRT() > deadline;
 }
 
 /**
  * Obtém o horário atual em BRT (UTC-3)
+ * Funciona independente do fuso horário configurado no dispositivo do usuário
  */
 function getCurrentBRT() {
     const now = new Date();
-    return new Date(now.getTime() - (3 * 60 * 60 * 1000));
+    // Converte para string no fuso de SP e cria um novo objeto Date
+    const brtString = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+    return new Date(brtString);
 }
 
 /**
@@ -305,16 +308,16 @@ export function canSubmitAcusacao(grid) {
             // Segunda: só pode se for após 20:15h
             return hours > 20 || (hours === 20 && minutes >= 15);
         } else if (dayOfWeek === 2) {
-            // Terça: só pode se for antes de 20:00h
-            return hours < 20 || (hours === 20 && minutes < 0);
+            // Terça: só pode se for antes de 20:00h (até 19:59:59)
+            return hours < 20;
         }
         return false; // Outros dias não podem
     } else {
         // Grid Carreira: pode enviar até Sexta 20:00h
         if (dayOfWeek === 5) {
-            // Sexta: só pode se for antes de 20:00h
-            return hours < 20 || (hours === 20 && minutes < 0);
-        } else if (dayOfWeek < 5) {
+            // Sexta: só pode se for antes de 20:00h (até 19:59:59)
+            return hours < 20;
+        } else if (dayOfWeek >= 1 && dayOfWeek < 5) {
             // Segunda a Quinta: pode enviar
             return true;
         }
