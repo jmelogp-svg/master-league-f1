@@ -573,7 +573,9 @@ IMPORTANTE: Vídeos privados, sem nitidez, com palavrão ou que impossibilitem a
 
 Não serão aceitas solicitações de retirada de punições de bug que tenham sido pagas no box durante a corrida.
 
-Não serão aceitas solicitações de retirada de punições de bug ocorridas durante a sessão classificatória (qualificação).`
+Não serão aceitas solicitações de retirada de punições de bug ocorridas durante a sessão classificatória (qualificação).
+
+Bug de posição por conta de abandono do lobby antes da bandeirada final não é retirado e a posição final da transmissão é validada.`
     },
     {
         id: 'powerranking',
@@ -1468,6 +1470,7 @@ const Regulamento = () => {
                                 <h4 style={{marginTop: 0, marginBottom: '12px', color: '#F59E0B'}}>6.3. Retirada de Punições de Bug</h4>
                                 <p><strong>❌ Não serão aceitas solicitações de retirada de punições de bug que tenham sido pagas no box durante a corrida.</strong></p>
                                 <p><strong>❌ Não serão aceitas solicitações de retirada de punições de bug ocorridas durante a sessão classificatória (qualificação).</strong></p>
+                                <p><strong>❌ Bug de posição por conta de abandono do lobby antes da bandeirada final não é retirado e a posição final da transmissão é validada.</strong></p>
                             </div>
                         </div>
                     </section>
