@@ -127,21 +127,14 @@ function Standings() {
 
     // Buscar punições do Supabase (vereditos finalizados)
     useEffect(() => {
-        console.log('🔄 [Punições] useEffect executado. selectedSeason:', selectedSeason, 'gridType:', gridType);
-        
         const buscarPunicoes = async () => {
             // Verificar se selectedSeason está definido (pode ser string ou número)
             const seasonValido = selectedSeason && (parseInt(selectedSeason) > 0 || selectedSeason > 0);
             
             if (!seasonValido) {
-                console.log('⏳ [Punições] Aguardando temporada ser selecionada. selectedSeason atual:', selectedSeason);
                 setPunicoes({});
                 return;
             }
-            
-            console.log('🔍 [Punições] Iniciando busca de punições...');
-            console.log('🔍 [Punições] Temporada selecionada:', selectedSeason, 'Tipo:', typeof selectedSeason);
-            console.log('🔍 [Punições] Grid selecionado:', gridType);
             
             try {
                 // Buscar todas as análises finalizadas
@@ -151,42 +144,19 @@ function Standings() {
                     .eq('dados->>status', 'analise_realizada');
 
                 if (error) {
-                    console.error('❌ Erro ao buscar punições:', error);
                     setPunicoes({});
                     return;
                 }
 
-                console.log('📊 [Punições] Total de análises finalizadas encontradas:', data?.length || 0);
-                console.log('📊 [Punições] Dados brutos (primeiros 3):', data?.slice(0, 3));
-
                 // Processar vereditos e somar pontos perdidos por piloto
                 const punicoesMap = {};
                 
-                (data || []).forEach((item, index) => {
+                (data || []).forEach((item) => {
                     const veredito = item.dados?.veredito;
                     const acusado = item.dados?.acusado;
-                    const codigoLance = item.dados?.codigoLance || item.dados?.codigo || 'N/A';
                     const etapa = item.dados?.etapa || {};
                     const temporadaLance = etapa?.season || etapa?.temporada || item.dados?.season || item.dados?.temporada || null;
                     const gridLance = etapa?.grid || item.dados?.grid || null;
-                    
-                    // Log detalhado para debug
-                    if (index < 5 || codigoLance.includes('STW-L2008') || codigoLance.includes('L2008')) {
-                        console.log(`🔍 Análise ${index + 1}:`, {
-                            codigo: codigoLance,
-                            acusado: acusado,
-                            veredito: veredito,
-                            etapa: etapa,
-                            temporadaLance: temporadaLance,
-                            gridLance: gridLance,
-                            temporadaSelecionada: selectedSeason,
-                            gridSelecionado: gridType,
-                            temVeredito: !!veredito,
-                            temAcusado: !!acusado,
-                            pontosPerdidos: veredito?.pontosPerdidos,
-                            dadosCompletos: item.dados
-                        });
-                    }
                     
                     // Verificar se tem veredito e se é para a temporada e grid atual (ou se não tem info, aplicar a todas)
                     const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === parseInt(selectedSeason) : true;
@@ -195,67 +165,23 @@ function Standings() {
                     
                     if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && aplicarPunicao) {
                         // Normalizar nome do piloto para comparação
-                        const nomePilotoOriginal = acusado.nome.trim();
-                        const nomePilotoNormalizado = normalizeNomePiloto(nomePilotoOriginal);
+                        const nomePilotoNormalizado = normalizeNomePiloto(acusado.nome);
                         const pontosPerdidos = parseInt(veredito.pontosPerdidos) || 0;
                         
                         if (pontosPerdidos > 0 && nomePilotoNormalizado) {
                             // Somar pontos perdidos (um piloto pode ter múltiplas punições)
                             punicoesMap[nomePilotoNormalizado] = (punicoesMap[nomePilotoNormalizado] || 0) + pontosPerdidos;
-                            
-                            if (codigoLance.includes('STW-L2008') || codigoLance.includes('L2008') || nomePilotoOriginal.toLowerCase().includes('alann')) {
-                                console.log(`✅ Punição aplicada:`, {
-                                    codigo: codigoLance,
-                                    nomeOriginal: nomePilotoOriginal,
-                                    nomeNormalizado: nomePilotoNormalizado,
-                                    pontosPerdidos: pontosPerdidos,
-                                    temporadaLance: temporadaLance,
-                                    gridLance: gridLance,
-                                    temporadaSelecionada: selectedSeason,
-                                    gridSelecionado: gridType,
-                                    totalAcumulado: punicoesMap[nomePilotoNormalizado]
-                                });
-                            }
                         }
                     }
                 });
 
                 setPunicoes(punicoesMap);
-                console.log('📉 [Punições] Punições carregadas (resumo):', punicoesMap);
-                console.log('📉 [Punições] Total de pilotos com punições:', Object.keys(punicoesMap).length);
-                
-                if (Object.keys(punicoesMap).length === 0) {
-                    console.log('⚠️ [Punições] Nenhuma punição encontrada para temporada', selectedSeason, 'e grid', gridType);
-                }
-                
-                // Log específico para Alann Rodrigues
-                const alannNormalizado = normalizeNomePiloto('Alann Rodrigues');
-                console.log('🔍 [Punições] Procurando Alann Rodrigues (normalizado):', alannNormalizado);
-                console.log('🔍 [Punições] Chaves disponíveis no mapa:', Object.keys(punicoesMap));
-                
-                if (punicoesMap[alannNormalizado]) {
-                    console.log('✅ [Punições] Punição encontrada para Alann Rodrigues:', {
-                        nomeNormalizado: alannNormalizado,
-                        pontosPerdidos: punicoesMap[alannNormalizado]
-                    });
-                } else {
-                    console.log('❌ [Punições] Punição NÃO encontrada para Alann Rodrigues');
-                    // Procurar por similaridade
-                    const chavesSimilares = Object.keys(punicoesMap).filter(key => 
-                        key.toLowerCase().includes('alann') || key.toLowerCase().includes('rodrigues')
-                    );
-                    if (chavesSimilares.length > 0) {
-                        console.log('💡 [Punições] Chaves similares encontradas:', chavesSimilares);
-                    }
-                }
             } catch (err) {
                 console.error('❌ [Punições] Erro ao buscar punições:', err);
                 setPunicoes({});
             }
         };
 
-        // Sempre executar, mesmo que selectedSeason seja 0 (para debug)
-        // A função interna vai verificar se precisa buscar ou não
         buscarPunicoes();
     }, [selectedSeason, gridType]); // Recarregar quando a temporada ou grid mudar
 
@@ -280,10 +206,7 @@ function Standings() {
 
     // Função auxiliar para encontrar a temporada e etapa mais recentes (que possuam resultados)
     const filtrarMaisRecente = (dados) => {
-        if (!dados || dados.length === 0) {
-            console.warn('⚠️ [filtrarMaisRecente] Dados vazios ou inválidos');
-            return { temporada: 0, etapa: 0 };
-        }
+        if (!dados || dados.length === 0) return { temporada: 0, etapa: 0 };
 
         // 1. Identifica todas as temporadas disponíveis
         const todasTemporadas = new Set();
@@ -292,10 +215,7 @@ function Standings() {
             if (s > 0) todasTemporadas.add(s);
         });
 
-        if (todasTemporadas.size === 0) {
-            console.warn('⚠️ [filtrarMaisRecente] Nenhuma temporada encontrada');
-            return { temporada: 0, etapa: 0 };
-        }
+        if (todasTemporadas.size === 0) return { temporada: 0, etapa: 0 };
 
         // 2. Identifica a maior temporada
         const temporadaAtual = Math.max(...Array.from(todasTemporadas));
@@ -333,10 +253,7 @@ function Standings() {
         // 5. Identifica a maior etapa que possui resultados
         const etapaAtual = Math.max(...Array.from(etapasComResultados));
 
-        return {
-            temporada: temporadaAtual,
-            etapa: etapaAtual
-        };
+        return { temporada: temporadaAtual, etapa: etapaAtual };
     };
 
     // useEffect para inicializar temporada quando dados carregarem
@@ -355,26 +272,21 @@ function Standings() {
     }, [seasons, loading, viewType, gridFromURL]);
 
     // useEffect específico para garantir que quando a aba RESULTS for selecionada,
-    // sempre mostre a maior temporada com a maior etapa
+    // sempre mostre a maior temporada com a maior etapa (do grid atual)
     useEffect(() => {
-        if (viewType === 'results' && !loading && rawCarreira && rawCarreira.length > 0) {
-            console.log('🔄 [useEffect RESULTS] Executando lógica para aba RESULTS');
-            const maisRecente = filtrarMaisRecente(rawCarreira);
-            console.log('📊 [useEffect RESULTS] Resultado:', maisRecente);
+        const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
+        if (viewType === 'results' && !loading && rawData && rawData.length > 0) {
+            const maisRecente = filtrarMaisRecente(rawData);
             
             if (maisRecente.temporada > 0) {
-                console.log('✅ [useEffect RESULTS] Forçando temporada:', maisRecente.temporada, 'e etapa:', maisRecente.etapa);
                 setSelectedSeason(maisRecente.temporada);
-                // Não sobrescrever gridType se já foi definido pela URL
-                if (!gridFromURL) {
-                    setGridType('carreira');
-                }
+                
                 if (maisRecente.etapa > 0) {
                     setSelectedRound(maisRecente.etapa);
                 }
             }
         }
-    }, [viewType, loading, rawCarreira]);
+    }, [viewType, loading, rawCarreira, rawLight, gridType]);
 
     useEffect(() => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
@@ -401,18 +313,26 @@ function Standings() {
             }
         });
         
-        const sortedRounds = Array.from(roundSet).sort((a, b) => b - a);
-        setRounds(sortedRounds);
+        const sortedRounds = Array.from(roundSet).filter(r => r > 0).sort((a, b) => b - a);
+        const sortedRoundsComResultados = Array.from(roundsComResultados).filter(r => r > 0).sort((a, b) => b - a);
+        
+        // No dropbox de Resultados, mostramos apenas rounds que já têm resultados
+        // No dropbox de Etapas (Calendário), mostramos todos os rounds previstos
+        if (viewType === 'results') {
+            setRounds(sortedRoundsComResultados.length > 0 ? sortedRoundsComResultados : sortedRounds);
+        } else {
+            setRounds(sortedRounds);
+        }
         
         // Se estivermos na aba de resultados, prioriza a maior etapa que POSSUI resultados
         if (viewType === 'results') {
             if (maxRoundWithResults > 0) {
                 setSelectedRound(maxRoundWithResults);
             } else if (sortedRounds.length > 0) {
-                // Se nenhuma tem resultados ainda, pega a maior disponível (etapa 1, etc)
+                // Se nenhuma tem resultados ainda, pega a maior disponível
                 setSelectedRound(sortedRounds[0]);
             }
-        } else if (selectedRound === 0 && sortedRounds.length > 0) {
+        } else if ((selectedRound === 0 || selectedRound === "0") && sortedRounds.length > 0) {
             setSelectedRound(sortedRounds[0]);
         }
     }, [selectedSeason, gridType, rawCarreira, rawLight, viewType]);
@@ -1281,23 +1201,14 @@ function Standings() {
         if (newViewType === 'results') {
             // Usar o grid atual (pode ser light ou carreira) baseado na URL
             const rawData = gridType === 'light' ? rawLight : rawCarreira;
-            
-            console.log('🔍 [RESULTS] rawData length:', rawData?.length);
-            console.log('🔍 [RESULTS] First 3 rows:', rawData?.slice(0, 3));
-            
             const maisRecente = filtrarMaisRecente(rawData);
             
-            console.log('🔍 [RESULTS] maisRecente calculado:', maisRecente);
-            
             if (maisRecente.temporada > 0) {
-                console.log('✅ [RESULTS] Aplicando temporada:', maisRecente.temporada, 'etapa:', maisRecente.etapa);
                 setSelectedSeason(maisRecente.temporada);
                 
                 if (maisRecente.etapa > 0) {
                     setSelectedRound(maisRecente.etapa);
                 }
-            } else {
-                console.warn('⚠️ [RESULTS] maisRecente.temporada é 0 ou inválido');
             }
         }
     };
