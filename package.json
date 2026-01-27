@@ -10,12 +10,14 @@
     "preview": "vite preview",
     "notify:defesas:dry": "node scripts/notificar_defesas_pendentes.js --dry-run",
     "notify:defesas": "node scripts/notificar_defesas_pendentes.js --send",
-    "ngrok": "ngrok http 5173",
-    "ngrok:dev": "ngrok http 5173 --domain=your-domain.ngrok-free.app"
+    "ngrok:setup": "node scripts/ngrok-setup.js",
+    "ngrok": "npm run ngrok:setup && npx ngrok http 5173",
+    "ngrok:dev": "npm run ngrok:setup && npx ngrok http 5173 --domain=your-domain.ngrok-free.app"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.86.0",
-    "lucide-react": "^0.562.0",
+    "html2canvas": "^1.4.1",
+    "lucide-react": "^0.263.1",
     "papaparse": "^5.5.3",
     "react": "19.2.1",
     "react-dom": "19.2.1",
