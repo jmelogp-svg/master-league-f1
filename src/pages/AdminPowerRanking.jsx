@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Papa from 'papaparse';
 import { supabase } from '../supabaseClient';
 import { usePowerRankingCache, usePowerRankingLightCache } from '../hooks/useSupabaseCache';
 import { useLeagueData } from '../hooks/useLeagueData';
 import '../index.css';
+import { gerarObjetivosPorEquipe } from '../utils/powerRankingObjectives';
 
 // Cores dos pilares
 const COLORS = {
@@ -15,6 +17,12 @@ const COLORS = {
     HISTORICO: '#475569' // Cinza escuro
 };
 
+const PROXY_URL = 'https://corsproxy.io/?';
+const DRAFT_URLS = {
+    carreira: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=914372939&single=true&output=csv',
+    light: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=905408135&single=true&output=csv',
+};
+
 export default function AdminPowerRanking() {
     const [loading, setLoading] = useState(true);
     const [pilotos, setPilotos] = useState([]);
@@ -24,6 +32,15 @@ export default function AdminPowerRanking() {
     const [selectedSeason, setSelectedSeason] = useState(20); // Mantido para carregar dados
     const [saving, setSaving] = useState({}); // { piloto_id_round: true/false }
     const [isPublishing, setIsPublishing] = useState(false);
+
+    const handleRecalcularTudo = () => {
+        setObjetivosData({});
+        setObjetivosTextos({});
+        setPilaresData({});
+        setPrData({});
+        pilaresDataRef.current = {};
+        setRecalculoVersion((prev) => prev + 1);
+    };
     
     const { data: rawPRCarreira, loading: loadingPRCarreira } = usePowerRankingCache(selectedSeason);
     const { data: rawPRLight, loading: loadingPRLight } = usePowerRankingLightCache(selectedSeason);
@@ -38,8 +55,12 @@ export default function AdminPowerRanking() {
     const [telemetriaData, setTelemetriaData] = useState({}); // { nome_piloto: { ritmoCorrida: delta, ritmoClassificacao: score } }
     const [pontosData, setPontosData] = useState({}); // { nome_piloto: { corrida: total, sprint: total, qualy: total } }
     const [objetivosData, setObjetivosData] = useState({}); // { nome_piloto: { objetivo1: pontos, objetivo2: pontos, ... } }
+    const [objetivosTextos, setObjetivosTextos] = useState({}); // { nome_piloto: [texto1, texto2, ...] }
+    const [objetivosClassificacaoVersion, setObjetivosClassificacaoVersion] = useState(0);
+    const [recalculoVersion, setRecalculoVersion] = useState(0);
     const [punicoesData, setPunicoesData] = useState({}); // { nome_piloto: total_pontos_veredito }
     const [defesasFaltantesData, setDefesasFaltantesData] = useState({}); // { nome_piloto: quantidade_faltas_defesa }
+    const [advertenciasData, setAdvertenciasData] = useState({}); // { nome_piloto: quantidade_advertencias }
 
     // Função para calcular faltas verificando se o piloto tem registro em cada etapa nos Resultados
     const calcularFaltasPorResultados = useCallback((pilotoObj) => {
@@ -122,6 +143,22 @@ export default function AdminPowerRanking() {
         });
         return nomeEncontrado ? defesasFaltantesData[nomeEncontrado] : 0;
     }, [defesasFaltantesData]);
+
+    // Função auxiliar para buscar advertências com matching flexível
+    const buscarAdvertencias = useCallback((nomePiloto) => {
+        if (!nomePiloto) return 0;
+        // Tentar match exato primeiro
+        if (advertenciasData[nomePiloto] !== undefined) {
+            return advertenciasData[nomePiloto];
+        }
+        // Tentar match normalizado
+        const nomeNorm = (nomePiloto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+        const nomeEncontrado = Object.keys(advertenciasData).find(n => {
+            const nNorm = (n || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+            return nNorm === nomeNorm;
+        });
+        return nomeEncontrado ? advertenciasData[nomeEncontrado] : 0;
+    }, [advertenciasData]);
 
     // Carregar pilotos baseado nas tabelas de classificação (Carreira e Light)
     // Determinar grid verificando em qual tabela o piloto aparece com equipe
@@ -424,6 +461,7 @@ export default function AdminPowerRanking() {
             try {
                 // Conjunto para evitar duplicidade de punições pelo mesmo lance_id
                 const punicoesPorLance = new Map(); // Map<lance_id, {nome, pontos}>
+                const advertenciasPorLance = new Map(); // Map<lance_id, {nome, count}>
                 const faltasDefesaPorPiloto = {};
 
                 // 1. Buscar da Central de Análises (notificacoes_admin - Sistema de Júri)
@@ -465,10 +503,12 @@ export default function AdminPowerRanking() {
                     }
 
                     let pontosDeducted = 0;
+                    let punicaoTipo = null;
                     const veredito = dados.veredito;
                     
                     if (veredito && veredito.culpado) {
                         pontosDeducted = veredito.pontosPerdidos || 0;
+                        punicaoTipo = veredito.punicao || null;
                     } else if (votosCulpadoCount >= 3) {
                         const contagemPunicoes = {};
                         let temAgravante = false;
@@ -484,6 +524,7 @@ export default function AdminPowerRanking() {
                         });
                         if (punicaoMaisVotada && punicoesTabela[punicaoMaisVotada]) {
                             pontosDeducted = punicoesTabela[punicaoMaisVotada].pontos + (temAgravante ? 5 : 0);
+                            punicaoTipo = punicaoMaisVotada;
                         }
                     }
 
@@ -492,6 +533,12 @@ export default function AdminPowerRanking() {
                         const existing = punicoesPorLance.get(lanceId);
                         if (!existing || pontosDeducted > existing.pontos) {
                             punicoesPorLance.set(lanceId, { nome: nomeAcusado, pontos: pontosDeducted });
+                        }
+                    }
+
+                    if (punicaoTipo === 'advertencia' && lanceId) {
+                        if (!advertenciasPorLance.has(lanceId)) {
+                            advertenciasPorLance.set(lanceId, { nome: nomeAcusado, count: 1 });
                         }
                     }
                 });
@@ -536,8 +583,15 @@ export default function AdminPowerRanking() {
                     punicoesFinais[data.nome] = (punicoesFinais[data.nome] || 0) + data.pontos;
                 });
 
+                // Somar advertências finais por piloto (já sem duplicidade de lances)
+                const advertenciasFinais = {};
+                advertenciasPorLance.forEach((data) => {
+                    advertenciasFinais[data.nome] = (advertenciasFinais[data.nome] || 0) + data.count;
+                });
+
                 setPunicoesData(punicoesFinais);
                 setDefesasFaltantesData(faltasDefesaPorPiloto);
+                setAdvertenciasData(advertenciasFinais);
 
             } catch (err) {
                 console.error('❌ Erro ao carregar dados administrativos:', err);
@@ -890,8 +944,8 @@ export default function AdminPowerRanking() {
         // 0. Inicializar prMap e pilaresMap com todos os pilotos da tabela para garantir que ninguém fique de fora
         pilotos.forEach(p => {
             if (!prMap[p.nome]) {
-                prMap[p.nome] = { total: 0, grid: p.grid || 'carreira', performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
-                pilaresMap[p.nome] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
+                prMap[p.nome] = { total: 0, grid: p.grid || 'carreira', performance: 60, conduta: 100, racecraft: 60, overall: 60, historico: 60 };
+                pilaresMap[p.nome] = { performance: 60, conduta: 100, racecraft: 60, overall: 60, historico: 60 };
             }
         });
 
@@ -930,8 +984,8 @@ export default function AdminPowerRanking() {
                     }
                     
                     if (!prMap[nomePilotoParaUsar]) {
-                        prMap[nomePilotoParaUsar] = { total: 0, grid: 'carreira', performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
-                        pilaresMap[nomePilotoParaUsar] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
+                        prMap[nomePilotoParaUsar] = { total: 0, grid: 'carreira', performance: 60, conduta: 100, racecraft: 60, overall: 60, historico: 60 };
+                        pilaresMap[nomePilotoParaUsar] = { performance: 60, conduta: 100, racecraft: 60, overall: 60, historico: 60 };
                     }
                     // Se veio da planilha carreira, assume carreira se não tiver grid definido
                     if (!prMap[nomePilotoParaUsar].grid) prMap[nomePilotoParaUsar].grid = 'carreira';
@@ -978,8 +1032,8 @@ export default function AdminPowerRanking() {
                     }
 
                     if (!prMap[nomePilotoParaUsar]) {
-                        prMap[nomePilotoParaUsar] = { total: 0, grid: 'light', performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
-                        pilaresMap[nomePilotoParaUsar] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
+                        prMap[nomePilotoParaUsar] = { total: 0, grid: 'light', performance: 60, conduta: 100, racecraft: 60, overall: 60, historico: 60 };
+                        pilaresMap[nomePilotoParaUsar] = { performance: 60, conduta: 100, racecraft: 60, overall: 60, historico: 60 };
                     }
                     // Se veio da planilha light, assume light se não tiver grid definido
                     if (!prMap[nomePilotoParaUsar].grid) prMap[nomePilotoParaUsar].grid = 'light';
@@ -1032,8 +1086,8 @@ export default function AdminPowerRanking() {
             // Racecraft: inicializar com 0, será atualizado se houver dados
             pilaresMap[nome].racecraft = 0;
             
-            // Overall: inicializar com 0, será atualizado se houver dados
-            pilaresMap[nome].overall = 0;
+            // Overall: inicializar com 60, será atualizado se houver dados
+            pilaresMap[nome].overall = 60;
             
             // Histórico: inicializar com 60, será calculado com normalização no próximo efeito
             pilaresMap[nome].historico = 60;
@@ -1073,7 +1127,7 @@ export default function AdminPowerRanking() {
                     performance: (performancePreservado !== undefined && performancePreservado !== 0) ? performancePreservado : (pilaresData[piloto.nome]?.performance || 60), 
                     conduta: 100, 
                     racecraft: pilaresData[piloto.nome]?.racecraft || 60, 
-                    overall: pilaresData[piloto.nome]?.overall || 0, 
+                    overall: pilaresData[piloto.nome]?.overall || 60, 
                     historico: 60 
                 };
             } else {
@@ -1083,7 +1137,7 @@ export default function AdminPowerRanking() {
                     ...updatedPilares[piloto.nome],
                     performance: (performancePreservado !== undefined && performancePreservado !== 0) ? performancePreservado : (updatedPilares[piloto.nome].performance || 60),
                     racecraft: updatedPilares[piloto.nome].racecraft || pilaresData[piloto.nome]?.racecraft || 60,
-                    overall: updatedPilares[piloto.nome].overall || pilaresData[piloto.nome]?.overall || 0,
+                    overall: updatedPilares[piloto.nome].overall || pilaresData[piloto.nome]?.overall || 60,
                     conduta: updatedPilares[piloto.nome].conduta || 0,
                     historico: updatedPilares[piloto.nome].historico || 60
                 };
@@ -1147,7 +1201,7 @@ export default function AdminPowerRanking() {
             const valorFinal = Math.ceil(Math.max(60, Math.min(100, historicoFinal)));
             
             if (!updatedPilares[piloto.nome]) {
-                updatedPilares[piloto.nome] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: valorFinal };
+                updatedPilares[piloto.nome] = { performance: 60, conduta: 100, racecraft: 60, overall: 60, historico: valorFinal };
             } else {
                 updatedPilares[piloto.nome].historico = valorFinal;
             }
@@ -1311,6 +1365,24 @@ export default function AdminPowerRanking() {
             
             // Encontrar o melhor delta para normalização
             const maxDelta = Math.max(...deltas.map(d => d.delta), 0);
+
+            // Calcular score relativo de QUALY por percentil (melhor avgQualy => score mais alto)
+            const qualyRanks = [];
+            driverMap.forEach((stats, name) => {
+                if (stats.racesCount > 0) {
+                    const avgQualy = stats.qualySum / stats.racesCount;
+                    qualyRanks.push({ name, avgQualy });
+                }
+            });
+            qualyRanks.sort((a, b) => a.avgQualy - b.avgQualy);
+            const totalQualy = qualyRanks.length;
+            const qualyScoreByName = {};
+            qualyRanks.forEach((item, index) => {
+                const percentil = totalQualy <= 1 ? 1 : (1 - (index / (totalQualy - 1)));
+                // Escala diferenciada para QUALY (60-100), para não ficar igual ao POS. Q
+                const score = Math.round(60 + (percentil * 40));
+                qualyScoreByName[item.name] = Math.max(60, Math.min(100, score));
+            });
             
             // Função para converter delta em percentual (mesma lógica da tela de telemetria)
             const deltaToPercent = (delta, avgRace) => {
@@ -1359,28 +1431,30 @@ export default function AdminPowerRanking() {
             // Calcular médias e scores
             driverMap.forEach((stats, name) => {
                 if (stats.racesCount > 0) {
-                    // RITMO DE CLASSIFICAÇÃO: baixa de 1 em 1% (1º=100%, 2º=99%, ..., 20º=81%) - mesma fórmula da tela de telemetria
+                    // POS. Q (posição média de qualy): 1º=100, 2º=99, ..., 20º=81
                     const avgQualy = stats.qualySum / stats.racesCount;
-                    const ritmoClassificacao = Math.max(81, Math.min(100, Math.ceil(101 - avgQualy)));
+                    const posQScore = Math.max(81, Math.min(100, Math.ceil(101 - avgQualy)));
+                    // QUALY (ritmo de classificação relativo ao grid): percentil da média de qualy
+                    const qualyScore = qualyScoreByName[name] ?? posQScore;
                     
                     // RITMO DE CORRIDA: percentual baseado no delta e posição média de corrida - mesma fórmula da tela de telemetria
                     const avgDelta = stats.deltaSum / stats.racesCount;
                     const avgRace = stats.raceSum / stats.racesCount;
                     const ritmoCorrida = deltaToPercent(avgDelta, avgRace);
                     
-                    // RITMO: posição média de qualy e corrida convertida para pontuação (1º=100, 2º=99, ..., 20º=81)
-                    const posicaoMedia = (avgQualy + avgRace) / 2; // Média entre qualy e corrida
-                    // Converter para pontuação: 101 - posição média (limitado entre 81 e 100)
-                    const ritmo = Math.max(81, Math.min(100, Math.ceil(101 - posicaoMedia)));
+                    // POS. R (posição média de corrida): 1º=100, 2º=99, ..., 20º=81
+                    const posRScore = Math.max(81, Math.min(100, Math.ceil(101 - avgRace)));
                     
                     // RACECRAFT: média ponderada de CORRIDA (30%), POS. Q (20%), QUALY (20%), POS. R (30%)
                     // 60% para CORRIDA + POS. R, 40% para POS. Q + QUALY
-                    const racecraft = (ritmoCorrida * 0.30) + (ritmoClassificacao * 0.20) + (ritmoClassificacao * 0.20) + (ritmo * 0.30);
+                    const racecraft = (ritmoCorrida * 0.30) + (posQScore * 0.20) + (qualyScore * 0.20) + (posRScore * 0.30);
                     
                     telemetriaMap[name] = {
                         ritmoCorrida: ritmoCorrida,
-                        ritmoClassificacao: ritmoClassificacao,
-                        ritmo: ritmo,
+                        ritmoClassificacao: qualyScore,
+                        ritmo: posRScore,
+                        posQScore: posQScore,
+                        posRScore: posRScore,
                         racecraft: Math.max(60, Math.ceil(racecraft)),
                         posicaoMediaQualy: parseFloat(avgQualy.toFixed(2)),
                         posicaoMediaRace: parseFloat(avgRace.toFixed(2))
@@ -1408,19 +1482,19 @@ export default function AdminPowerRanking() {
                 if (!dados) return;
                 
                 // CORRIDA (ritmoCorrida) - 30%
-                // POS. Q (ritmoClassificacao) - 20%
+                // POS. Q (posQScore) - 20%
                 // QUALY (ritmoClassificacao) - 20%
-                // POS. R (ritmo) - 30%
+                // POS. R (posRScore) - 30%
                 // Total: 60% para CORRIDA + POS. R, 40% para POS. Q + QUALY
                 const corrida = dados.ritmoCorrida || 0;
-                const posQ = dados.ritmoClassificacao || 0;
+                const posQ = dados.posQScore || dados.ritmoClassificacao || 0;
                 const qualy = dados.ritmoClassificacao || 0;
-                const posR = dados.ritmo || 0;
+                const posR = dados.posRScore || dados.ritmo || 0;
                 
                 const racecraft = (corrida * 0.30) + (posQ * 0.20) + (qualy * 0.20) + (posR * 0.30);
                 
                 if (!updatedPilares[nomePiloto]) {
-                    updatedPilares[nomePiloto] = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
+                    updatedPilares[nomePiloto] = { performance: 60, conduta: 100, racecraft: 60, overall: 60, historico: 60 };
                 }
                 updatedPilares[nomePiloto].racecraft = Math.max(60, Math.ceil(racecraft));
             });
@@ -1428,6 +1502,23 @@ export default function AdminPowerRanking() {
             return updatedPilares;
         });
     }, [telemetriaData]);
+
+    useEffect(() => {
+        const handleUpdate = () => setObjetivosClassificacaoVersion((prev) => prev + 1);
+        const handleStorage = (event) => {
+            if (event.key === 'prObjetivosClassificacao') {
+                handleUpdate();
+            }
+        };
+
+        window.addEventListener('storage', handleStorage);
+        window.addEventListener('prObjetivosClassificacaoUpdated', handleUpdate);
+
+        return () => {
+            window.removeEventListener('storage', handleStorage);
+            window.removeEventListener('prObjetivosClassificacaoUpdated', handleUpdate);
+        };
+    }, []);
 
     // Calcular pontos dos objetivos contratuais
     useEffect(() => {
@@ -1449,6 +1540,51 @@ export default function AdminPowerRanking() {
                     return;
                 }
 
+                const normalizeNameKey = (value) => (value || '')
+                    .toString()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLowerCase();
+
+                const fetchDraftMap = async (gridKey) => {
+                    const url = DRAFT_URLS[gridKey];
+                    if (!url) return {};
+                    try {
+                        const response = await fetch(`${PROXY_URL}${url}`);
+                        const csvText = await response.text();
+                        return await new Promise((resolve) => {
+                            Papa.parse(csvText, {
+                                header: false,
+                                skipEmptyLines: true,
+                                complete: (result) => {
+                                    const rows = Array.isArray(result.data) ? result.data : [];
+                                    const map = {};
+                                    rows.slice(1).forEach((row) => {
+                                        const nome = row?.[0];
+                                        const equipe = row?.[12];
+                                        if (!nome || !equipe) return;
+                                        const key = normalizeNameKey(nome);
+                                        if (!key) return;
+                                        map[key] = equipe.toString().trim();
+                                    });
+                                    resolve(map);
+                                },
+                                error: () => resolve({}),
+                            });
+                        });
+                    } catch (err) {
+                        console.warn(`⚠️ Falha ao carregar draft ${gridKey}:`, err);
+                        return {};
+                    }
+                };
+
+                const [draftCarreiraMap, draftLightMap] = await Promise.all([
+                    fetchDraftMap('carreira'),
+                    fetchDraftMap('light'),
+                ]);
+
                 // 2. Criar mapa de contratos por piloto (usando cod_idml ou nome)
                 const contratosPorPiloto = {};
                 contracts?.forEach(contract => {
@@ -1457,8 +1593,11 @@ export default function AdminPowerRanking() {
                         (!contract.pilot_cod_idml && p.nome && p.nome.toLowerCase() === contract.pilot_cod_idml?.toLowerCase())
                     );
                     if (piloto) {
+                        const gridPiloto = (contract.grid || piloto.grid || 'carreira').toLowerCase();
+                        const draftMap = gridPiloto === 'light' ? draftLightMap : draftCarreiraMap;
+                        const equipeDraft = draftMap[normalizeNameKey(piloto.nome)];
                         contratosPorPiloto[piloto.nome] = {
-                            equipe: contract.equipes?.name || '',
+                            equipe: equipeDraft || contract.equipes?.name || '',
                             tier: contract.equipes?.tier || 'bronze',
                             grid: contract.grid || piloto.grid
                         };
@@ -1466,121 +1605,44 @@ export default function AdminPowerRanking() {
                 });
 
                 // 3. Função para gerar objetivos baseado na equipe (mesma lógica do Dashboard)
-                const gerarObjetivosPorEquipe = (teamName, tier) => {
-                    const teamNameLower = (teamName || '').toLowerCase();
-                    let objetivos = [];
+                const normalizeObjetivoKey = (value) => (value || '')
+                    .toString()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLowerCase();
 
-                    if (teamNameLower.includes('ferrari')) {
-                        objetivos = [
-                            'Lutar pelo título de pilotos e construtores, honrando a tradição vermelha',
-                            'Conquistar pelo menos 3 Vitórias (1º lugar) durante a temporada',
-                            'Nas corridas em que a vitória não vier, conquistar pelo menos 3 Pódios (2º ou 3º lugar)',
-                            'Terminar a temporada entre os 2 primeiros do campeonato',
-                            'Representar com excelência a marca Ferrari e seus valores italianos'
-                        ];
-                    } else if (teamNameLower.includes('mclaren')) {
-                        objetivos = [
-                            'Lutar pelo título de pilotos e construtores, seguindo os passos de Senna e Prost',
-                            'Conquistar pelo menos 5 Vitórias (1º lugar) durante a temporada',
-                            'Nas corridas em que a vitória não vier, conquistar pelo menos 2 Pódios (2º ou 3º lugar)',
-                            'Terminar a temporada entre os 3 primeiros do campeonato',
-                            'Desenvolver o carro ao longo da temporada para maximizar performance'
-                        ];
-                    } else if (teamNameLower.includes('red bull') && !teamNameLower.includes('racing bulls')) {
-                        objetivos = [
-                            'Lutar pelo título de pilotos e construtores com determinação',
-                            'Conquistar pelo menos 3 Vitórias (1º lugar) durante a temporada',
-                            'Nas corridas em que a vitória não vier, conquistar pelo menos 3 Pódios (2º ou 3º lugar)',
-                            'Terminar a temporada entre os 3 primeiros do campeonato',
-                            'Demonstrar agressividade controlada e vontade de vencer'
-                        ];
-                    } else if (teamNameLower.includes('mercedes')) {
-                        objetivos = [
-                            'Lutar pelo título de pilotos e construtores com precisão técnica',
-                            'Conquistar pelo menos 2 Vitórias (1º lugar) durante a temporada',
-                            'Nas corridas em que a vitória não vier, conquistar pelo menos 4 Pódios (2º ou 3º lugar)',
-                            'Terminar a temporada entre os 3 primeiros do campeonato',
-                            'Demonstrar consistência e confiabilidade em todas as corridas'
-                        ];
-                    } else if (teamNameLower.includes('aston')) {
-                        objetivos = [
-                            'Conquistar pelo menos 3 Pódios (2º ou 3º lugar) durante a temporada',
-                            'Nas corridas em que o pódio não vier, conquistar pelo menos 2 Top 5 (4º ou 5º lugar)',
-                            'Pontuar na maioria das corridas com consistência',
-                            'Terminar a temporada entre os 5 primeiros do campeonato',
-                            'Contribuir para uma posição sólida no campeonato de construtores'
-                        ];
-                    } else if (teamNameLower.includes('alpine')) {
-                        objetivos = [
-                            'Conquistar pelo menos 2 Pódios (2º ou 3º lugar) durante a temporada',
-                            'Nas corridas em que o pódio não vier, conquistar pelo menos 3 Top 5 (4º ou 5º lugar)',
-                            'Pontuar na maioria das corridas com consistência',
-                            'Terminar a temporada entre os 5 primeiros do campeonato',
-                            'Contribuir para melhorias constantes no desenvolvimento do carro'
-                        ];
-                    } else if (teamNameLower.includes('racing') && teamNameLower.includes('bulls')) {
-                        objetivos = [
-                            'Conquistar pelo menos 1 Pódio (2º ou 3º lugar) durante a temporada',
-                            'Nas corridas em que o pódio não vier, conquistar pelo menos 2 Top 5 (4º ou 5º lugar)',
-                            'Pontuar em pelo menos 3 corridas adicionais durante a temporada',
-                            'Terminar corridas de forma consistente e confiável',
-                            'Contribuir para o desenvolvimento e crescimento da equipe'
-                        ];
-                    } else if (teamNameLower.includes('williams')) {
-                        objetivos = [
-                            'Conquistar pelo menos 1 Pódio (2º ou 3º lugar) durante a temporada',
-                            'Nas corridas em que o pódio não vier, conquistar pelo menos 2 Top 5 (4º ou 5º lugar)',
-                            'Pontuar em pelo menos 2 corridas adicionais durante a temporada',
-                            'Terminar corridas de forma consistente e confiável',
-                            'Contribuir para o retorno da Williams ao topo da Fórmula 1'
-                        ];
-                    } else if (teamNameLower.includes('haas')) {
-                        objetivos = [
-                            'Conquistar pelo menos 3 Top 5 (4º ou 5º lugar) durante a temporada',
-                            'Nas corridas em que o top 5 não vier, pontuar em pelo menos 2 corridas adicionais',
-                            'Terminar corridas de forma consistente',
-                            'Desenvolver o carro ao longo da temporada',
-                            'Contribuir para melhorias na classificação da equipe'
-                        ];
-                    } else if (teamNameLower.includes('sauber') || teamNameLower.includes('stake') || teamNameLower.includes('kick')) {
-                        objetivos = [
-                            'Conquistar pelo menos 2 Top 5 (4º ou 5º lugar) durante a temporada',
-                            'Nas corridas em que o top 5 não vier, pontuar em pelo menos 2 corridas adicionais',
-                            'Terminar corridas de forma consistente',
-                            'Desenvolver o carro ao longo da temporada',
-                            'Contribuir para melhorias na classificação da equipe'
-                        ];
-                    } else {
-                        // Fallback genérico baseado em tier
-                        if (tier === 'gold') {
-                            objetivos = [
-                                'Lutar pelo título de pilotos da Master League F1',
-                                'Conquistar o título de construtores',
-                                'Conquistar pelo menos 5 Vitórias (1º lugar) durante a temporada',
-                                'Nas corridas em que a vitória não vier, manter-se no Pódio (2º ou 3º lugar) em pelo menos 70% das provas',
-                                'Terminar a temporada entre os 3 primeiros do campeonato'
-                            ];
-                        } else if (tier === 'silver') {
-                            objetivos = [
-                                'Conquistar Pódios (2º ou 3º lugar) regularmente durante a temporada',
-                                'Nas corridas em que o pódio não vier, pontuar na maioria das provas',
-                                'Terminar a temporada entre os 5 primeiros do campeonato',
-                                'Buscar pelo menos 3 Pódios (2º ou 3º lugar) durante a temporada',
-                                'Contribuir para uma posição sólida no campeonato de construtores'
-                            ];
-                        } else {
-                            objetivos = [
-                                'Conquistar Pontos (Top 10) regularmente nas corridas',
-                                'Buscar pelo menos 3 Pódios (2º ou 3º lugar) durante a temporada',
-                                'Terminar corridas de forma consistente',
-                                'Desenvolver o carro ao longo da temporada',
-                                'Contribuir para melhorias na classificação da equipe'
-                            ];
-                        }
+                const objetivosClassificacaoMap = await (async () => {
+                    const normalizedMap = {};
+
+                    try {
+                        const rawMap = JSON.parse(localStorage.getItem('prObjetivosClassificacao') || '{}');
+                        Object.entries(rawMap || {}).forEach(([key, value]) => {
+                            const normalizedKey = normalizeObjetivoKey(key);
+                            if (normalizedKey) {
+                                normalizedMap[normalizedKey] = (value || '').toString().toLowerCase();
+                            }
+                        });
+                    } catch {
+                        // Manter mapa vazio caso localStorage falhe
                     }
 
-                    return objetivos;
-                };
+                    const { data, error } = await supabase
+                        .from('objetivos_classificacao')
+                        .select('objetivo_texto, classificacao');
+
+                    if (!error && Array.isArray(data)) {
+                        data.forEach((row) => {
+                            const normalizedKey = normalizeObjetivoKey(row?.objetivo_texto);
+                            if (normalizedKey) {
+                                normalizedMap[normalizedKey] = (row?.classificacao || '').toString().toLowerCase();
+                            }
+                        });
+                    }
+
+                    return normalizedMap;
+                })();
 
                 // 4. Calcular estatísticas de cada piloto na temporada atual
                 const calcularEstatisticasPiloto = (nomePiloto, grid) => {
@@ -1596,6 +1658,23 @@ export default function AdminPowerRanking() {
                         totalPontos: 0
                     };
 
+                    const nomePilotoNorm = normalizeNameKey(nomePiloto);
+
+                    const pontosPorPosicao = {
+                        1: 25,
+                        2: 18,
+                        3: 15,
+                        4: 12,
+                        5: 10,
+                        6: 8,
+                        7: 6,
+                        8: 4,
+                        9: 2,
+                        10: 1
+                    };
+
+                    const getPontosByPosicao = (posicao) => pontosPorPosicao[posicao] || 0;
+
                     // Calcular estatísticas
                     dados.forEach(row => {
                         const nome = (row[9] || '').trim();
@@ -1607,17 +1686,30 @@ export default function AdminPowerRanking() {
                         const ptsFinais = row[15];
                         const ptsCorrida = row[13];
                         const ptsSprint = row[14];
+                        const sprintPos = parseInt(row[7] || '0');
                         
-                        // Priorizar Pts Finais, depois PTS Corrida + PTS Sprint
+                        // Priorizar Pts Finais (corrida principal), mas se vazio usar fallback da posição
                         if (ptsFinais !== undefined && ptsFinais !== null && ptsFinais !== '') {
                             pontos = parseFloat(ptsFinais.toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
-                        } else if (ptsCorrida !== undefined || ptsSprint !== undefined) {
-                            const ptsC = parseFloat((ptsCorrida || '0').toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
-                            const ptsS = parseFloat((ptsSprint || '0').toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
-                            pontos = ptsC + ptsS;
+                        } else if (ptsCorrida !== undefined && ptsCorrida !== null && ptsCorrida !== '') {
+                            pontos = parseFloat(ptsCorrida.toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+                        } else if (racePos > 0 && racePos <= 10) {
+                            pontos = getPontosByPosicao(racePos);
                         }
 
-                        if (nome.toLowerCase() === nomePiloto.toLowerCase() && season === selectedSeason) {
+                        // SEMPRE somar pontos da Sprint (seja pela coluna 14 ou pela posição)
+                        let pontosSprintCalculados = 0;
+                        if (ptsSprint !== undefined && ptsSprint !== null && ptsSprint !== '') {
+                            pontosSprintCalculados = parseFloat(ptsSprint.toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+                        } else if (sprintPos >= 1 && sprintPos <= 8) {
+                            // Se não tiver pontos na coluna 14, usa a constante de pontuação da sprint
+                            const POINTS_SPRINT_LOCAL = [8, 7, 6, 5, 4, 3, 2, 1];
+                            pontosSprintCalculados = POINTS_SPRINT_LOCAL[sprintPos - 1];
+                        }
+                        
+                        pontos += pontosSprintCalculados;
+
+                        if (normalizeNameKey(nome) === nomePilotoNorm && season === selectedSeason) {
                             stats.totalCorridas++;
                             if (racePos === 1) stats.vitorias++;
                             if (racePos >= 1 && racePos <= 3) stats.podios++;
@@ -1633,27 +1725,55 @@ export default function AdminPowerRanking() {
 
                     // Calcular posição final no campeonato (soma de pontos)
                     const pilotosPontos = {};
+                    
+                    // Inicializar todos os pilotos do grid atual com 0 pontos para garantir que tenham uma posição
+                    pilotos.forEach(p => {
+                        if ((p.grid || 'carreira').toLowerCase() === grid.toLowerCase()) {
+                            pilotosPontos[p.nome] = 0;
+                        }
+                    });
+
                     dados.forEach(row => {
-                        const nome = (row[9] || '').trim();
+                        const nomeRaw = (row[9] || '').trim();
                         const season = parseInt(row[3] || '0');
                         
-                        // Tentar múltiplas colunas para pontos
-                        let pontos = 0;
-                        const ptsFinais = row[15];
-                        const ptsCorrida = row[13];
-                        const ptsSprint = row[14];
-                        
-                        if (ptsFinais !== undefined && ptsFinais !== null && ptsFinais !== '') {
-                            pontos = parseFloat(ptsFinais.toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
-                        } else if (ptsCorrida !== undefined || ptsSprint !== undefined) {
-                            const ptsC = parseFloat((ptsCorrida || '0').toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
-                            const ptsS = parseFloat((ptsSprint || '0').toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
-                            pontos = ptsC + ptsS;
-                        }
+                        if (season === selectedSeason && nomeRaw) {
+                            // Tentar match normalizado com os pilotos do estado
+                            const nNorm = normalizeNameKey(nomeRaw);
+                            const pilotoEncontrado = pilotos.find(p => normalizeNameKey(p.nome) === nNorm);
+                            const nomeFinal = pilotoEncontrado ? pilotoEncontrado.nome : nomeRaw;
 
-                        if (season === selectedSeason && nome) {
-                            if (!pilotosPontos[nome]) pilotosPontos[nome] = 0;
-                            pilotosPontos[nome] += pontos;
+                            // Tentar múltiplas colunas para pontos
+                            let pontos = 0;
+                            const ptsFinais = row[15];
+                            const ptsCorrida = row[13];
+                            const ptsSprint = row[14];
+                            const racePos = parseInt(row[8] || '0');
+                            const sprintPos = parseInt(row[7] || '0');
+                            
+                            // Priorizar Pts Finais (corrida principal), mas se vazio usar fallback da posição
+                            if (ptsFinais !== undefined && ptsFinais !== null && ptsFinais !== '') {
+                                pontos = parseFloat(ptsFinais.toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+                            } else if (ptsCorrida !== undefined && ptsCorrida !== null && ptsCorrida !== '') {
+                                pontos = parseFloat(ptsCorrida.toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+                            } else if (racePos > 0 && racePos <= 10) {
+                                const POINTS_RACE_LOCAL = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+                                pontos = POINTS_RACE_LOCAL[racePos - 1];
+                            }
+
+                            // SEMPRE somar pontos da Sprint (seja pela coluna 14 ou pela posição)
+                            let pontosSprintCalculados = 0;
+                            if (ptsSprint !== undefined && ptsSprint !== null && ptsSprint !== '') {
+                                pontosSprintCalculados = parseFloat(ptsSprint.toString().replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+                            } else if (sprintPos >= 1 && sprintPos <= 8) {
+                                const POINTS_SPRINT_LOCAL = [8, 7, 6, 5, 4, 3, 2, 1];
+                                pontosSprintCalculados = POINTS_SPRINT_LOCAL[sprintPos - 1];
+                            }
+                            
+                            pontos += pontosSprintCalculados;
+
+                            if (!pilotosPontos[nomeFinal]) pilotosPontos[nomeFinal] = 0;
+                            pilotosPontos[nomeFinal] += pontos;
                         }
                     });
 
@@ -1661,7 +1781,7 @@ export default function AdminPowerRanking() {
                         .sort((a, b) => b[1] - a[1])
                         .map(([nome], index) => ({ nome, posicao: index + 1 }));
 
-                    const pilotoRanking = ranking.find(r => r.nome.toLowerCase() === nomePiloto.toLowerCase());
+                    const pilotoRanking = ranking.find(r => normalizeNameKey(r.nome) === nomePilotoNorm);
                     stats.posicaoFinal = pilotoRanking?.posicao || null;
 
                     return stats;
@@ -1692,13 +1812,66 @@ export default function AdminPowerRanking() {
                 };
 
                 // 6. Função para verificar cumprimento de objetivo e atribuir pontos
-                const verificarObjetivo = (objetivo, stats, totalFaltas = 0, etapasInfo = { realizadas: 0, total: 8, restantes: 0 }, debugNome = '') => {
+                const verificarObjetivo = (objetivo, stats, totalFaltas = 0, totalNC = 0, etapasInfo = { realizadas: 0, total: 8, restantes: 0 }, debugNome = '') => {
                     const objLower = objetivo.toLowerCase();
                     let pontos = 0;
                     let tipoObjetivo = 'Não reconhecido';
+                    const classificacao = objetivosClassificacaoMap[normalizeObjetivoKey(objetivo)];
+                    const forcarQualitativo = classificacao === 'qualitativo';
+                    const bloquearQualitativo = classificacao === 'quantitativo';
+
+                    // Objetivos de posição final no campeonato - Regra de afastamento do target
+                    // Deve sempre seguir a regra de posições, mesmo que classificação esteja incorreta
+                    const matchPosicao = objLower.match(/entre os (\d+|dois|tres|três|quatro|cinco)\s+primeiros(?:\s+do\s+campeonato)?/i);
+                    if (matchPosicao && stats.posicaoFinal) {
+                        tipoObjetivo = 'Posição Final (Afastamento)';
+                        const metaTexto = matchPosicao[1];
+                        const mapaMetas = { dois: 2, tres: 3, três: 3, quatro: 4, cinco: 5 };
+                        const meta = parseInt(metaTexto, 10) || mapaMetas[metaTexto];
+                        
+                        if (meta && stats.posicaoFinal <= meta) {
+                            // Está dentro da meta (ex: P1, P2 ou P3 para meta Top 3)
+                            pontos = 20;
+                        } else {
+                            // Está fora da meta, perde 1 ponto por posição de afastamento
+                            const afastamento = meta ? (stats.posicaoFinal - meta) : 0;
+                            pontos = Math.max(0, 20 - (afastamento * 1));
+                        }
+                        // Garantir piso mínimo para não zerar totalmente quando há posição válida
+                        return Math.ceil(Math.max(2, pontos));
+                    }
+
+                    if (forcarQualitativo) {
+                        pontos = Math.max(0, 20 - (totalFaltas * 1.5));
+                        return pontos;
+                    }
+
+                    // Objetivos de Consistência (NC / Faltas) - Regra específica solicitada
+                    if (objLower.includes('terminar corridas de forma consistente')) {
+                        tipoObjetivo = 'Consistência NC';
+                        pontos = Math.max(0, 20 - (totalFaltas * 3) - (totalNC * 1));
+                        return pontos;
+                    }
+
+                    // Objetivos de título (pilotos)
+                    const matchTitulo = objLower.match(/t[íi]tulo de pilotos|lutar pelo t[íi]tulo/i);
+                    if (matchTitulo && stats.posicaoFinal) {
+                        tipoObjetivo = 'Título';
+                        const meta = 1;
+                        pontos = 12;
+                        if (stats.posicaoFinal <= meta) {
+                            pontos = 20;
+                        } else {
+                            const diferenca = stats.posicaoFinal - meta;
+                            if (diferenca <= 3) {
+                                pontos += Math.max(0, 3 - diferenca);
+                            }
+                        }
+                        return Math.ceil(Math.min(20, pontos));
+                    }
 
                     // Objetivos de vitórias
-                    const matchVitorias = objLower.match(/pelo menos (\d+) vit[óo]rias/i);
+                    const matchVitorias = objLower.match(/pelo menos (\d+) vit[óo]ria/i);
                     if (matchVitorias) {
                         tipoObjetivo = 'Vitórias';
                         const meta = parseInt(matchVitorias[1]);
@@ -1714,7 +1887,7 @@ export default function AdminPowerRanking() {
                     }
 
                     // Objetivos de pódios
-                    const matchPodios = objLower.match(/pelo menos (\d+) p[óo]dios/i);
+                    const matchPodios = objLower.match(/pelo menos (\d+) p[óo]dio/i);
                     if (matchPodios) {
                         tipoObjetivo = 'Pódios';
                         const meta = parseInt(matchPodios[1]);
@@ -1745,32 +1918,32 @@ export default function AdminPowerRanking() {
                         return Math.ceil(Math.min(20, pontos)); // Máximo 20 pontos
                     }
 
-                    // Objetivos de posição final no campeonato
-                    const matchPosicao = objLower.match(/entre os (\d+) primeiros/i);
-                    if (matchPosicao && stats.posicaoFinal) {
-                        tipoObjetivo = 'Posição Final';
-                        const meta = parseInt(matchPosicao[1]);
-                        // Início: 12 pontos
+                    // Objetivos de Top 10 / Pontuação (Top 10)
+                    if (objLower.includes('top 10') || objLower.includes('top10') || objLower.includes('conquistar pontos')) {
+                        tipoObjetivo = 'Top 10';
+                        const matchTop10 = objLower.match(/pelo menos (\d+) top 10|pelo menos (\d+) top10/i);
+                        const meta = matchTop10 ? parseInt(matchTop10[1] || matchTop10[2]) : Math.ceil(etapasInfo.total * 0.5);
                         pontos = 12;
-                        // Para posição: ganha pontos inversamente proporcional à posição
-                        // Quanto melhor a posição, mais pontos. Ex: 1º lugar = 1 ponto (mas se está no top 3, ganha mais)
-                        if (stats.posicaoFinal <= meta) {
-                            // Está dentro da meta (top X), ganha pontos baseado na posição
-                            // Se está em 1º e meta é top 3, ganha 3 pontos; se está em 2º, ganha 2 pontos, etc.
-                            const bonusPosicao = (meta + 1) - stats.posicaoFinal; // Ex: top 3, em 1º = 3 pontos, em 2º = 2 pontos, em 3º = 1 ponto
-                            pontos += bonusPosicao;
-                            // Se atingiu completamente (está dentro do top X), total = 20 pontos
+                        pontos += stats.top10;
+                        if (stats.top10 >= meta) {
                             pontos = 20;
-                        } else {
-                            // Não está na meta ainda, mas pode ganhar progresso se está próximo
-                            // Ex: meta é top 3 e está em 5º, pode ganhar algum progresso
-                            const diferenca = stats.posicaoFinal - meta;
-                            // Se está até 3 posições acima, ganha progresso menor
-                            if (diferenca <= 3) {
-                                pontos += Math.max(0, 3 - diferenca); // Progresso baseado em proximidade
-                            }
                         }
-                        return Math.ceil(Math.min(20, pontos)); // Máximo 20 pontos
+                        return Math.ceil(Math.min(20, pontos));
+                    }
+
+                    // Objetivos de pódio em percentual das provas
+                    const matchPodioPercent = objLower.match(/p[óo]dio.*(\d+)\s*%/i);
+                    if (matchPodioPercent) {
+                        tipoObjetivo = 'Pódio Percentual';
+                        const percent = parseInt(matchPodioPercent[1]);
+                        const totalEtapas = etapasInfo.total || 0;
+                        const meta = totalEtapas > 0 ? Math.ceil(totalEtapas * (percent / 100)) : 0;
+                        pontos = 12;
+                        pontos += stats.podios;
+                        if (meta > 0 && stats.podios >= meta) {
+                            pontos = 20;
+                        }
+                        return Math.ceil(Math.min(20, pontos));
                     }
 
                     // Objetivos de pontuação consistente
@@ -1799,8 +1972,24 @@ export default function AdminPowerRanking() {
                         return Math.ceil(Math.min(20, pontos)); // Máximo 20 pontos
                     }
 
+                    // Objetivos de construtores (tratados como pontuação consistente)
+                    if (objLower.includes('construtores') || objLower.includes('campeonato de construtores')) {
+                        tipoObjetivo = 'Construtores';
+                        const totalEtapas = etapasInfo.total || 0;
+                        const meta = totalEtapas ? Math.ceil(totalEtapas * 0.5) : 0;
+                        pontos = 12;
+                        pontos += stats.corridasComPontos;
+                        if (meta > 0 && stats.corridasComPontos >= meta) {
+                            pontos = 20;
+                        }
+                        return Math.ceil(Math.min(20, pontos));
+                    }
+
                     // Se não se encaixa em nenhum padrão quantitativo, então é objetivo qualitativo
                     // Objetivos qualitativos: não dependem de resultados (vitórias, pódios, pontos, posições)
+                    if (bloquearQualitativo) {
+                        return 0;
+                    }
                     tipoObjetivo = 'Objetivo Qualitativo';
                     // Objetivos qualitativos: Início = 20 pontos, cada falta (W.O.) reduz 1.5 pontos
                     // Retornamos o valor exato (float) para que o desconto seja aplicado corretamente em cada objetivo
@@ -1811,11 +2000,25 @@ export default function AdminPowerRanking() {
 
                 // 6. Calcular pontos para cada piloto
                 const objetivosCalculados = {};
+                const textosCalculados = {};
                 pilotos.forEach(piloto => {
-                    const contrato = contratosPorPiloto[piloto.nome];
+                    let contrato = contratosPorPiloto[piloto.nome];
                     const isLeandroSopena = piloto.nome.toLowerCase().includes('leandro') && piloto.nome.toLowerCase().includes('sope');
                     const isJulioMelo = piloto.nome.toLowerCase().includes('julio') && piloto.nome.toLowerCase().includes('melo');
                     
+                    if (!contrato) {
+                        const gridPiloto = (piloto.grid || 'carreira').toLowerCase();
+                        const draftMap = gridPiloto === 'light' ? draftLightMap : draftCarreiraMap;
+                        const equipeDraft = draftMap[normalizeNameKey(piloto.nome)];
+                        if (equipeDraft) {
+                            contrato = {
+                                equipe: equipeDraft,
+                                tier: 'bronze',
+                                grid: gridPiloto
+                            };
+                        }
+                    }
+
                     if (!contrato) {
                         // Piloto sem contrato - todos objetivos com 0
                         objetivosCalculados[piloto.nome] = {
@@ -1825,35 +2028,57 @@ export default function AdminPowerRanking() {
                             objetivo4: 0,
                             objetivo5: 0
                         };
+                        textosCalculados[piloto.nome] = [];
                         return;
                     }
 
                     const objetivos = gerarObjetivosPorEquipe(contrato.equipe, contrato.tier);
-                    const stats = calcularEstatisticasPiloto(piloto.nome, contrato.grid || piloto.grid);
-                    const etapasInfo = calcularEtapasTemporada(contrato.grid || piloto.grid);
+                    textosCalculados[piloto.nome] = objetivos;
+                    const gridAtual = (piloto.grid || contrato.grid || 'carreira').toLowerCase();
+                    let stats = calcularEstatisticasPiloto(piloto.nome, gridAtual);
+                    const gridContrato = (contrato.grid || '').toLowerCase();
+                    if (!stats.posicaoFinal && gridContrato && gridContrato !== gridAtual) {
+                        const statsAlternativo = calcularEstatisticasPiloto(piloto.nome, gridContrato);
+                        if (statsAlternativo.posicaoFinal) {
+                            stats = statsAlternativo;
+                        }
+                    }
+                    const etapasInfo = calcularEtapasTemporada(gridAtual);
                     
                     // Calcular total de faltas (W.O.) do piloto - automático por resultados
                     const totalFaltas = calcularFaltasPorResultados(piloto);
 
+                    // Calcular total de NC (Did Not Finish) - baseado nos checkboxes manuais
+                    const totalNC = (() => {
+                        if (!condutaData || !condutaData[piloto.id]) return 0;
+                        const etapasArr = ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08'];
+                        let count = 0;
+                        etapasArr.forEach(round => {
+                            if (condutaData[piloto.id][round]?.nc === true) count++;
+                        });
+                        return count;
+                    })();
+
                     const pontosObjetivos = {
-                        objetivo1: objetivos[0] ? verificarObjetivo(objetivos[0], stats, totalFaltas, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
-                        objetivo2: objetivos[1] ? verificarObjetivo(objetivos[1], stats, totalFaltas, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
-                        objetivo3: objetivos[2] ? verificarObjetivo(objetivos[2], stats, totalFaltas, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
-                        objetivo4: objetivos[3] ? verificarObjetivo(objetivos[3], stats, totalFaltas, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
-                        objetivo5: objetivos[4] ? verificarObjetivo(objetivos[4], stats, totalFaltas, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0
+                        objetivo1: objetivos[0] ? verificarObjetivo(objetivos[0], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
+                        objetivo2: objetivos[1] ? verificarObjetivo(objetivos[1], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
+                        objetivo3: objetivos[2] ? verificarObjetivo(objetivos[2], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
+                        objetivo4: objetivos[3] ? verificarObjetivo(objetivos[3], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
+                        objetivo5: objetivos[4] ? verificarObjetivo(objetivos[4], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0
                     };
 
                     objetivosCalculados[piloto.nome] = pontosObjetivos;
                 });
 
                 setObjetivosData(objetivosCalculados);
+                setObjetivosTextos(textosCalculados);
             } catch (error) {
                 console.error('❌ Erro ao calcular objetivos contratuais:', error);
             }
         };
 
         calcularObjetivos();
-    }, [pilotos, rawCarreira, rawLight, selectedSeason, condutaData]);
+    }, [pilotos, rawCarreira, rawLight, selectedSeason, condutaData, objetivosClassificacaoVersion, recalculoVersion]);
 
     // --- MOTOR DE CÁLCULO UNIFICADO ---
     // Este efeito centraliza o cálculo de TODOS os pilares para garantir consistência e evitar sobreposição
@@ -1963,6 +2188,9 @@ export default function AdminPowerRanking() {
                 
                 cond -= (valorExibidoDefesa / 2);
                 cond -= (valorExibidoPunicoesReal / 2);
+                
+                const advertenciasQtde = buscarAdvertencias(nome);
+                cond -= advertenciasQtde;
 
                 // --- PILAR 3: RACECRAFT (Mínimo 60) ---
                 const rt = telemetriaData[nome] || {};
@@ -1971,6 +2199,9 @@ export default function AdminPowerRanking() {
                 // --- PILAR 4: OVERALL (Soma metas) ---
                 const obj = objetivosData[nome] || {};
                 let over = (obj.objetivo1 || 0) + (obj.objetivo2 || 0) + (obj.objetivo3 || 0) + (obj.objetivo4 || 0) + (obj.objetivo5 || 0);
+                
+                // Se não tem PR na temporada atual (ainda não correu), setar base 60
+                if (totalS20 === 0) over = 60;
 
                 // --- PILAR 5: HISTÓRICO (60-100, Peso 60/40) ---
                 let hbNorm = 60;
@@ -2007,7 +2238,7 @@ export default function AdminPowerRanking() {
             // Garantir entrada para todos
             pilotos.forEach(p => {
                 if (!updated[p.nome]) {
-                    const defaultP = { performance: 60, conduta: 100, racecraft: 60, overall: 0, historico: 60 };
+                    const defaultP = { performance: 60, conduta: 100, racecraft: 60, overall: 60, historico: 60 };
                     defaultP.power_ranking = Math.ceil(
                         (defaultP.performance * 0.30) + 
                         (defaultP.racecraft * 0.25) + 
@@ -2024,7 +2255,7 @@ export default function AdminPowerRanking() {
         };
 
         calculateEverything();
-    }, [pilotos, selectedSeason, loadingPR, rawPRCarreira, rawPRLight, condutaData, punicoesData, defesasFaltantesData, telemetriaData, objetivosData, temporadasData, calcularMediaPonderadaHistorico, buscarPunicoes, buscarDefesasFaltantes, calcularFaltasPorResultados]);
+    }, [pilotos, selectedSeason, loadingPR, rawPRCarreira, rawPRLight, condutaData, punicoesData, defesasFaltantesData, advertenciasData, telemetriaData, objetivosData, temporadasData, calcularMediaPonderadaHistorico, buscarPunicoes, buscarDefesasFaltantes, buscarAdvertencias, calcularFaltasPorResultados, recalculoVersion]);
 
     // Marcar como carregado
     useEffect(() => {
@@ -2202,6 +2433,241 @@ export default function AdminPowerRanking() {
         return condutaData[pilotoId]?.[round]?.[flagName] ?? defaultValue;
     };
 
+    // Função para obter todas as flags editáveis
+    const getEditableFlags = () => {
+        return [
+            { colKey: 'envio_foto', flagName: 'foto_oficial_enviada', isSingle: true },
+            { colKey: 'lista', flagName: 'lista_presenca_respondida', isSingle: false },
+            { colKey: 'num_id', flagName: 'numeracao_errada', isSingle: false },
+            { colKey: 'telemetria_conduta', flagName: 'telemetria_fechada', isSingle: false },
+            { colKey: 'nc', flagName: 'nc', isSingle: false },
+            { colKey: 'punish_race', flagName: 'punish_race', isSingle: false }
+        ];
+    };
+
+    // Função otimizada para batch update de flags
+    const handleBatchUpdateFlags = async (updates) => {
+        // updates: [{ pilotoId, round, flagName, value }, ...]
+        if (!updates || updates.length === 0) return;
+
+        try {
+            // Atualizar estado local primeiro para feedback imediato
+            setCondutaData(prev => {
+                const newData = { ...prev };
+                updates.forEach(({ pilotoId, round, flagName, value }) => {
+                    if (!newData[pilotoId]) newData[pilotoId] = {};
+                    if (!newData[pilotoId][round]) {
+                        newData[pilotoId][round] = {
+                            piloto_id: pilotoId,
+                            season: selectedSeason,
+                            round: round
+                        };
+                    }
+                    newData[pilotoId][round][flagName] = value;
+                });
+                return newData;
+            });
+
+            // Agrupar updates por piloto_id + round para mesclar múltiplas flags no mesmo registro
+            const groupedRecords = new Map();
+            updates.forEach(({ pilotoId, round, flagName, value }) => {
+                const key = `${pilotoId}_${round}`;
+                if (!groupedRecords.has(key)) {
+                    groupedRecords.set(key, {
+                        piloto_id: pilotoId,
+                        season: selectedSeason,
+                        round: round,
+                        updated_at: new Date().toISOString()
+                    });
+                }
+                groupedRecords.get(key)[flagName] = value;
+            });
+
+            const recordsToUpsert = Array.from(groupedRecords.values());
+
+            // Fazer upsert em batch (Supabase faz merge automático com onConflict)
+            const { error } = await supabase
+                .from('power_ranking_conduta')
+                .upsert(recordsToUpsert, { 
+                    onConflict: 'piloto_id,season,round',
+                    ignoreDuplicates: false
+                });
+
+            if (error) throw error;
+        } catch (err) {
+            console.error('Erro ao fazer batch update:', err);
+            alert('❌ Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
+            // Recarregar dados em caso de erro
+            try {
+                const { data } = await supabase
+                    .from('power_ranking_conduta')
+                    .select('*')
+                    .eq('season', selectedSeason);
+                if (data) {
+                    const organized = {};
+                    data.forEach(item => {
+                        if (!organized[item.piloto_id]) organized[item.piloto_id] = {};
+                        organized[item.piloto_id][item.round] = item;
+                    });
+                    setCondutaData(organized);
+                }
+            } catch (reloadErr) {
+                console.error('Erro ao recarregar dados:', reloadErr);
+            }
+        }
+    };
+
+    // Desmarcar todos os checkboxes de uma linha (piloto)
+    const handleUncheckRow = async (pilotoId) => {
+        if (!window.confirm('Deseja desmarcar todos os checkboxes desta linha?')) return;
+        
+        const flags = getEditableFlags();
+        const etapas = ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08'];
+        
+        const updates = [];
+        flags.forEach(flag => {
+            if (flag.isSingle) {
+                updates.push({
+                    pilotoId,
+                    round: 1,
+                    flagName: flag.flagName,
+                    value: false
+                });
+            } else {
+                etapas.forEach(round => {
+                    const roundNum = parseInt(round.replace(/[^\d]/g, '')) || 1;
+                    updates.push({
+                        pilotoId,
+                        round: roundNum,
+                        flagName: flag.flagName,
+                        value: false
+                    });
+                });
+            }
+        });
+
+        await handleBatchUpdateFlags(updates);
+    };
+
+    // Desmarcar todos os checkboxes de uma coluna (flag)
+    const handleUncheckColumn = async (colKey) => {
+        console.log('handleUncheckColumn chamado com:', colKey);
+        
+        const flagMap = {
+            'envio_foto': { flagName: 'foto_oficial_enviada', isSingle: true },
+            'lista': { flagName: 'lista_presenca_respondida', isSingle: false },
+            'num_id': { flagName: 'numeracao_errada', isSingle: false },
+            'telemetria_conduta': { flagName: 'telemetria_fechada', isSingle: false },
+            'nc': { flagName: 'nc', isSingle: false },
+            'punish_race': { flagName: 'punish_race', isSingle: false }
+        };
+
+        const flag = flagMap[colKey];
+        if (!flag) {
+            console.error('Coluna não encontrada no flagMap:', colKey);
+            alert(`Coluna "${colKey}" não é editável ou não foi encontrada.`);
+            return;
+        }
+
+        // Obter coluna para mostrar nome amigável (usar definição direta para evitar problema de escopo)
+        const colLabels = {
+            'envio_foto': 'ENVIO DE FOTO',
+            'lista': 'LISTA',
+            'num_id': 'NUM-ID',
+            'telemetria_conduta': 'TELEMETRIA',
+            'nc': 'NC RACE',
+            'punish_race': 'PUNISH RACE'
+        };
+        const colLabel = colLabels[colKey] || colKey;
+
+        if (!window.confirm(`Deseja desmarcar todos os checkboxes da coluna "${colLabel}" para todos os pilotos?`)) {
+            console.log('Usuário cancelou a operação');
+            return;
+        }
+
+        console.log('Iniciando desmarcação da coluna:', colKey, 'Flag:', flag.flagName);
+
+        const etapas = ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08'];
+        
+        // Usar pilotos filtrados (os que estão visíveis na tabela)
+        const pilotosParaProcessar = pilotos
+            .filter(piloto => {
+                const matchesSearch = piloto.nome.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesGrid = selectedGrid === 'all' || piloto.grid === selectedGrid;
+                return matchesSearch && matchesGrid;
+            });
+        
+        console.log('Pilotos para processar:', pilotosParaProcessar.length);
+
+        const updates = [];
+        pilotosParaProcessar.forEach(piloto => {
+            if (flag.isSingle) {
+                updates.push({
+                    pilotoId: piloto.id,
+                    round: 1,
+                    flagName: flag.flagName,
+                    value: false
+                });
+            } else {
+                etapas.forEach(round => {
+                    const roundNum = parseInt(round.replace(/[^\d]/g, '')) || 1;
+                    updates.push({
+                        pilotoId: piloto.id,
+                        round: roundNum,
+                        flagName: flag.flagName,
+                        value: false
+                    });
+                });
+            }
+        });
+
+        console.log('Total de updates a processar:', updates.length);
+        await handleBatchUpdateFlags(updates);
+        console.log('Desmarcação concluída');
+    };
+
+    // Desmarcar todos os checkboxes de todos os pilotos
+    const handleUncheckAll = async () => {
+        if (!window.confirm('Deseja desmarcar TODOS os checkboxes de TODOS os pilotos? Esta ação não pode ser desfeita facilmente.')) return;
+        
+        const flags = getEditableFlags();
+        const etapas = ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08'];
+        
+        // Usar pilotos filtrados (os que estão visíveis na tabela)
+        const pilotosParaProcessar = pilotos
+            .filter(piloto => {
+                const matchesSearch = piloto.nome.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesGrid = selectedGrid === 'all' || piloto.grid === selectedGrid;
+                return matchesSearch && matchesGrid;
+            });
+        
+        const updates = [];
+        pilotosParaProcessar.forEach(piloto => {
+            flags.forEach(flag => {
+                if (flag.isSingle) {
+                    updates.push({
+                        pilotoId: piloto.id,
+                        round: 1,
+                        flagName: flag.flagName,
+                        value: false
+                    });
+                } else {
+                    etapas.forEach(round => {
+                        const roundNum = parseInt(round.replace(/[^\d]/g, '')) || 1;
+                        updates.push({
+                            pilotoId: piloto.id,
+                            round: roundNum,
+                            flagName: flag.flagName,
+                            value: false
+                        });
+                    });
+                }
+            });
+        });
+
+        await handleBatchUpdateFlags(updates);
+    };
+
     // Calcular Power Ranking final (média dos pilares)
     const calcularPRFinal = (pilotoNome) => {
         const pilares = pilaresData[pilotoNome] || {};
@@ -2227,8 +2693,8 @@ export default function AdminPowerRanking() {
 
     // Definir colunas da tabela
     const columns = [
-        { key: 'piloto', label: 'PILOTO', color: COLORS.PILOTO, width: 200, sticky: true },
-        { key: 'power_ranking', label: 'POWER RANKING', color: COLORS.POWER_RANKING, width: 120 },
+        { key: 'piloto', label: 'PILOTO', color: COLORS.PILOTO, width: 200, sticky: true, stickyLeft: 50 },
+        { key: 'power_ranking', label: 'POWER RANKING', color: COLORS.POWER_RANKING, width: 120, sticky: true, stickyLeft: 250 },
         { key: 'performance', label: 'PERFORMANCE', color: COLORS.PERFORMANCE, width: 120 },
         { key: 'nc', label: 'NC RACE', color: COLORS.PERFORMANCE, width: 200, subitem: true, editable: true },
         { key: 'punish_race', label: 'PUNISH RACE', color: COLORS.PERFORMANCE, width: 200, subitem: true, editable: true },
@@ -2240,6 +2706,7 @@ export default function AdminPowerRanking() {
         { key: 'num_id', label: 'NUM-ID', color: COLORS.CONDUTA, width: 200, subitem: true, editable: true },
         { key: 'telemetria_conduta', label: 'TELEMETRIA', color: COLORS.CONDUTA, width: 200, subitem: true, editable: true },
         { key: 'defesa', label: 'DEFESA', color: COLORS.CONDUTA, width: 100, subitem: true },
+        { key: 'advert', label: 'ADVERT', color: COLORS.CONDUTA, width: 90, subitem: true },
         { key: 'punicoes', label: 'PUNIÇÕES', color: COLORS.CONDUTA, width: 100, subitem: true },
         { key: 'racecraft', label: 'RACECRAFT', color: COLORS.RACECRAFT, width: 120 },
         { key: 'corrida', label: 'CORRIDA', color: COLORS.RACECRAFT, width: 100, subitem: true },
@@ -2263,6 +2730,45 @@ export default function AdminPowerRanking() {
                 <h2 style={{ color: '#F8FAFC', marginBottom: '20px' }}>
                     📊 Power Ranking - Painel Administrativo
                 </h2>
+                <a
+                    href="/admin/powerranking-objetivos"
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 14px',
+                        background: '#1F2937',
+                        color: '#F8FAFC',
+                        borderRadius: '8px',
+                        textDecoration: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                        marginBottom: '20px',
+                        border: '1px solid rgba(255,255,255,0.1)'
+                    }}
+                >
+                    ⚙️ Objetivos (Quali/Quanti)
+                </a>
+                <button
+                    type="button"
+                    onClick={handleRecalcularTudo}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 14px',
+                        background: '#0F172A',
+                        color: '#F8FAFC',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                        marginLeft: '10px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    🔄 Recalcular tudo
+                </button>
 
                 {/* Filtros */}
                 <div style={{
@@ -2316,7 +2822,29 @@ export default function AdminPowerRanking() {
                         </select>
                     </div>
 
-                    <div style={{ marginLeft: 'auto' }}>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <button
+                            onClick={handleUncheckAll}
+                            disabled={loading}
+                            style={{
+                                padding: '10px 20px',
+                                background: '#EF4444',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: '#FFFFFF',
+                                fontWeight: '700',
+                                fontSize: '13px',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                opacity: loading ? 0.7 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)'
+                            }}
+                            title="Desmarcar todos os checkboxes de todos os pilotos"
+                        >
+                            🗑️ DESMARCAR TUDO
+                        </button>
                         <button
                             onClick={handlePublicarMotorhome}
                             disabled={isPublishing || loading}
@@ -2361,28 +2889,87 @@ export default function AdminPowerRanking() {
                             zIndex: 10
                         }}>
                             <tr>
-                                {columns.map((col, idx) => (
-                                    <th
-                                        key={col.key}
-                                        style={{
-                                            padding: '12px 8px',
-                                            textAlign: col.sticky ? 'left' : 'center',
-                                            borderBottom: '2px solid #475569',
-                                            borderRight: '1px solid #334155',
-                                            color: '#FFFFFF',
-                                            fontWeight: 'bold',
-                                            fontSize: col.subitem ? '11px' : '13px',
-                                            background: col.color,
-                                            position: col.sticky ? 'sticky' : 'relative',
-                                            left: col.sticky ? 0 : 'auto',
-                                            zIndex: col.sticky ? 11 : 10,
-                                            minWidth: col.width,
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        {col.label}
-                                    </th>
-                                ))}
+                                {/* Cabeçalho para botão de desmarcar linha */}
+                                <th style={{
+                                    padding: '12px 8px',
+                                    textAlign: 'center',
+                                    borderBottom: '2px solid #475569',
+                                    borderRight: '1px solid #334155',
+                                    color: '#FFFFFF',
+                                    fontWeight: 'bold',
+                                    fontSize: '11px',
+                                    background: '#475569',
+                                    position: 'sticky',
+                                    left: 0,
+                                    zIndex: 11,
+                                    minWidth: '50px',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    Ações
+                                </th>
+                                {columns.map((col, idx) => {
+                                    const isEditable = col.editable && col.subitem;
+                                    const editableCols = ['envio_foto', 'lista', 'num_id', 'telemetria_conduta', 'nc', 'punish_race'];
+                                    const showUncheckButton = isEditable && editableCols.includes(col.key);
+                                    
+                                    return (
+                                        <th
+                                            key={col.key}
+                                            style={{
+                                                padding: '12px 8px',
+                                                textAlign: col.key === 'power_ranking' ? 'center' : (col.sticky ? 'left' : 'center'),
+                                                borderBottom: '2px solid #475569',
+                                                borderRight: '1px solid #334155',
+                                                color: '#FFFFFF',
+                                                fontWeight: 'bold',
+                                                fontSize: col.subitem ? '11px' : '13px',
+                                                background: col.color,
+                                                position: col.sticky ? 'sticky' : 'relative',
+                                                left: col.sticky ? (col.stickyLeft !== undefined ? col.stickyLeft : 0) : 'auto',
+                                                zIndex: col.sticky ? 11 : 10,
+                                                minWidth: col.width,
+                                                whiteSpace: 'nowrap',
+                                                verticalAlign: 'middle'
+                                            }}
+                                        >
+                                            <div style={{ 
+                                                display: 'flex', 
+                                                flexDirection: 'row', 
+                                                gap: '6px', 
+                                                alignItems: 'center',
+                                                justifyContent: col.key === 'power_ranking' ? 'center' : (col.sticky ? 'flex-start' : 'center'),
+                                                flexWrap: 'nowrap'
+                                            }}>
+                                                <span style={{ 
+                                                    whiteSpace: 'nowrap',
+                                                    flexShrink: 0
+                                                }}>{col.label}</span>
+                                                {showUncheckButton && (
+                                                    <button
+                                                        onClick={() => handleUncheckColumn(col.key)}
+                                                        disabled={loading}
+                                                        style={{
+                                                            padding: '3px 6px',
+                                                            background: '#EF4444',
+                                                            border: 'none',
+                                                            borderRadius: '3px',
+                                                            color: '#FFFFFF',
+                                                            fontWeight: '600',
+                                                            fontSize: '9px',
+                                                            cursor: loading ? 'not-allowed' : 'pointer',
+                                                            opacity: loading ? 0.5 : 1,
+                                                            whiteSpace: 'nowrap',
+                                                            flexShrink: 0
+                                                        }}
+                                                        title={`Desmarcar todos os checkboxes da coluna ${col.label}`}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody>
@@ -2456,7 +3043,7 @@ export default function AdminPowerRanking() {
                                                 return prTotal > 0 ? prTotal.toFixed(2) : '-';
                                             case 'conduta':
                                                 const valConduta = pilares.conduta !== undefined ? pilares.conduta : 0;
-                                                return valConduta.toFixed(2);
+                                                return Math.ceil(valConduta).toString();
                                             case 'envio_foto':
                                                 // ENVIO DE FOTO: apenas um checkbox (usar R01 como referência)
                                                 return 'SINGLE_CHECKBOX';
@@ -2473,6 +3060,9 @@ export default function AdminPowerRanking() {
                                                 const faltasDefesaVal = buscarDefesasFaltantes(piloto.nome);
                                                 const pontosFaltaDefesaDisplay = faltasDefesaVal * 5;
                                                 return pontosFaltaDefesaDisplay > 0 ? pontosFaltaDefesaDisplay.toString() : '0';
+                                            case 'advert':
+                                                const advertenciasVal = buscarAdvertencias(piloto.nome);
+                                                return advertenciasVal > 0 ? advertenciasVal.toString() : '0';
                                             case 'punicoes':
                                                 // Mostrar apenas punições de incidentes (subtraindo o desconto de defesa do total)
                                                 const totalPunicoesVal = buscarPunicoes(piloto.nome);
@@ -2486,17 +3076,17 @@ export default function AdminPowerRanking() {
                                                 const ritmoCorridaCorrida = buscarTelemetria('ritmoCorrida');
                                                 return ritmoCorridaCorrida !== undefined ? ritmoCorridaCorrida.toString() : '-';
                                             case 'sprint':
-                                                // POS. Q: Posição média de classificação convertida para pontos (1º=100, 2º=99, ..., 20º=81)
-                                                const ritmoClassificacaoPosQ = buscarTelemetria('ritmoClassificacao');
-                                                return ritmoClassificacaoPosQ !== undefined ? ritmoClassificacaoPosQ.toString() : '-';
+                                                // POS. Q: posição média de qualy convertida para pontos (1º=100, 2º=99, ..., 20º=81)
+                                                const posQScore = buscarTelemetria('posQScore') ?? buscarTelemetria('ritmoClassificacao');
+                                                return posQScore !== undefined ? posQScore.toString() : '-';
                                             case 'qualy':
                                                 // QUALY: RITMO DE CLASSIFICAÇÃO (percentual 0-100 da tela Telemetria como número simples)
                                                 const ritmoClassificacaoQualy = buscarTelemetria('ritmoClassificacao');
                                                 return ritmoClassificacaoQualy !== undefined ? ritmoClassificacaoQualy.toString() : '-';
                                             case 'ritmo':
-                                                // RITMO: pontuação baseada na posição média de qualy e corrida (1º=100, 2º=99, ..., 20º=81)
-                                                const ritmo = buscarTelemetria('ritmo');
-                                                return ritmo !== undefined ? ritmo.toString() : '-';
+                                                // POS. R: posição média de corrida convertida para pontos (1º=100, 2º=99, ..., 20º=81)
+                                                const posRScore = buscarTelemetria('posRScore') ?? buscarTelemetria('ritmo');
+                                                return posRScore !== undefined ? posRScore.toString() : '-';
                                             case 'overall':
                                                 const valOverall = pilares.overall || 0;
                                                 return valOverall > 0 ? Math.ceil(valOverall).toString() : '0';
@@ -2508,7 +3098,13 @@ export default function AdminPowerRanking() {
                                                 const objetivoNum = colKey.replace('objetivo', '');
                                                 const objetivoKey = `objetivo${objetivoNum}`;
                                                 const pontosObjetivo = objetivosData[piloto.nome]?.[objetivoKey];
-                                                return (pontosObjetivo !== undefined) ? pontosObjetivo.toString() : '-';
+                                                const textoObjetivo = objetivosTextos[piloto.nome]?.[parseInt(objetivoNum) - 1];
+                                                
+                                                return (
+                                                    <div style={{ position: 'relative' }} title={textoObjetivo}>
+                                                        {(pontosObjetivo !== undefined) ? pontosObjetivo.toString() : '-'}
+                                                    </div>
+                                                );
                                             case 'historico':
                                                 // Mostrar pontuação normalizada de 60-100 (arredondada para cima)
                                                 const valHistorico = pilares.historico || 60;
@@ -2547,6 +3143,42 @@ export default function AdminPowerRanking() {
                                             borderBottom: '1px solid #334155',
                                             background: rowIdx % 2 === 0 ? '#0F172A' : '#1E293B'
                                         }}>
+                                            {/* Botão para desmarcar linha - coluna extra antes do nome do piloto */}
+                                            <td style={{
+                                                padding: '8px',
+                                                textAlign: 'center',
+                                                borderRight: '1px solid #334155',
+                                                position: 'sticky',
+                                                left: 0,
+                                                background: rowIdx % 2 === 0 ? '#0F172A' : '#1E293B',
+                                                zIndex: 2,
+                                                minWidth: '50px'
+                                            }}>
+                                                <button
+                                                    onClick={() => handleUncheckRow(piloto.id)}
+                                                    disabled={loading}
+                                                    style={{
+                                                        padding: '8px',
+                                                        background: '#475569',
+                                                        border: '1px solid #64748B',
+                                                        borderRadius: '4px',
+                                                        color: '#FFFFFF',
+                                                        fontWeight: '600',
+                                                        fontSize: '16px',
+                                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                                        opacity: loading ? 0.5 : 1,
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        margin: '0 auto'
+                                                    }}
+                                                    title="Desmarcar todos os checkboxes desta linha"
+                                                >
+                                                    ☐
+                                                </button>
+                                            </td>
                                             {columns.map((col) => {
                                                 const value = getCellValue(col.key);
                                                 const isEditable = col.editable && col.subitem;
@@ -2558,14 +3190,14 @@ export default function AdminPowerRanking() {
                                                         key={col.key}
                                                         style={{
                                                             padding: '10px 8px',
-                                                            textAlign: col.sticky ? 'left' : 'center',
+                                                            textAlign: col.key === 'power_ranking' ? 'center' : (col.sticky ? 'left' : 'center'),
                                                             borderRight: '1px solid #334155',
                                                             color: col.key === 'power_ranking' ? '#FFD700' : 
                                                                    (col.key.startsWith('objetivo') ? '#FFFFFF' : '#F8FAFC'),
                                                             fontWeight: col.key === 'power_ranking' || !col.subitem ? 'bold' : 'normal',
                                                             fontSize: col.subitem ? '12px' : '13px',
                                                             position: col.sticky ? 'sticky' : 'relative',
-                                                            left: col.sticky ? 0 : 'auto',
+                                                            left: col.sticky ? (col.stickyLeft !== undefined ? col.stickyLeft : 0) : 'auto',
                                                             background: col.sticky ? rowBg : 'transparent',
                                                             zIndex: col.sticky ? 1 : 0,
                                                             minWidth: col.width

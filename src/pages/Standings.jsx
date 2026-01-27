@@ -14,7 +14,9 @@ const RecordIcon = () => (<svg className="rh-icon-small" viewBox="0 0 24 24" fil
 
 // CORES DE BANDEIRAS
 const flagColors = {
-    'BÉLGICA': ['#000000', '#FDDA24', '#EF3340'], 'HOLANDA': ['#AE1C28', '#FFFFFF', '#21468B'], 'ITÁLIA': ['#009246', '#FFFFFF', '#CE2B37'], 'AZERBAIJÃO': ['#00B5E2', '#EF3340', '#509E2F'], 'SINGAPURA': ['#EF3340', '#FFFFFF'], 'EUA': ['#B22234', '#FFFFFF', '#3C3B6E'], 'MÉXICO': ['#006847', '#FFFFFF', '#CE1126'], 'BRASIL': ['#009C3B', '#FFDF00', '#002776'], 'LAS VEGAS': ['#B22234', '#FFFFFF', '#3C3B6E'], 'QATAR': ['#8D1B3D', '#FFFFFF'], 'ABU DHABI': ['#EF3340', '#007A3D', '#FFFFFF', '#000000'], 'BAHREIN': ['#EF3340', '#FFFFFF'], 'ARÁBIA SAUDITA': ['#006C35', '#FFFFFF'], 'AUSTRÁLIA': ['#00008B', '#FFFFFF', '#EF3340'], 'JAPÃO': ['#FFFFFF', '#BC002D'], 'CHINA': ['#DE2910', '#FFDE00'], 'MIAMI': ['#B22234', '#FFFFFF', '#3C3B6E'], 'EMÍLIA-ROMAGNA': ['#009246', '#FFFFFF', '#CE2B37'], 'MÔNACO': ['#EF3340', '#FFFFFF'], 'CANADÁ': ['#EF3340', '#FFFFFF'], 'ESPANHA': ['#AA151B', '#F1BF00'], 'ÁUSTRIA': ['#EF3340', '#FFFFFF'], 'INGLATERRA': ['#FFFFFF', '#CE1124', '#00247D'], 'HUNGRIA': ['#CE2939', '#FFFFFF', '#477050'], 'DEFAULT': ['#1E293B', '#0F172A'] 
+    'BÉLGICA': ['#000000', '#FDDA24', '#EF3340'], 'HOLANDA': ['#AE1C28', '#FFFFFF', '#21468B'], 'ITÁLIA': ['#009246', '#FFFFFF', '#CE2B37'], 'AZERBAIJÃO': ['#00B5E2', '#EF3340', '#509E2F'], 'SINGAPURA': ['#EF3340', '#FFFFFF'], 'EUA': ['#B22234', '#FFFFFF', '#3C3B6E'], 'MÉXICO': ['#006847', '#FFFFFF', '#CE1126'], 'BRASIL': ['#009C3B', '#FFDF00', '#002776'], 'LAS VEGAS': ['#B22234', '#FFFFFF', '#3C3B6E'], 'QATAR': ['#8D1B3D', '#FFFFFF'], 'ABU DHABI': ['#EF3340', '#007A3D', '#FFFFFF', '#000000'], 'BAHREIN': ['#EF3340', '#FFFFFF'], 'ARÁBIA SAUDITA': ['#006C35', '#FFFFFF'], 'AUSTRÁLIA': ['#00008B', '#FFFFFF', '#EF3340'], 'JAPÃO': ['#FFFFFF', '#BC002D'], 'CHINA': ['#DE2910', '#FFDE00'], 'MIAMI': ['#B22234', '#FFFFFF', '#3C3B6E'], 'EMÍLIA-ROMAGNA': ['#009246', '#FFFFFF', '#CE2B37'], 'MÔNACO': ['#EF3340', '#FFFFFF'], 'CANADÁ': ['#EF3340', '#FFFFFF'], 'ESPANHA': ['#AA151B', '#F1BF00'], 'ÁUSTRIA': ['#EF3340', '#FFFFFF'], 'INGLATERRA': ['#FFFFFF', '#CE1124', '#00247D'], 'HUNGRIA': ['#CE2939', '#FFFFFF', '#477050'],     'DEFAULT': ['#1E293B', '#0F172A'],
+    'TEXAS': ['#B22234', '#FFFFFF', '#3C3B6E'],
+    'AUSTIN': ['#B22234', '#FFFFFF', '#3C3B6E']
 };
 
 // --- COMPONENTES AUXILIARES ---
@@ -204,15 +206,22 @@ function Standings() {
         return resultado;
     };
 
-    // Função auxiliar para encontrar a temporada e etapa mais recentes (que possuam resultados)
+    // Função auxiliar para encontrar a temporada e etapa mais recentes
     const filtrarMaisRecente = (dados) => {
         if (!dados || dados.length === 0) return { temporada: 0, etapa: 0 };
 
         // 1. Identifica todas as temporadas disponíveis
         const todasTemporadas = new Set();
+        const todasEtapasPorTemporada = {}; // { season: Set(rounds) }
+
         dados.forEach((row) => {
             const s = extrairNumero(row[3]);
-            if (s > 0) todasTemporadas.add(s);
+            if (s > 0) {
+                todasTemporadas.add(s);
+                if (!todasEtapasPorTemporada[s]) todasEtapasPorTemporada[s] = new Set();
+                const r = extrairNumero(row[4]);
+                if (r > 0) todasEtapasPorTemporada[s].add(r);
+            }
         });
 
         if (todasTemporadas.size === 0) return { temporada: 0, etapa: 0 };
@@ -220,38 +229,9 @@ function Standings() {
         // 2. Identifica a maior temporada
         const temporadaAtual = Math.max(...Array.from(todasTemporadas));
 
-        // 3. Filtra apenas os dados dessa temporada
-        const dadosDaTemporada = dados.filter(row => extrairNumero(row[3]) === temporadaAtual);
-
-        // 4. Identifica todas as etapas dessa temporada que POSSUEM resultados (posição na coluna 8)
-        const etapasComResultados = new Set();
-        dadosDaTemporada.forEach(row => {
-            const r = extrairNumero(row[4]);
-            const pos = parseInt(row[8]);
-            // Se r > 0 e possui uma posição válida (ex: 1º lugar)
-            if (r > 0 && !isNaN(pos) && pos > 0) {
-                etapasComResultados.add(r);
-            }
-        });
-
-        // Se não houver nenhuma etapa com resultados, pegar a maior etapa disponível apenas
-        if (etapasComResultados.size === 0) {
-            const todasEtapas = new Set();
-            dadosDaTemporada.forEach(row => {
-                const r = extrairNumero(row[4]);
-                if (r > 0) todasEtapas.add(r);
-            });
-            
-            if (todasEtapas.size === 0) return { temporada: temporadaAtual, etapa: 0 };
-            
-            return {
-                temporada: temporadaAtual,
-                etapa: Math.max(...Array.from(todasEtapas))
-            };
-        }
-
-        // 5. Identifica a maior etapa que possui resultados
-        const etapaAtual = Math.max(...Array.from(etapasComResultados));
+        // 3. Identifica a maior etapa disponível nesta temporada (independente de ter resultados)
+        const etapas = Array.from(todasEtapasPorTemporada[temporadaAtual] || []);
+        const etapaAtual = etapas.length > 0 ? Math.max(...etapas) : 0;
 
         return { temporada: temporadaAtual, etapa: etapaAtual };
     };
@@ -316,20 +296,13 @@ function Standings() {
         const sortedRounds = Array.from(roundSet).filter(r => r > 0).sort((a, b) => b - a);
         const sortedRoundsComResultados = Array.from(roundsComResultados).filter(r => r > 0).sort((a, b) => b - a);
         
-        // No dropbox de Resultados, mostramos apenas rounds que já têm resultados
-        // No dropbox de Etapas (Calendário), mostramos todos os rounds previstos
-        if (viewType === 'results') {
-            setRounds(sortedRoundsComResultados.length > 0 ? sortedRoundsComResultados : sortedRounds);
-        } else {
-            setRounds(sortedRounds);
-        }
+        // No dropbox de Resultados e Etapas, mostramos todos os rounds da temporada
+        setRounds(sortedRounds);
         
-        // Se estivermos na aba de resultados, prioriza a maior etapa que POSSUI resultados
+        // Se estivermos na aba de resultados, prioriza a maior etapa disponível (solicitação do usuário)
         if (viewType === 'results') {
-            if (maxRoundWithResults > 0) {
-                setSelectedRound(maxRoundWithResults);
-            } else if (sortedRounds.length > 0) {
-                // Se nenhuma tem resultados ainda, pega a maior disponível
+            if (sortedRounds.length > 0) {
+                // Sempre seleciona a etapa de maior número
                 setSelectedRound(sortedRounds[0]);
             }
         } else if ((selectedRound === 0 || selectedRound === "0") && sortedRounds.length > 0) {
@@ -365,8 +338,21 @@ function Standings() {
                 stats.races++;
                 const qualy = parseInt(row[6]); if (qualy === 1) stats.poles++;
                 const racePos = parseInt(row[8]); if (racePos === 1) stats.wins++; if (racePos >= 1 && racePos <= 3) stats.podiums++;
-                if (s >= 20) { let p = parseFloat((row[15]||'0').replace(',', '.')); if (!isNaN(p)) stats.points += p; }
-                else { if (racePos >= 1 && racePos <= 10) stats.points += POINTS_RACE[racePos - 1]; const sprintPos = parseInt(row[7]); if (sprintPos >= 1 && sprintPos <= 8) stats.points += POINTS_SPRINT[sprintPos - 1]; }
+                let p = 0;
+                if (s >= 20) { 
+                    p = parseFloat((row[15]||'0').replace(',', '.')); 
+                    if (isNaN(p)) p = 0;
+                    // Se p for 0, tenta o fallback da corrida
+                    if (p === 0 && racePos >= 1 && racePos <= 10) p = POINTS_RACE[racePos - 1];
+                } else {
+                    if (racePos >= 1 && racePos <= 10) p = POINTS_RACE[racePos - 1];
+                }
+                
+                // Sempre soma pontos da Sprint separadamente (não estão incluídos na coluna 15)
+                const sprintPos = parseInt(row[7]);
+                if (sprintPos >= 1 && sprintPos <= 8) p += POINTS_SPRINT[sprintPos - 1];
+                
+                stats.points += p;
             }
         });
         
@@ -476,30 +462,32 @@ function Standings() {
             // Calcular pontos (depende da temporada)
             if (s >= 20) { 
                 // Para temporada 20+, os pontos vêm da coluna 15 (coluna P na planilha)
-                // Tentar ler da coluna 15, mas se não existir, tentar calcular baseado na posição
                 let p = 0;
                 if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
-                    // Tentar parsear pontos da coluna 15
                     p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
                     if (isNaN(p)) p = 0;
                 }
                 
-                // Se não encontrou pontos na coluna 15, calcular baseado na posição (fallback)
+                // Se não encontrou pontos na coluna 15, calcular baseado na posição (fallback corrida)
                 if (p === 0 && racePos >= 1 && racePos <= 10) {
                     p = POINTS_RACE[racePos - 1];
                 }
-                if (p === 0 && sprintPos >= 1 && sprintPos <= 8) {
+                
+                // IMPORTANTE: Sempre somar pontos da Sprint, pois eles não estão na coluna P
+                if (sprintPos >= 1 && sprintPos <= 8) {
                     p += POINTS_SPRINT[sprintPos - 1];
                 }
                 
                 totals[name].points += p;
             } else { 
+                let p = 0;
                 if (racePos >= 1 && racePos <= 10) {
-                    totals[name].points += POINTS_RACE[racePos - 1];
+                    p += POINTS_RACE[racePos - 1];
                 }
                 if (sprintPos >= 1 && sprintPos <= 8) {
-                    totals[name].points += POINTS_SPRINT[sprintPos - 1];
+                    p += POINTS_SPRINT[sprintPos - 1];
                 }
+                totals[name].points += p;
             }
         });
         
@@ -594,13 +582,15 @@ function Standings() {
             const r = parseInt(row[4]);
             if (s === currentSeasonInt && r === currentRoundInt && r > 0) {
                 const pos = parseInt(row[8]);
-                if (!isNaN(pos) && pos > 0) {
+                // Mesmo que não tenha posição (>0), se o piloto estiver na linha, consideramos parte dos resultados
+                // Isso ajuda a mostrar a etapa mesmo que vazia ou incompleta
+                if (row[9] && row[9] !== '-') {
                     let stagePoints = 0; 
-                    if (pos >= 1 && pos <= 10) stagePoints += POINTS_RACE[pos - 1]; 
+                    if (!isNaN(pos) && pos >= 1 && pos <= 10) stagePoints += POINTS_RACE[pos - 1]; 
                     const sprintPos = parseInt(row[7]); 
                     if (!isNaN(sprintPos) && sprintPos >= 1 && sprintPos <= 8) stagePoints += POINTS_SPRINT[sprintPos - 1];
                     raceResults.push({ 
-                        pos: pos, 
+                        pos: isNaN(pos) || pos === 0 ? 99 : pos, // Posição 99 para quem não terminou/não tem pos
                         name: row[9], 
                         team: row[10], 
                         date: row[0], 
@@ -612,6 +602,22 @@ function Standings() {
             }
         });
         return raceResults.sort((a, b) => a.pos - b.pos);
+    };
+
+    // Função para obter informações do GP com fallbacks (especialmente para bandeiras dos EUA)
+    const getGPInfo = (gpName) => {
+        if (!gpName) return { flag: null };
+        const normalized = normalizeStr(gpName);
+        let info = { ...tracks[normalized] } || { flag: null };
+
+        // Fallback robusto para bandeiras dos EUA
+        if (!info.flag || info.flag.includes('image.png')) {
+            if (normalized.includes('TEXAS') || normalized.includes('MIAMI') || 
+                normalized.includes('VEGAS') || normalized.includes('AUSTIN')) {
+                info.flag = 'https://flagcdn.com/w40/us.png';
+            }
+        }
+        return info;
     };
     
     // Função para parsear tempo de volta
@@ -652,8 +658,7 @@ function Standings() {
 
         if (viewType === 'calendar') {
             const { races, nextRace } = getCalendar();
-            const nextGPName = nextRace ? normalizeStr(nextRace.gp) : null;
-            const nextInfo = nextGPName ? tracks[nextGPName] : null;
+            const nextInfo = nextRace ? getGPInfo(nextRace.gp) : null;
             return (
                 <>
                     {nextRace && (
@@ -663,7 +668,7 @@ function Standings() {
                     )}
                     <div className="calendar-grid">
                         {races.map(race => {
-                            const isNext = nextRace && nextRace.round === race.round; const pillText = isNext ? 'EM BREVE' : (race.winner ? 'CONCLUÍDA' : 'AGENDADA'); const gpName = normalizeStr(race.gp); const gpInfo = tracks[gpName] || { flag: null }; const flagColor = flagColors[gpName] ? flagColors[gpName][0] : '#334155';
+                            const isNext = nextRace && nextRace.round === race.round; const pillText = isNext ? 'EM BREVE' : (race.winner ? 'CONCLUÍDA' : 'AGENDADA'); const gpName = normalizeStr(race.gp); const gpInfo = getGPInfo(race.gp); const flagColor = flagColors[gpName] ? flagColors[gpName][0] : '#334155';
                             return (
                                 <div key={race.round} className={`cal-card ${isNext ? 'next' : ''}`}>
                                     <div className="cal-accent-bar" style={{background: flagColor}}></div>
@@ -973,7 +978,7 @@ function Standings() {
             const p1 = podium.find(p=>p.pos===1); 
             const p2 = podium.find(p=>p.pos===2); 
             const p3 = podium.find(p=>p.pos===3); 
-            const gpInfo = tracks[normalizeStr(data[0].gp)] || {};
+            const gpInfo = getGPInfo(data[0].gp);
             
             // Encontrar a melhor volta (menor tempo)
             const validLaps = data.filter(r => r.fastestLap && r.fastestLap !== '-').map(r => ({...r, timeMs: parseTime(r.fastestLap)}));
@@ -1213,13 +1218,11 @@ function Standings() {
         }
     };
 
+    const nextGPName = normalizeStr(getCalendar().nextRace?.gp || "");
+    const nextInfo = getGPInfo(nextGPName);
+
     return (
         <div className="page-wrapper">
-
-            <header className="hero-section">
-                <div className="hero-container"><div className="hero-text"><span className="hero-tag">TEMPORADA {selectedSeason}</span><h1>SUPERANDO<br/><span>SEUS LIMITES</span></h1></div></div>
-            </header>
-
             <section className="standings-section">
                 <div className="tabs-container">
                     <button className={`tab-btn ${viewType === 'drivers' ? (gridType === 'carreira' ? 'active-tab-carreira' : 'active-tab-light') : ''}`} onClick={() => handleViewTypeChange('drivers')}>PILOTOS</button>

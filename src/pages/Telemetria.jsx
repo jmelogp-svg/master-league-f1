@@ -172,9 +172,13 @@ function Telemetria() {
                     points = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, ''));
                     if (isNaN(points)) points = 0;
                 }
-                if (points === 0) {
-                    if (racePos >= 1 && racePos <= 10) points = POINTS_RACE[racePos - 1];
-                    if (sprintPos >= 1 && sprintPos <= 8) points += POINTS_SPRINT[sprintPos - 1];
+                // Fallback: calcular pela posição da corrida se não encontrou na coluna 15
+                if (points === 0 && racePos >= 1 && racePos <= 10) {
+                    points = POINTS_RACE[racePos - 1];
+                }
+                // Sempre somar pontos da Sprint (não estão na coluna 15)
+                if (sprintPos >= 1 && sprintPos <= 8) {
+                    points += POINTS_SPRINT[sprintPos - 1];
                 }
             } else {
                 if (racePos >= 1 && racePos <= 10) points = POINTS_RACE[racePos - 1];
@@ -202,9 +206,7 @@ function Telemetria() {
             driver.pointsHistory[round] = driver.totalPoints;
         }
 
-        console.log(`📊 [Telemetria] Matched lines for season: ${matchedLines}`);
-        console.log(`📊 [Telemetria] Unique drivers found: ${driverMap.size}`);
-        console.log(`📊 [Telemetria] Unique rounds found: ${roundsMap.size}`);
+        console.log(`📊 [Telemetria] Processando dados para ${gridType} S${selectedSeason}`);
 
         // Aplicar punições antes de definir o Top 5
         driverMap.forEach((driver, name) => {
@@ -217,9 +219,6 @@ function Telemetria() {
         const topDrivers = sortedDrivers.slice(0, 5); 
         const rounds = Array.from(roundsMap).sort((a, b) => a - b);
         
-        console.log(`📊 [Telemetria] Top drivers:`, topDrivers.map(d => d.name));
-        console.log(`📊 [Telemetria] Rounds:`, rounds);
-
         const evolData = rounds.map(r => {
             const point = { name: `R${r}` };
             for (const d of topDrivers) {
@@ -242,71 +241,84 @@ function Telemetria() {
             return { name: d.name, score: score, display: `${score}%`, avgPos: avgQualy.toFixed(1), team: d.team };
         }).sort((a, b) => b.score - a.score);
 
-        // Calcular deltas e posições médias de corrida
+        // Calcular deltas e posições médias de corrida e largada
         const deltas = consistentDrivers.map(d => {
             const avgDelta = d.deltaSum / d.racesCount;
             const avgRace = d.raceSum / d.racesCount; // Posição média na corrida
+            const avgQualy = d.qualySum / d.racesCount; // Posição média na largada
             return { 
                 name: d.name, 
                 delta: parseFloat(avgDelta.toFixed(1)), 
                 avgRace: parseFloat(avgRace.toFixed(1)),
+                avgQualy: parseFloat(avgQualy.toFixed(1)),
                 team: d.team 
             };
         });
         
-        // Encontrar o melhor e pior delta para normalização
-        const maxDelta = Math.max(...deltas.map(d => d.delta), 0);
-        const minDelta = Math.min(...deltas.map(d => d.delta), -10); // Considerar até -10 como pior caso
-        
-        // Função para converter delta em percentual
-        // Considera que manter posição (delta 0) ou perder poucas é bom ritmo
-        // ESPECIAL: Se o piloto termina entre os 5 primeiros, mesmo perdendo posições, tem bom ritmo
-        const deltaToPercent = (delta, avgRace) => {
-            const estaNoTop3 = avgRace <= 3;
-            const estaEmP4ouP5 = avgRace >= 4 && avgRace <= 5;
-            const estaNosTop5 = avgRace <= 5;
+        // Função para converter delta em percentual melhorado
+        // Considera: posição final, ganho/perda de posições, e capacidade de manter posições na frente
+        const deltaToPercent = (delta, avgRace, avgQualy) => {
+            // Base da nota pela posição final (P1=100, P2=98, P3=96...)
+            const posScore = Math.max(0, 100 - (avgRace - 1) * 2);
             
-            if (delta >= 0) {
-                // Ganhou posições
-                if (delta === 0) {
-                    // Manter posição: Top 3 = 95%, P4/P5 = 90%, outros = 80%
-                    if (estaNoTop3) return 95;
-                    if (estaEmP4ouP5) return 90;
-                    return 80;
+            // Bônus por manter posição quando está na frente (delta = 0)
+            // Quanto mais na frente, maior o mérito de manter
+            let bonusManterPosicao = 0;
+            if (delta === 0) {
+                // Manter posição no Top 3 = muito mérito
+                if (avgQualy <= 3) bonusManterPosicao = 5;
+                // Manter posição no Top 5 = bom mérito
+                else if (avgQualy <= 5) bonusManterPosicao = 3;
+                // Manter posição no Top 10 = algum mérito
+                else if (avgQualy <= 10) bonusManterPosicao = 1;
+            }
+            
+            // Bônus por ganhar posições (sempre positivo)
+            let bonusGanharPosicoes = 0;
+            if (delta > 0) {
+                // Ganhar posições sempre é bom, mas ganhar muitas é ainda melhor
+                bonusGanharPosicoes = delta * 2.5;
+            }
+            
+            // Penalidade por perder posições (ajustada pela posição de largada)
+            let penalidadePerderPosicoes = 0;
+            if (delta < 0) {
+                const posicoesPerdidas = Math.abs(delta);
+                
+                // Se está no Top 3 e perde poucas posições, penalidade menor
+                if (avgQualy <= 3) {
+                    if (posicoesPerdidas === 1) penalidadePerderPosicoes = -1; // Perder 1 posição no top 3 = quase nada
+                    else if (posicoesPerdidas === 2) penalidadePerderPosicoes = -3; // Perder 2 posições = leve
+                    else penalidadePerderPosicoes = posicoesPerdidas * 2; // Perder 3+ = penalidade normal
                 }
-                // Ganhou posições: base percentual até 100% (melhor delta)
-                if (maxDelta <= 0) {
-                    // Se ninguém ganhou posições além de delta 0, usar base percentual
-                    if (estaNoTop3) return 95;
-                    if (estaEmP4ouP5) return 90;
-                    return 80;
+                // Se está no Top 5 e perde poucas posições, penalidade moderada
+                else if (avgQualy <= 5) {
+                    if (posicoesPerdidas === 1) penalidadePerderPosicoes = -2;
+                    else if (posicoesPerdidas === 2) penalidadePerderPosicoes = -4;
+                    else penalidadePerderPosicoes = posicoesPerdidas * 2.5;
                 }
-                const basePercent = estaNoTop3 ? 95 : (estaEmP4ouP5 ? 90 : 80);
-                const calculatedPercent = basePercent + (delta / maxDelta) * (100 - basePercent);
-                return Math.ceil(Math.max(basePercent, Math.min(100, calculatedPercent)));
-            } else {
-                // Perdeu posições
-                if (estaNoTop3) {
-                    // Se está no top 3, mesmo perdendo posições, ainda tem bom ritmo
-                    // Delta -1 = 90%, -2 = 85%, -3 = 80%, etc.
-                    const percent = Math.max(70, Math.min(95, 95 + (delta * 2.5)));
-                    return Math.round(percent);
-                } else if (estaEmP4ouP5) {
-                    // Se está em P4 ou P5, mesmo perdendo posições, ainda tem bom ritmo
-                    // Delta -1 = 85%, -2 = 80%, -3 = 75%, etc.
-                    const percent = Math.max(70, Math.min(90, 90 + (delta * 3)));
-                    return Math.round(percent);
-                } else {
-                    // Fora dos top 5: penalização maior por perder posições
-                    // Delta -1 = 75%, -2 = 70%, -3 = 65%, etc.
-                    const percent = Math.max(0, Math.min(80, 80 + (delta * 5)));
-                    return Math.round(percent);
+                // Se está no Top 10, penalidade normal
+                else if (avgQualy <= 10) {
+                    penalidadePerderPosicoes = posicoesPerdidas * 2.5;
+                }
+                // Se está fora do Top 10, penalidade maior
+                else {
+                    penalidadePerderPosicoes = posicoesPerdidas * 3;
                 }
             }
+            
+            let finalScore = posScore + bonusManterPosicao + bonusGanharPosicoes + penalidadePerderPosicoes;
+            
+            // Aplicar tetos baseados na realidade da corrida
+            if (avgRace > 3 && finalScore > 95) finalScore = 95;
+            if (avgRace > 10 && finalScore > 85) finalScore = 85;
+            if (avgRace > 15 && finalScore > 80) finalScore = 80;
+            
+            return Math.round(Math.max(0, Math.min(100, finalScore)));
         };
         
         const rData = deltas.map(d => {
-            const percent = deltaToPercent(d.delta, d.avgRace);
+            const percent = deltaToPercent(d.delta, d.avgRace, d.avgQualy);
             return { 
                 name: d.name, 
                 delta: d.delta, 

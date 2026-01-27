@@ -39,7 +39,11 @@ const RecordIcon = () => (<svg className="rh-icon-small" viewBox="0 0 24 24" fil
 const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
 
-const flagColors = { 'BÉLGICA': ['#000000', '#FDDA24', '#EF3340'], 'HOLANDA': ['#AE1C28', '#FFFFFF', '#21468B'], 'ITÁLIA': ['#009246', '#FFFFFF', '#CE2B37'], 'AZERBAIJÃO': ['#00B5E2', '#EF3340', '#509E2F'], 'SINGAPURA': ['#EF3340', '#FFFFFF'], 'EUA': ['#B22234', '#FFFFFF', '#3C3B6E'], 'MÉXICO': ['#006847', '#FFFFFF', '#CE1126'], 'BRASIL': ['#009C3B', '#FFDF00', '#002776'], 'LAS VEGAS': ['#B22234', '#FFFFFF', '#3C3B6E'], 'QATAR': ['#8D1B3D', '#FFFFFF'], 'ABU DHABI': ['#EF3340', '#007A3D', '#FFFFFF', '#000000'], 'BAHREIN': ['#EF3340', '#FFFFFF'], 'ARÁBIA SAUDITA': ['#006C35', '#FFFFFF'], 'AUSTRÁLIA': ['#00008B', '#FFFFFF', '#EF3340'], 'JAPÃO': ['#FFFFFF', '#BC002D'], 'CHINA': ['#DE2910', '#FFDE00'], 'MIAMI': ['#B22234', '#FFFFFF', '#3C3B6E'], 'EMÍLIA-ROMAGNA': ['#009246', '#FFFFFF', '#CE2B37'], 'MÔNACO': ['#EF3340', '#FFFFFF'], 'CANADÁ': ['#EF3340', '#FFFFFF'], 'ESPANHA': ['#AA151B', '#F1BF00'], 'ÁUSTRIA': ['#EF3340', '#FFFFFF'], 'INGLATERRA': ['#FFFFFF', '#CE1124', '#00247D'], 'HUNGRIA': ['#CE2939', '#FFFFFF', '#477050'], 'DEFAULT': ['#1E293B', '#0F172A'] };
+const flagColors = { 
+    'BÉLGICA': ['#000000', '#FDDA24', '#EF3340'], 'HOLANDA': ['#AE1C28', '#FFFFFF', '#21468B'], 'ITÁLIA': ['#009246', '#FFFFFF', '#CE2B37'], 'AZERBAIJÃO': ['#00B5E2', '#EF3340', '#509E2F'], 'SINGAPURA': ['#EF3340', '#FFFFFF'], 'EUA': ['#B22234', '#FFFFFF', '#3C3B6E'], 'MÉXICO': ['#006847', '#FFFFFF', '#CE1126'], 'BRASIL': ['#009C3B', '#FFDF00', '#002776'], 'LAS VEGAS': ['#B22234', '#FFFFFF', '#3C3B6E'], 'QATAR': ['#8D1B3D', '#FFFFFF'], 'ABU DHABI': ['#EF3340', '#007A3D', '#FFFFFF', '#000000'], 'BAHREIN': ['#EF3340', '#FFFFFF'], 'ARÁBIA SAUDITA': ['#006C35', '#FFFFFF'], 'AUSTRÁLIA': ['#00008B', '#FFFFFF', '#EF3340'], 'JAPÃO': ['#FFFFFF', '#BC002D'], 'CHINA': ['#DE2910', '#FFDE00'], 'MIAMI': ['#B22234', '#FFFFFF', '#3C3B6E'], 'EMÍLIA-ROMAGNA': ['#009246', '#FFFFFF', '#CE2B37'], 'MÔNACO': ['#EF3340', '#FFFFFF'], 'CANADÁ': ['#EF3340', '#FFFFFF'], 'ESPANHA': ['#AA151B', '#F1BF00'], 'ÁUSTRIA': ['#EF3340', '#FFFFFF'], 'INGLATERRA': ['#FFFFFF', '#CE1124', '#00247D'], 'HUNGRIA': ['#CE2939', '#FFFFFF', '#477050'], 'DEFAULT': ['#1E293B', '#0F172A'],
+    'TEXAS': ['#B22234', '#FFFFFF', '#3C3B6E'],
+    'AUSTIN': ['#B22234', '#FFFFFF', '#3C3B6E']
+};
 
 const DriverImage = ({ name, gridType, season, className, style, forceSML = false }) => {
     const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
@@ -467,12 +471,11 @@ function Home() {
                             return isNaN(date.getTime()) ? 0 : date.getTime();
                         };
                         
-                        // REGRA: A notícia com número (ID) maior sempre será a principal
-                            // Ordenar por ID decrescente
-                            newsList.sort((a, b) => b.id - a.id);
+                        // Ordenar por ID decrescente (mais recente primeiro)
+                        newsList.sort((a, b) => b.id - a.id);
                             
-                            setNews(newsList);
-                        },
+                        setNews(newsList);
+                    },
                         error: (error) => {
                             console.error('❌ Erro ao parsear CSV de notícias:', error);
                             setFallbackNews();
@@ -484,7 +487,7 @@ function Home() {
                 }
             };
         fetchNews();
-    }, []);
+    }, []); // Carregar apenas uma vez ao montar o componente
 
     // Componente para gerenciar o carregamento de imagens das notícias com múltiplos fallbacks
     const NewsImage = ({ newsItem, supaUrl, title, subtitle, category, date }) => {
@@ -499,43 +502,35 @@ function Home() {
                 newsItem.image &&
                 (newsItem.image.startsWith('http://') || newsItem.image.startsWith('https://'));
 
+            // Prioridade 1: Link externo da planilha (como era antes)
             if (hasExternalUrl) {
                 setImgSrc(newsItem.image);
                 setTriedExternal(true);
-            } else if (supaUrl) {
+            } 
+            // Prioridade 2: Supabase (Admin) como fallback
+            else if (supaUrl) {
                 setImgSrc(supaUrl);
                 setTriedSupa(true);
-            } else {
-                // Inicia tentativa local
+            } 
+            // Prioridade 3: Imagens locais
+            else {
                 setExtensionIndex(0);
                 setImgSrc(`/noticias/Noticia${newsItem.id}.${extensions[0]}`);
             }
         }, [newsItem.image, newsItem.id, supaUrl]);
 
         const handleError = () => {
-            // 1. Se falhou a imagem externa, tenta Supabase
+            // Se falhou externa, tenta Supabase
             if (triedExternal && !triedSupa) {
                 if (supaUrl) {
                     setImgSrc(supaUrl);
                     setTriedSupa(true);
                     return;
                 }
-                // Se não tem supaUrl, pula para local
-                setExtensionIndex(0);
-                setImgSrc(`/noticias/Noticia${newsItem.id}.${extensions[0]}`);
-                setTriedSupa(true);
-                return;
             }
 
-            // 2. Se falhou Supabase, tenta local
-            if (triedSupa && extensionIndex === -1) {
-                setExtensionIndex(0);
-                setImgSrc(`/noticias/Noticia${newsItem.id}.${extensions[0]}`);
-                return;
-            }
-
-            // 3. Tentativas locais sequenciais
-            if (extensionIndex !== -1 && extensionIndex < extensions.length - 1) {
+            // Inicia ou continua tentativas locais
+            if (extensionIndex === -1) {
                 const nextIndex = extensionIndex + 1;
                 setExtensionIndex(nextIndex);
                 setImgSrc(`/noticias/Noticia${newsItem.id}.${extensions[nextIndex]}`);
@@ -581,14 +576,25 @@ function Home() {
             try {
                 const { data, error } = await supabase
                     .from('news_images')
-                    .select('slot, updated_at');
+                    .select('slot, updated_at, is_featured');
 
-                if (error) throw error;
+                if (error) {
+                    // Se a tabela não existe ou não tem o campo, não é erro crítico
+                    if (error.message?.includes('does not exist') || error.message?.includes('column') || error.code === 'PGRST116') {
+                        console.warn('ℹ️ Tabela news_images ou campo is_featured não existe ainda. Execute: scripts/add_featured_to_news_images.sql');
+                        return;
+                    }
+                    throw error;
+                }
 
                 const map = {};
+                
                 (data || []).forEach((row) => {
-                    if (row?.slot != null) map[Number(row.slot)] = row.updated_at || '';
+                    if (row?.slot != null) {
+                        map[Number(row.slot)] = row.updated_at || '';
+                    }
                 });
+                
                 setNewsImageVersions(map);
             } catch (e) {
                 // Se não existir tabela/política, mantém fallback (Drive/local)
@@ -609,7 +615,11 @@ function Home() {
                         const row = payload?.new || payload?.old;
                         const slot = row?.slot;
                         const updatedAt = row?.updated_at || new Date().toISOString();
+                        const isFeatured = row?.is_featured || false;
+                        
                         if (slot == null) return;
+                        
+                        // Atualizar versão da imagem
                         setNewsImageVersions((prev) => ({ ...prev, [Number(slot)]: updatedAt }));
                     }
                 )
@@ -621,7 +631,7 @@ function Home() {
         return () => {
             if (channel) supabase.removeChannel(channel);
         };
-    }, []);
+    }, []); // Carregar apenas uma vez ao montar o componente
 
     const getSupabaseNewsImageUrl = (slot) => {
         try {
@@ -667,14 +677,13 @@ function Home() {
                         p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
                         if (isNaN(p)) p = 0;
                     }
-                    // Fallback: calcular pela posição se não encontrou na coluna 15
-                    if (p === 0) {
-                        if (racePos >= 1 && racePos <= 10) {
-                            p = POINTS_RACE[racePos - 1];
-                        }
-                        if (sprintPos >= 1 && sprintPos <= 8) {
-                            p += POINTS_SPRINT[sprintPos - 1];
-                        }
+                    // Fallback: calcular pela posição da corrida se não encontrou na coluna 15
+                    if (p === 0 && racePos >= 1 && racePos <= 10) {
+                        p = POINTS_RACE[racePos - 1];
+                    }
+                    // Sempre somar pontos da Sprint (não estão na coluna 15)
+                    if (sprintPos >= 1 && sprintPos <= 8) {
+                        p += POINTS_SPRINT[sprintPos - 1];
                     }
                     totals[name].points += p;
                     
@@ -713,14 +722,13 @@ function Home() {
                         p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
                         if (isNaN(p)) p = 0;
                     }
-                    // Fallback: calcular pela posição se não encontrou na coluna 15
-                    if (p === 0) {
-                        if (racePos >= 1 && racePos <= 10) {
-                            p = POINTS_RACE[racePos - 1];
-                        }
-                        if (sprintPos >= 1 && sprintPos <= 8) {
-                            p += POINTS_SPRINT[sprintPos - 1];
-                        }
+                    // Fallback: calcular pela posição da corrida se não encontrou na coluna 15
+                    if (p === 0 && racePos >= 1 && racePos <= 10) {
+                        p = POINTS_RACE[racePos - 1];
+                    }
+                    // Sempre somar pontos da Sprint (não estão na coluna 15)
+                    if (sprintPos >= 1 && sprintPos <= 8) {
+                        p += POINTS_SPRINT[sprintPos - 1];
                     }
                     totalsLight[name].points += p;
                     
@@ -736,6 +744,23 @@ function Home() {
         });
 
         setNextRaceData(upcoming);
+        
+        // Subtrair pontos perdidos em punições para cada piloto (antes de ordenar)
+        Object.keys(totals).forEach(nomePiloto => {
+            const nomePilotoNormalizado = normalizeNomePiloto(nomePiloto);
+            const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
+            if (pontosPerdidos > 0) {
+                totals[nomePiloto].points = totals[nomePiloto].points - pontosPerdidos;
+            }
+        });
+        
+        Object.keys(totalsLight).forEach(nomePiloto => {
+            const nomePilotoNormalizado = normalizeNomePiloto(nomePiloto);
+            const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
+            if (pontosPerdidos > 0) {
+                totalsLight[nomePiloto].points = totalsLight[nomePiloto].points - pontosPerdidos;
+            }
+        });
         
         // Ordenar por: 1) Pontos, 2) Melhor posição, 3) Nome alfabético
         const sortDrivers = (a, b) => {
@@ -777,7 +802,7 @@ function Home() {
         setTopDriversLight(sortedLightFull.slice(0, 3));
         setSeasonDrivers(sorted);
         setSeasonDriversLightFull(sortedLightFull);
-    }, [rawCarreira, rawLight, draftCarreira, draftLight, loading, seasons]);
+    }, [rawCarreira, rawLight, draftCarreira, draftLight, loading, seasons, punicoes]);
 
     // Rounds
     useEffect(() => {
@@ -807,13 +832,15 @@ function Home() {
         setRounds(sortedRounds);
 
         if (sortedRounds.length > 0) {
-             if (selectedRound === 0 || !sortedRounds.includes(selectedRound)) {
-                 const pickLatest = sortedRounds[sortedRounds.length - 1];
-                 const chosenRound = viewType === 'results'
-                     ? pickLatest                      // always highest available for results
-                     : (maxRoundPast > 0 ? maxRoundPast : pickLatest); // fallback to highest if no past round
-                 setSelectedRound(chosenRound);
-             }
+            // Se estivermos na aba de resultados, sempre força a maior etapa disponível (solicitação do usuário)
+            if (viewType === 'results') {
+                setSelectedRound(sortedRounds[sortedRounds.length - 1]);
+            } else if (selectedRound === 0 || !sortedRounds.includes(selectedRound)) {
+                // Para outras abas, seleciona a maior etapa realizada ou a maior disponível
+                const pickLatest = sortedRounds[sortedRounds.length - 1];
+                const chosenRound = maxRoundPast > 0 ? maxRoundPast : pickLatest;
+                setSelectedRound(chosenRound);
+            }
         } else {
              setSelectedRound(0);
         }
@@ -907,15 +934,14 @@ function Home() {
                         p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
                         if (isNaN(p)) p = 0;
                     }
-                    // Fallback: calcular pela posição se não encontrou na coluna 15
-                    if (p === 0) {
-                        if (racePos >= 1 && racePos <= 10) {
-                            p = POINTS_RACE[racePos - 1];
-                        }
-                        const sprintPos = parseInt(row[7]);
-                        if (sprintPos >= 1 && sprintPos <= 8) {
-                            p += POINTS_SPRINT[sprintPos - 1];
-                        }
+                    // Fallback: calcular pela posição da corrida se não encontrou na coluna 15
+                    if (p === 0 && racePos >= 1 && racePos <= 10) {
+                        p = POINTS_RACE[racePos - 1];
+                    }
+                    // Sempre somar pontos da Sprint (não estão na coluna 15)
+                    const sprintPos = parseInt(row[7]);
+                    if (sprintPos >= 1 && sprintPos <= 8) {
+                        p += POINTS_SPRINT[sprintPos - 1];
                     }
                     stats.points += p;
                 } else { 
@@ -979,11 +1005,13 @@ function Home() {
                     if (isNaN(p)) p = 0;
                 }
                 
-                // Se não encontrou pontos na coluna 15, calcular baseado na posição (fallback)
+                // Se não encontrou pontos na coluna 15, calcular baseado na posição (fallback corrida)
                 if (p === 0 && racePos >= 1 && racePos <= 10) {
                     p = POINTS_RACE[racePos - 1];
                 }
-                if (p === 0 && sprintPos >= 1 && sprintPos <= 8) {
+                
+                // IMPORTANTE: Sempre somar pontos da Sprint, pois eles não estão na coluna P
+                if (sprintPos >= 1 && sprintPos <= 8) {
                     p += POINTS_SPRINT[sprintPos - 1];
                 }
                 
@@ -1393,7 +1421,7 @@ function Home() {
             const p1 = podium.find(p=>p.pos===1); 
             const p2 = podium.find(p=>p.pos===2); 
             const p3 = podium.find(p=>p.pos===3); 
-            const gpInfo = tracks[normalizeStr(data[0].gp)] || {}; 
+            const gpInfo = getGPInfo(data[0].gp); 
             
             // Encontrar a melhor volta (menor tempo)
             const validLaps = data.filter(r => r.fastestLap && r.fastestLap !== '-').map(r => ({...r, timeMs: parseTime(r.fastestLap)}));
@@ -1612,7 +1640,32 @@ function Home() {
         }
     };
 
-    const nextGPInfo = nextRaceData && tracks ? (tracks[normalizeStr(nextRaceData.gp)] || {}) : {};
+    const nextGPInfo = nextRaceData && tracks ? (() => {
+        const normalized = normalizeStr(nextRaceData.gp);
+        let info = { ...tracks[normalized] } || { flag: null };
+        // Fallback para bandeira dos EUA
+        if (!info.flag || info.flag.includes('image.png')) {
+            if (normalized.includes('TEXAS') || normalized.includes('MIAMI') || 
+                normalized.includes('VEGAS') || normalized.includes('AUSTIN')) {
+                info.flag = 'https://flagcdn.com/w40/us.png';
+            }
+        }
+        return info;
+    })() : {};
+
+    // Função para obter informações do GP com fallbacks (para uso no render)
+    const getGPInfo = (gpName) => {
+        if (!gpName) return { flag: null };
+        const normalized = normalizeStr(gpName);
+        let info = { ...tracks[normalized] } || { flag: null };
+        if (!info.flag || info.flag.includes('image.png')) {
+            if (normalized.includes('TEXAS') || normalized.includes('MIAMI') || 
+                normalized.includes('VEGAS') || normalized.includes('AUSTIN')) {
+                info.flag = 'https://flagcdn.com/w40/us.png';
+            }
+        }
+        return info;
+    };
 
     return (
         <div className="page-wrapper">
@@ -1686,8 +1739,9 @@ function Home() {
                             </div>
                             <div className="news-feed-grid">
                                 {news.length > 0 ? (() => {
-                                    // Mostrar apenas a notícia principal (primeira da lista, maior ID)
+                                    // A notícia principal é a primeira da lista (maior ID vindo da planilha)
                                     const newsItem = news[0];
+                                    
                                     return (
                                         <article 
                                             key={`${newsItem?.id ?? 'noid'}-${newsItem?.date ?? 'nodate'}`}
@@ -1752,7 +1806,7 @@ function Home() {
                                 )}
                             </div>
                         </section>
-
+                        
                         <section className="hub-section">
                             <div className="section-header-hub" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '15px', textAlign: 'left' }}>
                                 <img
