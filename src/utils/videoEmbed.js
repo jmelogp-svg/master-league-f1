@@ -7,6 +7,17 @@ export function getVideoEmbedUrl(url) {
     
     const cleanUrl = url.trim();
     
+    // YouTube Clips (devem ser verificados ANTES dos vídeos normais)
+    // Formato: youtube.com/clip/CLIP_ID ou youtube.com/clip/CLIP_ID?si=...
+    // Nota: YouTube Clips não podem ser embedados diretamente, mas retornamos null
+    // para que o componente VideoEmbed trate especificamente
+    const ytClipMatch = cleanUrl.match(/youtube\.com\/clip\/([a-zA-Z0-9_-]+)/);
+    if (ytClipMatch) {
+        // Retornar null para que o componente VideoEmbed detecte e trate como Clip
+        // O componente verifica videoLink.includes('/clip/') para mostrar card especial
+        return null;
+    }
+    
     // YouTube (incluindo Shorts)
     // Suporta: youtube.com/watch?v=, youtube.com/embed/, youtube.com/v/, youtu.be/, youtube.com/shorts/
     const ytMatch = cleanUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);

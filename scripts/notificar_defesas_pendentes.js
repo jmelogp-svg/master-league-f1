@@ -76,8 +76,10 @@ async function main() {
 
   const pendentes = (data || []).filter(row => {
     const d = row.dados || {};
-    // Defesa é incorporada dentro do próprio JSON quando enviada
-    return !d.defesa;
+    // Filtrar apenas acusações que:
+    // 1. Ainda não têm defesa enviada
+    // 2. Ainda não tiveram notificação enviada (para evitar duplicatas)
+    return !d.defesa && !d.notificacaoEnviada;
   });
 
   const alvo = limit ? pendentes.slice(0, limit) : pendentes;
@@ -106,10 +108,14 @@ async function main() {
     }
 
     const motorhomeUrl = `${SITE_URL}/dashboard`;
-    const msg = `🛡️ *DEFESA PENDENTE - MASTER LEAGUE F1*\n\n` +
+    // Usar a mesma mensagem que o sistema usa em notifyAccusedDefenseRequest
+    const msg = `*MENSAGEM AUTOMÁTICA*\n\n` +
+      `🛡️ *VOCÊ FOI ACUSADO - MASTER LEAGUE F1*\n\n` +
       `🔖 *Código:* ${codigo}\n` +
-      `🏁 *Etapa:* ${etapa}\n` +
-      `👤 *Acusador:* ${d.acusador?.nome || '-'}\n\n` +
+      `👤 *Acusador:* ${d.acusador?.nome || '-'}\n` +
+      `🏁 *Etapa:* ${etapa}\n\n` +
+      `📝 *Descrição:*\n${d.descricao || '-'}\n\n` +
+      `🎥 *Vídeo do lance:*\n${d.videoLink || '-'}\n\n` +
       `⏰ *Prazo:* até *12:00h do dia seguinte*.\n` +
       `✅ Envie o *vídeo de defesa* pelo *link verde do Motorhome*.\n\n` +
       `🔗 Motorhome: ${motorhomeUrl}`;
@@ -136,6 +142,28 @@ async function main() {
       } else {
         enviados++;
         console.log('   ✅ Enviado');
+        
+        // Marcar que a notificação foi enviada para evitar duplicatas
+        try {
+          const dadosAtualizados = {
+            ...d,
+            notificacaoEnviada: true,
+            notificacaoEnviadaEm: new Date().toISOString()
+          };
+          
+          const { error: updateError } = await supabase
+            .from('notificacoes_admin')
+            .update({ dados: dadosAtualizados })
+            .eq('id', row.id);
+          
+          if (updateError) {
+            console.log(`   ⚠️  Aviso: Não foi possível marcar notificação como enviada: ${updateError.message}`);
+          } else {
+            console.log('   ✅ Notificação marcada como enviada no banco');
+          }
+        } catch (updateErr) {
+          console.log(`   ⚠️  Aviso: Erro ao marcar notificação: ${updateErr.message}`);
+        }
       }
     } catch (e) {
       falhas++;

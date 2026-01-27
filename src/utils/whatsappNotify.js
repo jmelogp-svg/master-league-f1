@@ -1,5 +1,4 @@
 import { supabase } from '../supabaseClient';
-import { isBusinessHours, getBusinessHoursMessage } from './businessHours';
 
 export const ADMIN_WHATSAPP = '5551983433940';
 export const ADMIN_EMAIL_FALLBACK = 'admin@masterleaguef1.com';
@@ -11,13 +10,6 @@ export const normalizePhone = (phone) => (phone ? phone.replace(/\D/g, '') : '')
  * Usa o caminho de notificação já existente (tipo notificacao_aprovacao) para suportar Twilio/Z-API.
  */
 export async function sendWhatsappNotification({ phone, email, nome, message }) {
-    // Bloqueia envio fora do horário comercial
-    if (!isBusinessHours()) {
-        const errorMsg = getBusinessHoursMessage();
-        console.log(`🔇 ${errorMsg} - WhatsApp para ${nome || phone} ignorado.`);
-        return { success: false, error: errorMsg, silenced: true };
-    }
-
     const whatsapp = normalizePhone(phone);
     if (!whatsapp || !message) {
         return { success: false, error: 'whatsapp ou mensagem ausentes' };

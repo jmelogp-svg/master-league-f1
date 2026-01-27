@@ -1,6 +1,5 @@
 import { supabase } from '../supabaseClient';
 import { sendWhatsappNotification } from './whatsappNotify';
-import { isBusinessHours, getBusinessHoursMessage } from './businessHours';
 
 // Configurações do Admin
 export const ADMIN_CONFIG = {
@@ -100,15 +99,9 @@ async function fetchJuradosAtivos() {
 }
 
 export async function notifyJuradosAguardandoAnalise({ notifId, dadosNotificacao, messageData }) {
-    if (!isBusinessHours()) {
-        if (notifId && dadosNotificacao) {
-            await markJuradoNotificationPending(notifId, dadosNotificacao, 'fora_horario');
-        }
-        return { queued: true, reason: getBusinessHoursMessage() };
-    }
-
-    const mensagemJurados = buildJuradoMessage(messageData || dadosNotificacao);
-    const juradosAtivos = await fetchJuradosAtivos();
+    // REMOVIDO: Notificações para jurados - agora apenas ADM é notificado
+    // Esta função foi mantida para compatibilidade, mas não envia mais para jurados
+    return { success: true, sent: 0, total: 0, skipped: true, reason: 'Notificações para jurados desabilitadas - apenas ADM recebe' };
 
     if (juradosAtivos.length === 0) {
         return { success: false, error: 'Nenhum jurado ativo encontrado' };
@@ -150,54 +143,8 @@ export async function notifyJuradosAguardandoAnalise({ notifId, dadosNotificacao
 }
 
 export async function flushPendingJuradoNotifications() {
-    if (!isBusinessHours()) {
-        return { skipped: true, reason: getBusinessHoursMessage() };
-    }
-
-    const { data: pendentes, error } = await supabase
-        .from('notificacoes_admin')
-        .select('id, dados')
-        .filter('dados->>status', 'eq', 'aguardando_analise')
-        .filter('dados->>juradosNotificacaoPendente', 'eq', 'true');
-
-    if (error || !pendentes || pendentes.length === 0) {
-        return { success: true, processed: 0 };
-    }
-
-    let enviados = 0;
-    for (const pendente of pendentes) {
-        const dados = pendente.dados || {};
-        if (dados.juradosNotificacaoEmProcesso) {
-            continue;
-        }
-
-        const dadosEmProcesso = {
-            ...dados,
-            juradosNotificacaoEmProcesso: true,
-            juradosNotificacaoProcessoEm: new Date().toISOString(),
-        };
-
-        await updateNotificacaoDados(pendente.id, dadosEmProcesso);
-        const result = await notifyJuradosAguardandoAnalise({
-            notifId: pendente.id,
-            dadosNotificacao: dadosEmProcesso,
-            messageData: dadosEmProcesso,
-        });
-
-        if (result?.success) {
-            enviados++;
-        } else {
-            const dadosRevertidos = {
-                ...dadosEmProcesso,
-                juradosNotificacaoPendente: true,
-                juradosNotificacaoEmProcesso: false,
-                juradosNotificacaoProcessoEm: null,
-            };
-            await updateNotificacaoDados(pendente.id, dadosRevertidos);
-        }
-    }
-
-    return { success: true, processed: pendentes.length, sent: enviados };
+    // REMOVIDO: Notificações para jurados desabilitadas
+    return { success: true, processed: 0, sent: 0, skipped: true, reason: 'Notificações para jurados desabilitadas' };
 }
 
 /**
@@ -205,12 +152,6 @@ export async function flushPendingJuradoNotifications() {
  * Envia para todos os destinatários configurados
  */
 async function sendWhatsAppMessage(message) {
-    // Bloqueia envio fora do horário comercial
-    if (!isBusinessHours()) {
-        console.log(`🔇 ${getBusinessHoursMessage()} - CallMeBot ignorado.`);
-        return false;
-    }
-
     if (!WHATSAPP_RECIPIENTS || WHATSAPP_RECIPIENTS.length === 0) {
         console.warn('⚠️ WhatsApp CallMeBot não configurado');
         return false;
@@ -319,16 +260,17 @@ export async function notifyAdminNewAccusation(dadosAcusacao) {
         telegram: false,
     };
 
+    // Verificar se é retirada de bug
+    const isRetiradaBug = dadosAcusacao.tipoSolicitacao === 'retirada_bug';
+    
     // Formatar mensagem para WhatsApp/Telegram
-    const mensagemTexto = `🚨 NOVA ACUSAÇÃO - ML F1
+    let mensagemTexto = `🚨 ${isRetiradaBug ? 'RETIRADA DE BUG' : 'NOVA ACUSAÇÃO'} - ML F1
 
 👤 Acusador: ${dadosAcusacao.acusador.nome}
 📱 Gamertag: ${dadosAcusacao.acusador.gamertag}
 📞 WhatsApp: ${dadosAcusacao.acusador.whatsapp || '-'}
 
-⚖️ Acusado: ${dadosAcusacao.acusado.nome}
-📱 Gamertag: ${dadosAcusacao.acusado.gamertag || '-'}
-
+${isRetiradaBug ? 'ℹ️ Tipo: Retirada de Bug\n⚠️ Este lance será analisado pois não possui piloto acusado.\n' : `⚖️ Acusado: ${dadosAcusacao.acusado.nome}\n📱 Gamertag: ${dadosAcusacao.acusado.gamertag || '-'}\n`}
 📍 Etapa: ${dadosAcusacao.etapa.round} - ${dadosAcusacao.etapa.circuit}
 🏁 Grid: ${dadosAcusacao.acusador.grid?.toUpperCase()}
 
@@ -340,7 +282,7 @@ ${dadosAcusacao.descricao}
 ⏰ ${new Date().toLocaleString('pt-BR')}`;
 
     // 1. Tentar enviar via CallMeBot (se configurado)
-    if (CALLMEBOT_APIKEY && isBusinessHours()) {
+    if (CALLMEBOT_APIKEY) {
         try {
             const url = `https://api.callmebot.com/whatsapp.php?phone=${ADMIN_CONFIG.whatsapp}&text=${encodeURIComponent(mensagemTexto)}&apikey=${CALLMEBOT_APIKEY}`;
             const response = await fetch(url);
@@ -351,8 +293,6 @@ ${dadosAcusacao.descricao}
         } catch (err) {
             console.warn('⚠️ Falha ao enviar WhatsApp via CallMeBot:', err);
         }
-    } else if (CALLMEBOT_APIKEY && !isBusinessHours()) {
-        console.log(`🔇 ${getBusinessHoursMessage()} - CallMeBot Admin ignorado.`);
     }
 
     // 2. Registrar no banco de dados
@@ -408,7 +348,7 @@ ${dadosAcusacao.descricao}
     try {
         console.log('📤 Preparando envio Telegram...');
         // Usando texto simples sem Markdown para evitar erros de parsing
-        const mensagemTelegram = `🚨 NOVA ACUSAÇÃO - ML F1
+        const mensagemTelegram = `🚨 ${isRetiradaBug ? 'RETIRADA DE BUG' : 'NOVA ACUSAÇÃO'} - ML F1
 
 🔖 Código: ${dadosAcusacao.codigoLance || 'N/A'}
 
@@ -416,10 +356,7 @@ ${dadosAcusacao.descricao}
 📱 Gamertag: ${dadosAcusacao.acusador.gamertag}
 📞 WhatsApp: ${dadosAcusacao.acusador.whatsapp || '-'}
 
-⚖️ Acusado: ${dadosAcusacao.acusado.nome}
-📱 Gamertag: ${dadosAcusacao.acusado.gamertag || '-'}
-📞 WhatsApp: ${dadosAcusacao.acusado.whatsapp || '-'}
-
+${isRetiradaBug ? 'ℹ️ Tipo: Retirada de Bug\n⚠️ Este lance será analisado pois não possui piloto acusado.\n' : `⚖️ Acusado: ${dadosAcusacao.acusado.nome}\n📱 Gamertag: ${dadosAcusacao.acusado.gamertag || '-'}\n📞 WhatsApp: ${dadosAcusacao.acusado.whatsapp || '-'}\n`}
 📍 Etapa: ${dadosAcusacao.etapa.round} - ${dadosAcusacao.etapa.circuit}
 🏁 Grid: ${dadosAcusacao.acusador.grid?.toUpperCase()}
 
@@ -438,70 +375,67 @@ ${dadosAcusacao.descricao}
         console.error('❌ Falha ao enviar notificações:', err);
     }
 
-    // 5. Se status for 'aguardando_analise', notificar todos os jurados ativos
-    if (dadosAcusacao.status === 'aguardando_analise') {
-        try {
-            const { data: juradosAtivos, error: errorJurados } = await supabase
-                .from('jurados')
-                .select('nome, whatsapp, email_google')
-                .eq('ativo', true)
-                .not('whatsapp', 'is', null);
-            
-            if (!errorJurados && juradosAtivos && juradosAtivos.length > 0) {
-                const codigoLance = dadosAcusacao.codigoLance || 'N/A';
-                const acusador = dadosAcusacao.acusador?.nome || dadosAcusacao.acusador?.gamertag || 'N/A';
-                const acusado = dadosAcusacao.acusado?.nome || dadosAcusacao.acusado?.gamertag || 'N/A';
-                const etapa = dadosAcusacao.etapa?.circuit || dadosAcusacao.etapa?.round || 'N/A';
-                
-                const mensagemJurados = `👨‍⚖️ *NOVO LANCE PARA ANÁLISE - MASTER LEAGUE F1*\n\n` +
-                    `🔖 *Código:* ${codigoLance}\n` +
-                    `🏁 *Etapa:* ${etapa}\n` +
-                    `👤 *Acusador:* ${acusador}\n` +
-                    `🎯 *Acusado:* ${acusado}\n\n` +
-                    `📋 *Acesse o Painel do Júri para analisar:*\n` +
-                    `🔗 masterleaguef1.com.br/veredito`;
-                
-                // Enviar notificação para cada jurado ativo
-                let sucessosJurados = 0;
-                for (const jurado of juradosAtivos) {
-                    if (jurado.whatsapp) {
-                        try {
-                            const result = await sendWhatsappNotification({
-                                phone: jurado.whatsapp,
-                                email: jurado.email_google || `${jurado.whatsapp}@masterleaguef1.com`,
-                                nome: jurado.nome || 'Jurado',
-                                message: mensagemJurados
-                            });
-                            
-                            if (result.success) {
-                                sucessosJurados++;
-                                console.log(`✅ Notificação enviada para jurado ${jurado.nome}`);
-                            } else {
-                                console.warn(`⚠️ Erro ao enviar para jurado ${jurado.nome}:`, result.error);
-                            }
-                            
-                            // Pequeno delay entre envios
-                            await new Promise(resolve => setTimeout(resolve, 500));
-                        } catch (err) {
-                            console.error(`❌ Erro ao enviar notificação para jurado ${jurado.nome}:`, err);
-                        }
-                    }
-                }
-                
-                if (sucessosJurados > 0) {
-                    console.log(`📬 Notificações enviadas para ${sucessosJurados} jurado(s)`);
-                }
-            } else {
-                console.warn('⚠️ Nenhum jurado ativo encontrado ou sem WhatsApp configurado');
-            }
-        } catch (err) {
-            console.error('⚠️ Erro ao enviar notificações para jurados:', err);
-            // Não bloquear o fluxo principal se a notificação falhar
-        }
-    }
+    // REMOVIDO: Notificações para jurados - apenas ADM recebe notificações
 
     console.log('📊 Resultado das notificações:', resultados);
     return resultados;
+}
+
+/**
+ * Notifica o PILOTO ACUSADOR quando a análise é aberta
+ */
+export async function notifyAccusatorAnalysisOpened({ dadosAcusacao, acusador }) {
+    try {
+        if (!dadosAcusacao || !acusador) return { whatsapp: false };
+
+        const codigo = dadosAcusacao.codigoLance || 'N/A';
+        const etapa = dadosAcusacao.etapa?.circuit
+            ? `${dadosAcusacao.etapa.round} - ${dadosAcusacao.etapa.circuit}`
+            : `${dadosAcusacao.etapa?.round || '-'}`;
+        const isRetiradaBug = dadosAcusacao.tipoSolicitacao === 'retirada_bug';
+        const acusadoNome = dadosAcusacao.acusado?.nome || 'Administração Master League F1';
+        
+        const motorhomeUrl = `${SITE_URL}/dashboard`;
+        const analisesUrl = `${SITE_URL}/analises`;
+
+        let msgWhats = `*MENSAGEM AUTOMÁTICA*\n\n` +
+            `✅ *SUA ANÁLISE FOI ABERTA - MASTER LEAGUE F1*\n\n` +
+            `🔖 *Código:* ${codigo}\n` +
+            `🏁 *Etapa:* ${etapa}\n\n`;
+
+        if (isRetiradaBug) {
+            msgWhats += `📋 *Tipo:* Retirada de Bug\n\n` +
+                `ℹ️ Este lance será analisado pela comissão pois não possui piloto acusado.\n\n` +
+                `📊 A comissão de análise irá avaliar o lance e publicar o veredito.\n\n`;
+        } else {
+            msgWhats += `👤 *Acusado:* ${acusadoNome}\n\n` +
+                `📝 *Descrição:*\n${dadosAcusacao.descricao || '-'}\n\n` +
+                `🎥 *Vídeo do lance:*\n${dadosAcusacao.videoLink || '-'}\n\n` +
+                `ℹ️ O piloto acusado será notificado para enviar sua defesa.\n\n` +
+                `⏰ Assim que a defesa for enviada ou o prazo for encerrado, a comissão de análise irá analisar o lance.\n\n`;
+        }
+
+        msgWhats += `🔗 Acompanhe: ${analisesUrl}`;
+
+        const resultados = { whatsapp: false };
+
+        // WhatsApp (se tiver número)
+        if (acusador.whatsapp) {
+            const w = await sendWhatsappNotification({
+                phone: acusador.whatsapp,
+                email: acusador.email || `${String(acusador.whatsapp).replace(/\D/g, '')}@masterleaguef1.com`,
+                nome: acusador.nome || 'Piloto',
+                message: msgWhats,
+            });
+            resultados.whatsapp = !!w.success;
+            if (!w.success) console.warn('⚠️ Falha ao notificar acusador via WhatsApp:', w.error);
+        }
+
+        return resultados;
+    } catch (err) {
+        console.error('❌ Erro ao notificar acusador:', err);
+        return { whatsapp: false, error: err?.message || String(err) };
+    }
 }
 
 /**
@@ -524,7 +458,8 @@ export async function notifyAccusedDefenseRequest({ dadosAcusacao, acusado }) {
 
         const motorhomeUrl = `${SITE_URL}/dashboard`;
 
-        const msgWhats = `🛡️ *VOCÊ FOI ACUSADO - MASTER LEAGUE F1*\n\n` +
+        const msgWhats = `*MENSAGEM AUTOMÁTICA*\n\n` +
+            `🛡️ *VOCÊ FOI ACUSADO - MASTER LEAGUE F1*\n\n` +
             `🔖 *Código:* ${codigo}\n` +
             `👤 *Acusador:* ${dadosAcusacao.acusador?.nome || '-'}\n` +
             `🏁 *Etapa:* ${etapa}\n\n` +
@@ -560,12 +495,6 @@ export async function notifyAccusedDefenseRequest({ dadosAcusacao, acusado }) {
  * Necessário ter a Edge Function 'send-email' configurada
  */
 export async function sendEmailNotification(to, subject, htmlContent, templateType) {
-    // Bloqueia envio fora do horário comercial
-    if (!isBusinessHours()) {
-        console.log(`🔇 ${getBusinessHoursMessage()} - Email para ${to} ignorado.`);
-        return { success: false, error: getBusinessHoursMessage(), silenced: true };
-    }
-
     try {
         // Log no banco de dados antes de tentar enviar
         const { data: logData, error: logError } = await supabase
@@ -863,42 +792,64 @@ ${dadosDefesa.videoLinkDefesa ? `🎥 Vídeo: ${dadosDefesa.videoLinkDefesa}` : 
         console.error('❌ Falha ao enviar notificações:', err);
     }
 
-    // 3. Notificar jurados quando status mudar para aguardando_analise (com fila fora do horário)
-    try {
-        let notifId = null;
-        let dadosNotificacao = null;
-
-        const { data: notifRow } = await supabase
-            .from('notificacoes_admin')
-            .select('id, dados')
-            .eq('tipo', 'nova_acusacao')
-            .filter('dados->>codigoLance', 'eq', dadosDefesa.codigoLance)
-            .maybeSingle();
-
-        if (notifRow?.id) {
-            notifId = notifRow.id;
-            dadosNotificacao = notifRow.dados;
-        }
-
-        const messageData = {
-            codigoLance: dadosDefesa.codigoLance,
-            acusador: dadosDefesa.acusacaoOriginal?.acusador,
-            acusado: dadosDefesa.defensor,
-            etapa: dadosDefesa.acusacaoOriginal?.etapa,
-            grid: dadosDefesa.defensor?.grid,
-            defesa: { defensor: dadosDefesa.defensor },
-        };
-
-        await notifyJuradosAguardandoAnalise({
-            notifId,
-            dadosNotificacao,
-            messageData,
-        });
-    } catch (err) {
-        console.error('⚠️ Erro ao preparar notificações para jurados:', err);
-    }
+    // REMOVIDO: Notificações para jurados - apenas ADM recebe notificações
 
     console.log('📊 Resultado das notificações de defesa:', resultados);
     return resultados;
+}
+
+/**
+ * Notifica o ADM sobre o veredito final
+ */
+export async function notifyAdminVereditoFinal(lance, resultado) {
+    try {
+        const dados = lance.dados || {};
+        const codigo = dados.codigoLance || 'N/A';
+        const acusadoNome = dados.acusado?.nome || '-';
+        const acusador = dados.acusador?.nome || '-';
+        const etapa = dados.etapa || {};
+        const circuit = etapa.circuit || '-';
+        const round = etapa.round || '-';
+        const grid = etapa.grid || dados.grid || '-';
+        const gridLabel = grid === 'carreira' ? '🏆 CARREIRA' : (grid === 'light' ? '💡 LIGHT' : grid);
+        const isRetiradaBug = dados?.tipoSolicitacao === 'retirada_bug' || acusadoNome === 'Administração Master League F1';
+        
+        // Se for retirada de bug, abreviar nome da administração
+        const acusado = (isRetiradaBug && acusadoNome === 'Administração Master League F1') ? 'ADM MLF1' : acusadoNome;
+
+        let mensagem = `👨‍⚖️ *VEREDITO FINAL - MASTER LEAGUE F1*\n\n` +
+            `🔖 *Código:* ${codigo}\n` +
+            `${gridLabel ? `🎯 *Grid:* ${gridLabel}\n` : ''}` +
+            `🏁 *Round ${round} - ${circuit}*\n` +
+            `👤 *Acusador:* ${acusador}\n` +
+            `🎯 *Acusado:* ${acusado}\n\n` +
+            `📊 *Placar:* ${resultado.placar}\n` +
+            `⚖️ *Decisão:* ${resultado.decisao}`;
+
+        if (!isRetiradaBug && resultado.culpado) {
+            mensagem += `\n\n⚠️ *Punição:* ${resultado.labelPunicao}`;
+            if (resultado.agravante) mensagem += `\n➕ *Agravante:* +5 pontos`;
+            if (resultado.semVideo) mensagem += `\n📹 *Sem envio do vídeo:* -5 pontos`;
+            mensagem += `\n📉 *Pontos perdidos:* ${resultado.pontosPerdidos}`;
+            if (resultado.raceBan) mensagem += `\n⛔ *RACE BAN APLICADO!*`;
+        } else if (!isRetiradaBug && resultado.semVideo) {
+            mensagem += `\n\n📹 *Sem envio do vídeo:* -5 pontos`;
+            mensagem += `\n📉 *Pontos perdidos:* ${resultado.pontosPerdidos}`;
+        }
+
+        mensagem += `\n\n🔗 ${SITE_URL}/analises`;
+
+        // Enviar via WhatsApp para ADM
+        const resultados = { whatsapp: false, telegram: false };
+        
+        resultados.whatsapp = await sendWhatsAppMessage(mensagem);
+        resultados.telegram = await sendTelegramMessage(mensagem);
+
+        console.log('📊 Resultado das notificações de veredito:', resultados);
+        return resultados;
+    } catch (err) {
+        console.error('❌ Erro ao notificar ADM sobre veredito:', err);
+        return { whatsapp: false, telegram: false, error: err?.message || String(err) };
+    }
 }
 

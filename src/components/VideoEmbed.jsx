@@ -19,11 +19,92 @@ function VideoEmbed({ videoLink, title = "Vídeo", borderColor = 'rgba(255,255,2
 
     const embedUrl = getVideoEmbedUrl(videoLink);
     
+    // Verificar se é um YouTube Clip (não pode ser embedado diretamente)
+    // Suporta: youtube.com/clip/ ou www.youtube.com/clip/
+    const isYouTubeClip = /youtube\.com\/clip\//i.test(videoLink);
+    const clipId = videoLink.match(/youtube\.com\/clip\/([a-zA-Z0-9_-]+)/i)?.[1];
+    
     // Verificar se é um YouTube Short
     const isYouTubeShort = videoLink.includes('/shorts/');
     
     // Verificar se é Steam CDN (usa tag <video> HTML5)
     const isSteamCDN = videoLink.includes('cdn.steamusercontent.com');
+    
+    // Tratamento especial para YouTube Clips
+    if (isYouTubeClip && clipId) {
+        // Normalizar URL do clip (remover parâmetros ?si=)
+        const cleanClipUrl = `https://www.youtube.com/clip/${clipId}`;
+        
+        return (
+            <div 
+                style={{
+                    width: '100%',
+                    background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+                    borderRadius: isMobile ? '6px' : '8px',
+                    overflow: 'hidden',
+                    border: `2px solid ${borderColor}`,
+                    padding: isMobile ? '20px' : '30px',
+                    boxSizing: 'border-box',
+                    textAlign: 'center'
+                }}
+            >
+                <div style={{ marginBottom: '15px' }}>
+                    <div style={{ fontSize: isMobile ? '40px' : '60px', marginBottom: '10px' }}>🎬</div>
+                    <h3 style={{ 
+                        color: '#fff', 
+                        fontSize: isMobile ? '1rem' : '1.2rem', 
+                        margin: '0 0 10px 0',
+                        fontWeight: 'bold'
+                    }}>
+                        YouTube Clip
+                    </h3>
+                    <p style={{ 
+                        color: '#94A3B8', 
+                        fontSize: isMobile ? '0.85rem' : '0.9rem', 
+                        margin: 0,
+                        lineHeight: '1.5'
+                    }}>
+                        Este vídeo é um clip do YouTube e precisa ser visualizado diretamente na plataforma.
+                    </p>
+                </div>
+                <a
+                    href={cleanClipUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                        display: 'inline-block',
+                        padding: isMobile ? '12px 24px' : '14px 28px',
+                        background: '#FF0000',
+                        color: '#fff',
+                        textDecoration: 'none',
+                        borderRadius: '8px',
+                        fontSize: isMobile ? '0.9rem' : '1rem',
+                        fontWeight: '600',
+                        transition: 'all 0.2s',
+                        boxShadow: '0 4px 12px rgba(255, 0, 0, 0.3)'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.target.style.background = '#CC0000';
+                        e.target.style.transform = 'scale(1.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.target.style.background = '#FF0000';
+                        e.target.style.transform = 'scale(1)';
+                    }}
+                >
+                    ▶️ Assistir no YouTube
+                </a>
+                <div style={{ 
+                    marginTop: '15px', 
+                    fontSize: isMobile ? '0.75rem' : '0.8rem', 
+                    color: '#64748B',
+                    wordBreak: 'break-all'
+                }}>
+                    {cleanClipUrl}
+                </div>
+            </div>
+        );
+    }
     
     if (embedUrl) {
         // Para Steam CDN, usar tag <video> HTML5

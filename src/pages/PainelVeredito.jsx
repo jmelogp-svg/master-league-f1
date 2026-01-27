@@ -6,7 +6,7 @@ import CustomAlert from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 import { isMobileDevice } from '../utils/deviceDetection';
 import { atualizarLancesComDefesaExpirada } from '../hooks/useAnalises';
-import { flushPendingJuradoNotifications } from '../utils/emailService';
+import { flushPendingJuradoNotifications, notifyAdminVereditoFinal } from '../utils/emailService';
 import '../index.css';
 
 function PainelVeredito() {
@@ -727,6 +727,9 @@ function PainelVeredito() {
             if (error) throw error;
 
             await enviarTelegram(lance, resultado);
+            
+            // Notificar ADM sobre o veredito final
+            await notifyAdminVereditoFinal(lance, resultado);
 
             await showAlert('Análise finalizada com sucesso!', 'Sucesso');
             fetchLances(false); // Não mostrar loading ao finalizar

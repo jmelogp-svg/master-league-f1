@@ -477,7 +477,54 @@ function HallOfFame() {
                                 return normalizedA.localeCompare(normalizedB, 'pt-BR', { sensitivity: 'base' });
                             })
                             .map(([gpName, record]) => {
-                            const gpInfo = tracks[normalizeStr(gpName)] || { flag: null, circuit: null, circuitName: null };
+                            // Tentar buscar no tracks com diferentes normalizações
+                            const normalizedKey = normalizeStr(gpName);
+                            let gpInfo = tracks[normalizedKey];
+                            
+                            // Se não encontrou, tentar buscar com o nome original em uppercase
+                            if (!gpInfo) {
+                                const upperKey = (gpName || '').trim().toUpperCase();
+                                gpInfo = tracks[upperKey];
+                            }
+                            
+                            // Se ainda não encontrou, criar objeto vazio
+                            if (!gpInfo) {
+                                gpInfo = { flag: null, circuit: null, circuitName: null };
+                            }
+                            
+                            // Fallback para circuitos dos EUA (Texas, Miami, Las Vegas, Austin)
+                            // SEMPRE verificar se é circuito dos EUA, independente de ter flag ou não
+                            const gpNameUpper = normalizedKey;
+                            const gpNameOriginal = (gpName || '').toUpperCase();
+                            
+                            // Verificar múltiplas variações possíveis
+                            const isUSACircuit = 
+                                gpNameUpper.includes('TEXAS') || gpNameOriginal.includes('TEXAS') ||
+                                gpNameUpper.includes('MIAMI') || gpNameOriginal.includes('MIAMI') ||
+                                gpNameUpper.includes('VEGAS') || gpNameOriginal.includes('VEGAS') ||
+                                gpNameUpper.includes('LAS VEGAS') || gpNameOriginal.includes('LAS VEGAS') ||
+                                gpNameOriginal.includes('LAS VEGAS') ||
+                                gpNameUpper.includes('AUSTIN') || gpNameOriginal.includes('AUSTIN');
+                            
+                            // Se for circuito dos EUA, usar bandeira dos EUA (sobrescreve qualquer flag existente)
+                            let flagUrl = isUSACircuit ? 'https://flagcdn.com/w40/us.png' : (gpInfo?.flag || null);
+                            
+                            // Se ainda não tem bandeira e não é EUA, tentar usar a do gpInfo
+                            if (!flagUrl && gpInfo?.flag) {
+                                flagUrl = gpInfo.flag;
+                            }
+                            
+                            // Debug detalhado
+                            if (isUSACircuit) {
+                                console.log(`🇺🇸 [HOTLAPS] Circuito EUA detectado:`, {
+                                    gpName,
+                                    normalized: gpNameUpper,
+                                    original: gpNameOriginal,
+                                    flagUrl,
+                                    gpInfoFlag: gpInfo?.flag
+                                });
+                            }
+                            
                             return (
                                 <div key={gpName} style={{background: '#1E293B', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', display:'flex', flexDirection:'column'}}>
                                     {/* HEADER: Nome da pista + circuito */}
@@ -489,11 +536,24 @@ function HallOfFame() {
                                             )}
                                         </div>
                                         {/* Bandeira no lugar da foto do piloto */}
-                                        {gpInfo.flag && (
+                                        {flagUrl ? (
                                             <div style={{width: '45px', height: '45px', borderRadius: '10px', overflow: 'hidden', background: '#0F172A', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0}}>
-                                                <img src={gpInfo.flag} style={{width: '32px', borderRadius: '3px'}} alt="" />
+                                                <img 
+                                                    src={flagUrl} 
+                                                    style={{width: '32px', borderRadius: '3px'}} 
+                                                    alt="" 
+                                                    onError={(e) => {
+                                                        console.error(`❌ Erro ao carregar bandeira para ${gpName}:`, flagUrl);
+                                                        e.target.style.display = 'none';
+                                                    }}
+                                                    onLoad={() => {
+                                                        if (isUSACircuit) {
+                                                            console.log(`✅ Bandeira EUA carregada com sucesso para: ${gpName}`);
+                                                        }
+                                                    }}
+                                                />
                                             </div>
-                                        )}
+                                        ) : null}
                                     </div>
 
                                     {/* ÁREA CENTRAL: Foto do piloto + Mapa da pista lado a lado */}

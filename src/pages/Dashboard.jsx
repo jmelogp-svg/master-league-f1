@@ -800,8 +800,36 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                 if (!pontosPorTemporada[key]) pontosPorTemporada[key] = {};
                 if (!pontosPorTemporada[key][driverName]) pontosPorTemporada[key][driverName] = 0;
                 
-                let points = parseFloat((row[15] || '0').replace(',', '.'));
-                if (isNaN(points)) points = 0;
+                // Cálculo de pontos (mesma lógica do Standings.jsx)
+                const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+                const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
+                const sprintPos = parseInt(row[7]) || 0;
+                
+                let points = 0;
+                if (season >= 20) {
+                    // Temporada 20+: usar coluna 15 se disponível, senão calcular pela posição
+                    if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
+                        points = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, ''));
+                        if (isNaN(points)) points = 0;
+                    }
+                    // Fallback: calcular pela posição da corrida se não encontrou na coluna 15
+                    if (points === 0 && racePos >= 1 && racePos <= 10) {
+                        points = POINTS_RACE[racePos - 1];
+                    }
+                    // SEMPRE somar pontos da Sprint (não estão na coluna 15)
+                    if (sprintPos >= 1 && sprintPos <= 8) {
+                        points += POINTS_SPRINT[sprintPos - 1];
+                    }
+                } else {
+                    // Temporadas anteriores: calcular pela posição
+                    if (racePos >= 1 && racePos <= 10) {
+                        points = POINTS_RACE[racePos - 1];
+                    }
+                    if (sprintPos >= 1 && sprintPos <= 8) {
+                        points += POINTS_SPRINT[sprintPos - 1];
+                    }
+                }
+                
                 pontosPorTemporada[key][driverName] += points;
                 
                 // Se for o piloto atual, contar suas estatísticas
@@ -1082,7 +1110,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                     resumo += ` em ${statsAdicionais.totalTemporadas.size} temporada${statsAdicionais.totalTemporadas.size > 1 ? 's' : ''}`;
                 }
                 if (statsAdicionais.totalPontos > 0) {
-                    resumo += `, somando ${Math.round(statsAdicionais.totalPontos)} pontos na classificação histórica. `;
+                    const grids = Array.from(statsAdicionais.gridsParticipados || []);
+                    let pontosInfo = '';
+                    
+                    if (grids.length === 2) {
+                        // Participou em ambos os grids
+                        pontosInfo = `, somando ${Math.round(statsAdicionais.totalPontos)} pontos no total histórico (soma de todas as temporadas e ambos os grids: Carreira e Light)`;
+                    } else if (grids.length === 1) {
+                        // Participou em apenas um grid
+                        const gridNome = grids[0] === 'carreira' ? 'Grid Carreira' : 'Grid Light';
+                        pontosInfo = `, somando ${Math.round(statsAdicionais.totalPontos)} pontos no total histórico (soma de todas as temporadas no ${gridNome})`;
+                    } else {
+                        // Fallback (não deveria acontecer, mas por segurança)
+                        pontosInfo = `, somando ${Math.round(statsAdicionais.totalPontos)} pontos no total histórico (soma de todas as temporadas)`;
+                    }
+                    
+                    resumo += pontosInfo + `. `;
                 } else {
                     resumo += `. `;
                 }

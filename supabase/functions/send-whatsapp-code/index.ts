@@ -265,15 +265,13 @@ serve(async (req) => {
       const mensagemPadrao = `✅ *ACESSO LIBERADO - MASTER LEAGUE F1*\n\nOlá ${nome},\n\nSeu acesso ao Painel do Piloto foi *APROVADO*!\n\n📋 *CADASTRE SUA SENHA E ACESSE:*\n\n🔗 Link direto: ${loginUrl}\n\n📝 *Passos:*\n\n1️⃣ Clique no link acima\n\n2️⃣ Digite seu e-mail:\n   ${email}\n\n3️⃣ Valide seu WhatsApp com o código que será enviado\n\n4️⃣ Crie sua senha de acesso\n\n5️⃣ Pronto! Você terá acesso ao seu painel histórico\n\n🏎️ Reveja a sua história na Master League F1`;
       const mensagem = mensagemCustomizada || mensagemPadrao;
 
-      // Tentar enviar via Twilio primeiro, depois Z-API
+      // Usar apenas Twilio (Z-API removido)
       let result = { success: false, error: '' };
       
       if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER) {
         result = await sendViaTwilio(whatsappFormatted, mensagem, nome);
-      }
-      
-      if (!result.success && ZAPI_INSTANCE && ZAPI_TOKEN) {
-        result = await sendViaZAPI(whatsappFormatted, mensagem, nome, true);
+      } else {
+        result = { success: false, error: 'Twilio não configurado' };
       }
 
       if (result.success) {
@@ -359,32 +357,16 @@ serve(async (req) => {
 
     const nome = nomePiloto || piloto?.nome || 'Piloto';
     
-    // Escolher qual API usar
-    let useTwilio = false;
-    if (WHATSAPP_API_TYPE.toLowerCase() === 'twilio') {
-      useTwilio = true;
-      console.log(`📋 Usando Twilio (WHATSAPP_API_TYPE='twilio')`);
-    } else if (WHATSAPP_API_TYPE.toLowerCase() === 'z-api') {
-      useTwilio = false;
-      console.log(`📋 Usando Z-API (WHATSAPP_API_TYPE='z-api')`);
-    } else {
-      // Auto-detectar: se Twilio está configurado, usa Twilio. Senão, usa Z-API
-      if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER) {
-        useTwilio = true;
-        console.log(`📋 Auto-detecção: Usando Twilio (configurado)`);
-      } else if (ZAPI_INSTANCE && ZAPI_TOKEN) {
-        useTwilio = false;
-        console.log(`📋 Auto-detecção: Usando Z-API (configurado)`);
-      } else {
-        // Nenhum configurado - tentar Z-API primeiro
-        useTwilio = false;
-        console.log(`⚠️ Auto-detecção: Nenhum configurado completamente, tentando Z-API`);
-      }
-    }
+    // Usar apenas Twilio (Z-API removido)
+    let result = { success: false, error: '' };
     
-    const result = useTwilio 
-      ? await sendViaTwilio(whatsappFormatted, code, nome)
-      : await sendViaZAPI(whatsappFormatted, code, nome, false);
+    if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER) {
+      console.log(`📋 Usando Twilio`);
+      result = await sendViaTwilio(whatsappFormatted, code, nome);
+    } else {
+      console.log(`❌ Twilio não configurado`);
+      result = { success: false, error: 'Twilio não configurado' };
+    }
 
     if (!result.success) {
       return new Response(

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { usePilotosData, useCalendarioT20, canSubmitAcusacao, calcLightDate } from '../hooks/useAnalises';
-import { notifyAdminNewAccusation, notifyAccusedDefenseRequest } from '../utils/emailService';
+import { notifyAdminNewAccusation, notifyAccusedDefenseRequest, notifyAccusatorAnalysisOpened } from '../utils/emailService';
 import { getVideoEmbedUrl } from '../utils/videoEmbed';
 import CustomAlert from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
@@ -332,6 +332,18 @@ function FormularioAcusacao() {
             notifyAdminNewAccusation(dadosAcusacao)
                 .then(result => console.log('📨 Notificação ao admin:', result))
                 .catch(err => console.warn('⚠️ Erro notificação admin:', err));
+
+            // 🔔 Notificar PILOTO ACUSADOR que a análise foi aberta
+            notifyAccusatorAnalysisOpened({
+                dadosAcusacao,
+                acusador: {
+                    nome: pilotoLogado.nome,
+                    email: pilotoLogado.email,
+                    whatsapp: pilotoLogado.whatsapp,
+                },
+            })
+                .then(result => console.log('📨 Notificação ao acusador (análise aberta):', result))
+                .catch(err => console.warn('⚠️ Erro notificação acusador:', err));
 
             // 🔔 Notificar PILOTO ACUSADO para enviar DEFESA (apenas acusação normal)
             if (dadosAcusacao.status === 'aguardando_defesa') {

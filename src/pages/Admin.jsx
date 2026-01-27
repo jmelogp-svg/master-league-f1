@@ -1051,20 +1051,11 @@ function Admin() {
             ));
             
             try {
-                const result = await notifyJuradosAguardandoAnalise({
-                    notifId,
-                    dadosNotificacao: dadosAtualizados,
-                    messageData: dadosAtualizados,
-                });
-
-                if (result?.queued) {
-                    alert(`⏳ Lance ${dados.codigoLance} enviado para fila. Será notificado no próximo horário comercial.`);
-                } else {
-                    alert(`✅ Lance ${dados.codigoLance} enviado para o Júri!`);
-                }
+                // Notificações para jurados foram removidas - apenas ADM recebe notificações
+                alert(`✅ Lance ${dados.codigoLance} enviado para o Júri!`);
             } catch (err) {
-                console.error('⚠️ Erro ao enviar notificações para jurados:', err);
-                alert(`⚠️ Lance ${dados.codigoLance} enviado para o Júri, mas houve erro na notificação.`);
+                console.error('⚠️ Erro ao enviar para júri:', err);
+                alert(`⚠️ Lance ${dados.codigoLance} enviado para o Júri, mas houve erro.`);
             }
             
         } catch (err) {
