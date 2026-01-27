@@ -53,23 +53,33 @@ async function gerarCodigoLance(grid, temporada) {
 
 function FormularioAcusacao() {
     const navigate = useNavigate();
-    const { showAlert, alertState } = useCustomAlert();
+    const { showAlert, showConfirm, alertState } = useCustomAlert();
     const { pilotos: pilotosInscritos, loading: loadingPilotos } = usePilotosData();
     const { etapas: etapasRaw, loading: loadingCalendario } = useCalendarioT20();
     
     const [pilotoLogado, setPilotoLogado] = useState(null);
+    const [selectedGrid, setSelectedGrid] = useState(null);
+    const [defaultGrid, setDefaultGrid] = useState(null);
     const [loadingPage, setLoadingPage] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
 
     // Remover etapas duplicadas baseado no round e ajustar datas para o Grid Light
+    const effectiveGrid = selectedGrid || pilotoLogado?.grid || 'carreira';
+
+    const normalizeName = (name) => (name || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
     const etapasCalendario = (etapasRaw || [])
         .filter((etapa, index, self) =>
             index === self.findIndex(e => e.round === etapa.round)
         )
         .map(etapa => {
             // Se o piloto for do Grid Light, ajustar a data (quinta -> segunda)
-            if (pilotoLogado?.grid === 'light') {
+            if (effectiveGrid === 'light') {
                 return {
                     ...etapa,
                     date: calcLightDate(etapa.date)
@@ -77,6 +87,15 @@ function FormularioAcusacao() {
             }
             return etapa;
         });
+    
+    // Debug: verificar se etapas estão sendo carregadas
+    useEffect(() => {
+        console.log('📅 Etapas carregadas:', {
+            etapasRaw: etapasRaw?.length || 0,
+            etapasCalendario: etapasCalendario.length,
+            etapas: etapasCalendario.map(e => ({ round: e.round, circuit: e.circuit }))
+        });
+    }, [etapasRaw, etapasCalendario]);
     
     // Estados do formulário
     const [pilotosGrid, setPilotosGrid] = useState([]);
@@ -115,6 +134,8 @@ function FormularioAcusacao() {
 
                 if (pilotoEncontrado) {
                     setPilotoLogado(pilotoEncontrado);
+                    setDefaultGrid(pilotoEncontrado.grid || 'carreira');
+                    setSelectedGrid(prev => prev || pilotoEncontrado.grid || 'carreira');
                 } else {
                     // Fallback 1: buscar da tabela 'pilotos' do Supabase
                     const { data: pilotoData } = await supabase
@@ -136,6 +157,8 @@ function FormularioAcusacao() {
                             grid: pilotoData.grid || 'carreira',
                             fotoNome: fotoNome
                         });
+                        setDefaultGrid(pilotoData.grid || 'carreira');
+                        setSelectedGrid(prev => prev || pilotoData.grid || 'carreira');
                     } else {
                         // Fallback 2: buscar do perfil Supabase (tabela 'profiles')
                         const { data: profileData } = await supabase
@@ -155,6 +178,8 @@ function FormularioAcusacao() {
                                     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                                     .replace(/\s+/g, '')
                             });
+                            setDefaultGrid(profileData.grid || 'carreira');
+                            setSelectedGrid(prev => prev || profileData.grid || 'carreira');
                         }
                     }
                 }
@@ -170,14 +195,47 @@ function FormularioAcusacao() {
 
     // Carregar pilotos do mesmo grid (exceto o próprio)
     useEffect(() => {
-        if (!pilotoLogado || loadingPilotos) return;
+        if (!pilotoLogado || loadingPilotos || pilotosInscritos.length === 0) return;
+        
+        // Usar effectiveGrid se selectedGrid não estiver definido
+        const gridParaFiltrar = selectedGrid || pilotoLogado?.grid || 'carreira';
+        
+        if (!gridParaFiltrar) {
+            console.warn('⚠️ Grid não definido para filtrar pilotos');
+            return;
+        }
 
         const pilotosDoGrid = pilotosInscritos
-            .filter(p => p.grid === pilotoLogado.grid && p.nome !== pilotoLogado.nome)
+            .filter(p => {
+                const gridPiloto = (p.grid || '').toLowerCase();
+                return gridPiloto === gridParaFiltrar.toLowerCase() && normalizeName(p.nome) !== normalizeName(pilotoLogado.nome);
+            })
             .sort((a, b) => a.nome.localeCompare(b.nome));
 
+        console.log('👥 Pilotos do grid', gridParaFiltrar, ':', pilotosDoGrid.length, pilotosDoGrid.map(p => p.nome));
         setPilotosGrid(pilotosDoGrid);
-    }, [pilotoLogado, pilotosInscritos, loadingPilotos]);
+    }, [pilotoLogado, pilotosInscritos, loadingPilotos, selectedGrid]);
+
+    const gridsDisponiveis = pilotoLogado ? Array.from(new Set(
+        pilotosInscritos
+            .filter(p => normalizeName(p.nome) === normalizeName(pilotoLogado.nome))
+            .map(p => p.grid || pilotoLogado.grid)
+    )) : [];
+
+    const handleGridChange = async (e) => {
+        const novoGrid = e.target.value;
+        if (novoGrid === selectedGrid) return;
+        if (defaultGrid && novoGrid !== defaultGrid) {
+            const confirmado = await showConfirm(
+                'Você está selecionando um grid no qual não é titular. Deseja continuar?',
+                'Confirmar mudança de grid'
+            );
+            if (!confirmado) return;
+        }
+        setSelectedGrid(novoGrid);
+        setFormData(prev => ({ ...prev, pilotoAcusado: '' }));
+        setPilotoAcusadoSelecionado(null);
+    };
 
     // Quando o tipo de solicitação muda, setar automaticamente o responsável
     useEffect(() => {
@@ -222,8 +280,8 @@ function FormularioAcusacao() {
         }
 
         // Validar deadline
-        if (pilotoLogado && !canSubmitAcusacao(pilotoLogado.grid)) {
-            const mensagem = pilotoLogado.grid === 'light' 
+        if (pilotoLogado && !canSubmitAcusacao(effectiveGrid)) {
+            const mensagem = effectiveGrid === 'light' 
                 ? '❌ Prazo para envio de acusação encerrado!\n\nGrid Light: Acusações podem ser enviadas de Segunda 20:15h até Terça 20:00h BRT.'
                 : '❌ Prazo para envio de acusação encerrado!\n\nGrid Carreira: Acusações podem ser enviadas até Sexta 20:00h BRT.';
             await showAlert(mensagem, 'Prazo Encerrado');
@@ -234,7 +292,7 @@ function FormularioAcusacao() {
 
         try {
             // Gerar código único do lance
-            const codigo = await gerarCodigoLance(pilotoLogado.grid, TEMPORADA_ATUAL);
+            const codigo = await gerarCodigoLance(effectiveGrid, TEMPORADA_ATUAL);
             setCodigoLance(codigo);
             console.log('📋 Código do lance gerado:', codigo);
 
@@ -245,12 +303,13 @@ function FormularioAcusacao() {
             // 🔔 ENVIAR NOTIFICAÇÃO AUTOMÁTICA AO ADMIN (não requer ação do piloto)
             const dadosAcusacao = {
                 codigoLance: codigo,
+                grid: effectiveGrid, // Grid no nível raiz para facilitar filtros
                 acusador: {
                     nome: pilotoLogado.nome,
                     gamertag: pilotoLogado.gamertag,
                     whatsapp: pilotoLogado.whatsapp,
                     email: pilotoLogado.email,
-                    grid: pilotoLogado.grid,
+                    grid: effectiveGrid,
                 },
                 acusado: {
                     nome: pilotoAcusadoSelecionado?.nome || formData.pilotoAcusado,
@@ -367,7 +426,8 @@ Aguarde análise dos Stewards.`
         }
     };
 
-    if (loadingPage || loadingCalendario || loadingPilotos) {
+    // Só mostrar loading se ainda estiver carregando dados essenciais
+    if (loadingPage || (loadingPilotos && pilotosInscritos.length === 0)) {
         return (
             <div style={{ 
                 minHeight: '100vh', 
@@ -502,6 +562,26 @@ Aguarde análise dos Stewards.`
 
                     {/* Corpo do Documento */}
                     <div style={{ padding: '35px 40px' }}>
+                        
+                        {/* Aviso se dados não estiverem carregados */}
+                        {(etapasCalendario.length === 0 || pilotosGrid.length === 0) && !loadingCalendario && !loadingPilotos && (
+                            <div style={{
+                                background: '#FEF3C7',
+                                border: '1px solid #F59E0B',
+                                borderRadius: '8px',
+                                padding: '15px',
+                                marginBottom: '20px',
+                                color: '#92400E'
+                            }}>
+                                <strong>⚠️ Atenção:</strong> {
+                                    etapasCalendario.length === 0 && pilotosGrid.length === 0 
+                                        ? 'Etapas e pilotos não foram carregados. Por favor, recarregue a página.'
+                                        : etapasCalendario.length === 0 
+                                            ? 'Etapas não foram carregadas. Por favor, recarregue a página.'
+                                            : 'Pilotos não foram carregados. Por favor, recarregue a página.'
+                                }
+                            </div>
+                        )}
                         
                         {/* SEÇÃO: TIPO DE SOLICITAÇÃO */}
                         <div style={{ marginBottom: '35px' }}>
@@ -708,6 +788,49 @@ Aguarde análise dos Stewards.`
                                 📝 Dados da Acusação
                             </h2>
 
+                            {gridsDisponiveis.length > 1 && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={{ 
+                                        display: 'block', 
+                                        fontSize: '0.75rem', 
+                                        fontWeight: '700', 
+                                        color: '#374151', 
+                                        marginBottom: '8px', 
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px'
+                                    }}>Grid selecionado</label>
+                                    <select
+                                        value={selectedGrid}
+                                        onChange={handleGridChange}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px 14px',
+                                            background: '#374151',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            color: 'white',
+                                            fontFamily: "'Montserrat', sans-serif",
+                                            fontSize: '0.95rem',
+                                            cursor: 'pointer',
+                                            outline: 'none'
+                                        }}
+                                    >
+                                        {gridsDisponiveis.map(grid => (
+                                            <option key={grid} value={grid} style={{ background: '#374151' }}>
+                                                {grid.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p style={{
+                                        marginTop: '8px',
+                                        fontSize: '0.75rem',
+                                        color: '#6B7280'
+                                    }}>
+                                        Padrão: {defaultGrid ? defaultGrid.toUpperCase() : '-'} (grid titular)
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Etapa */}
                             <div style={{ marginBottom: '20px' }}>
                                 <label style={{ 
@@ -739,11 +862,17 @@ Aguarde análise dos Stewards.`
                                     }}
                                 >
                                     <option value="">Selecione a etapa...</option>
-                                    {etapasCalendario.map(e => (
-                                        <option key={e.round} value={e.round} style={{ background: '#374151' }}>
-                                            Etapa {e.round.toString().padStart(2, '0')} - {e.circuit} ({e.date})
+                                    {etapasCalendario.length === 0 ? (
+                                        <option value="" disabled style={{ background: '#374151', color: '#9CA3AF' }}>
+                                            {loadingCalendario ? 'Carregando etapas...' : 'Nenhuma etapa disponível'}
                                         </option>
-                                    ))}
+                                    ) : (
+                                        etapasCalendario.map(e => (
+                                            <option key={e.round} value={e.round} style={{ background: '#374151' }}>
+                                                Etapa {e.round.toString().padStart(2, '0')} - {e.circuit} ({e.date})
+                                            </option>
+                                        ))
+                                    )}
                                 </select>
                             </div>
 
@@ -780,11 +909,17 @@ Aguarde análise dos Stewards.`
                                     }}
                                 >
                                     <option value="">Selecione {formData.tipoSolicitacao === 'retirada_bug' ? 'o destinatário' : 'o piloto acusado'}...</option>
-                                    {pilotosGrid.map(p => (
-                                        <option key={p.nome} value={p.nome} style={{ background: '#374151' }}>
-                                            {p.nome}
+                                    {pilotosGrid.length === 0 ? (
+                                        <option value="" disabled style={{ background: '#374151', color: '#9CA3AF' }}>
+                                            {loadingPilotos || !selectedGrid ? 'Carregando pilotos...' : 'Nenhum piloto disponível neste grid'}
                                         </option>
-                                    ))}
+                                    ) : (
+                                        pilotosGrid.map(p => (
+                                            <option key={p.nome} value={p.nome} style={{ background: '#374151' }}>
+                                                {p.nome}
+                                            </option>
+                                        ))
+                                    )}
                                 </select>
                             </div>
 

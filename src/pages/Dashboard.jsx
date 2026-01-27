@@ -32,7 +32,7 @@ const getCountryAbbreviation = (gpName) => {
     if (name.includes('AUSTRÁLIA') || name.includes('AUSTRALIA')) return 'AUS';
     if (name.includes('CHINA')) return 'CHN';
     if (name.includes('JAPÃO') || name.includes('JAPAO') || name.includes('JAPAN')) return 'JAP';
-    if (name.includes('MIAMI') || name.includes('AUSTIN') || name.includes('LAS VEGAS') || name.includes('VEGAS')) return 'EUA';
+    if (name.includes('MIAMI') || name.includes('AUSTIN') || name.includes('TEXAS') || name.includes('LAS VEGAS') || name.includes('VEGAS')) return 'EUA';
     if (name.includes('EMÍLIA') || name.includes('EMILIA') || name.includes('IMOLA')) return 'EMI';
     if (name.includes('MÔNACO') || name.includes('MONACO')) return 'MON';
     if (name.includes('CANADÁ') || name.includes('CANADA')) return 'CAN';
@@ -974,6 +974,20 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         const gridEntradaNorm = normalizeGridName(gridEntrada);
         const dateMapEntrada = gridEntradaNorm === 'light' ? datesLightMap : datesCarreiraMap;
 
+        const getCurrentRound = (seasonNum, dateMap) => {
+            if (!dateMap) return 0;
+            let current = 0;
+            Object.keys(dateMap).forEach((key) => {
+                const [s, r] = key.split('-').map(n => parseInt(n));
+                if (s !== seasonNum || isNaN(r)) return;
+                const dateStr = dateMap[key];
+                if (dateStr && !isFutureDay(dateStr)) {
+                    current = Math.max(current, r);
+                }
+            });
+            return current;
+        };
+
         const ajustarEtapaParaNaoFutura = (seasonStr, roundStr, dateMap) => {
             const s = parseInt(seasonStr);
             const r = parseInt(roundStr);
@@ -1087,6 +1101,9 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             const participouS19 = statsAdicionais?.totalTemporadas.has(19);
             const participouS20 = statsAdicionais?.totalTemporadas.has(20);
             const temContratoS20 = !!contratoFechado?.id;
+            const gridCalendario = normalizeGridName(gridAtual) || normalizeGridName(contratoFechado?.grid) || 'carreira';
+            const dateMapAtual = gridCalendario === 'light' ? datesLightMap : datesCarreiraMap;
+            const roundAtual = getCurrentRound(temporadaAtualNum, dateMapAtual);
 
             if (participouS19 && !participouS20) {
                 resumo += `Na última temporada (Temporada 19), mostrou sua competitividade nas pistas. `;
@@ -1098,6 +1115,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                 const vitoriasS20 = statsS20.vitorias || 0;
                 const podiosS20 = statsS20.podios || 0;
                 const pontosS20 = statsS20.pontos || 0;
+                const corridasS20 = statsS20.corridas || 0;
                 
                 if (vitoriasS20 > 0 || podiosS20 > 0 || pontosS20 > 0) {
                     resumo += `Na Temporada 20, ${nomeCapitalizado} `;
@@ -1123,13 +1141,27 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                     }
                 } else if (temContratoS20) {
                     const novaEquipe = contratoFechado?.equipes?.name || 'sua nova equipe';
-                    resumo += `Para a Temporada 20, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
+                    if (roundAtual > 0 || corridasS20 > 0) {
+                        resumo += `Na Temporada 20, ${nomeCapitalizado} já defende as cores da ${novaEquipe}, em busca de resultados ainda mais expressivos.`;
+                        if (roundAtual >= 2) {
+                            resumo += ` Com ${roundAtual} etapas já disputadas, a expectativa segue alta.`;
+                        }
+                    } else {
+                        resumo += `Para a Temporada 20, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
+                    }
                 } else {
                     resumo += `Atualmente, está focado nos desafios da Temporada 20.`;
                 }
             } else if (temContratoS20) {
                 const novaEquipe = contratoFechado?.equipes?.name || 'sua nova equipe';
-                resumo += `Para a Temporada 20, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
+                if (roundAtual > 0) {
+                    resumo += `Na Temporada 20, ${nomeCapitalizado} já defende as cores da ${novaEquipe}, em busca de resultados ainda mais expressivos.`;
+                    if (roundAtual >= 2) {
+                        resumo += ` Com ${roundAtual} etapas já disputadas, a expectativa segue alta.`;
+                    }
+                } else {
+                    resumo += `Para a Temporada 20, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
+                }
             } else if (isTemporada20) {
                 resumo += `Atualmente, está focado nos desafios da Temporada 20.`;
             } else {

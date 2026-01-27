@@ -6,6 +6,7 @@ import CustomAlert from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 import { isMobileDevice } from '../utils/deviceDetection';
 import { atualizarLancesComDefesaExpirada } from '../hooks/useAnalises';
+import { flushPendingJuradoNotifications } from '../utils/emailService';
 import '../index.css';
 
 function PainelVeredito() {
@@ -21,6 +22,15 @@ function PainelVeredito() {
         const handleResize = () => setIsMobile(isMobileDevice());
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        flushPendingJuradoNotifications();
+        const intervalId = setInterval(() => {
+            flushPendingJuradoNotifications();
+        }, 10 * 60 * 1000);
+
+        return () => clearInterval(intervalId);
     }, []);
     
     // Estado dos votos em edição (preserva durante re-renders)

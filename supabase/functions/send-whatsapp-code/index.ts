@@ -161,7 +161,10 @@ async function sendViaTwilio(phone: string, codeOrMessage: string, nomePiloto: s
   // Twilio precisa do formato whatsapp:+5511999999999
   const twilioTo = `whatsapp:+${phoneFormatted}`;
   // Se code for uma mensagem completa (notificação), usar diretamente. Senão, formatar como código.
-  const message = code.length > 10 ? code : `🔐 CÓDIGO DE VERIFICAÇÃO - MASTER LEAGUE F1\n\nOlá ${nomePiloto || 'Piloto'}!\n\nSeu código de verificação é:\n\n${code}\n\nEste código expira em 10 minutos.`;
+  const message = (codeOrMessage.length > 10
+    ? codeOrMessage
+    : `🔐 CÓDIGO DE VERIFICAÇÃO - MASTER LEAGUE F1\n\nOlá ${nomePiloto || 'Piloto'}!\n\nSeu código de verificação é:\n\n${codeOrMessage}\n\nEste código expira em 10 minutos.`)
+    .normalize('NFC');
 
   try {
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
@@ -186,7 +189,7 @@ async function sendViaTwilio(phone: string, codeOrMessage: string, nomePiloto: s
       method: 'POST',
       headers: {
         'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
       },
       body: formData.toString(),
     });

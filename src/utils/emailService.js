@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { sendWhatsappNotification } from './whatsappNotify';
+import { isBusinessHours, getBusinessHoursMessage } from './businessHours';
 
 // Configurações do Admin
 export const ADMIN_CONFIG = {
@@ -19,11 +20,197 @@ const WHATSAPP_RECIPIENTS = [
     { phone: '5511940133084', apikey: '3666307', nome: 'Edvan Paiva' },
 ];
 
+const formatEtapaLabel = (etapa) => {
+    if (!etapa) return 'N/A';
+    if (etapa.circuit) {
+        return `${etapa.round ?? ''} - ${etapa.circuit}`.trim().replace(/^- /, '');
+    }
+    return etapa.round || etapa.circuit || 'N/A';
+};
+
+const buildJuradoMessage = (dados) => {
+    const codigoLance = dados?.codigoLance || dados?.codigo || 'N/A';
+    const acusador = dados?.acusador?.nome || dados?.acusador?.gamertag || 'N/A';
+    const acusado =
+        dados?.defesa?.defensor?.nome ||
+        dados?.acusado?.nome ||
+        dados?.acusado?.gamertag ||
+        'N/A';
+    const etapa = formatEtapaLabel(dados?.etapa);
+    const grid =
+        (dados?.grid || dados?.acusador?.grid || dados?.acusado?.grid || '')
+            .toString()
+            .toUpperCase() || 'N/A';
+
+    return `👨‍⚖️ *NOVO LANCE PARA ANÁLISE - MASTER LEAGUE F1*\n\n` +
+        `🔖 *Código:* ${codigoLance}\n` +
+        `🏁 *Etapa:* ${etapa}\n` +
+        `🏎️ *Grid:* ${grid}\n` +
+        `👤 *Acusador:* ${acusador}\n` +
+        `🎯 *Acusado:* ${acusado}\n\n` +
+        `📋 *Acesse o Painel do Júri para analisar:*\n` +
+        `🔗 ${SITE_URL}/veredito\n\n` +
+        `⏰ ${new Date().toLocaleString('pt-BR')}`;
+};
+
+const updateNotificacaoDados = async (notifId, dadosAtualizados) => {
+    if (!notifId || !dadosAtualizados) return;
+    await supabase
+        .from('notificacoes_admin')
+        .update({ dados: dadosAtualizados })
+        .eq('id', notifId);
+};
+
+const markJuradoNotificationPending = async (notifId, dados, motivo = 'fora_horario') => {
+    if (!notifId || !dados) return;
+    const dadosAtualizados = {
+        ...dados,
+        juradosNotificacaoPendente: true,
+        juradosNotificacaoPendenteDesde: new Date().toISOString(),
+        juradosNotificacaoPendenteMotivo: motivo,
+        juradosNotificacaoEmProcesso: false,
+        juradosNotificacaoProcessoEm: null,
+    };
+    await updateNotificacaoDados(notifId, dadosAtualizados);
+};
+
+const markJuradoNotificationSent = async (notifId, dados, success) => {
+    if (!notifId || !dados || !success) return;
+    const dadosAtualizados = {
+        ...dados,
+        juradosNotificacaoPendente: false,
+        juradosNotificacaoEnviadaEm: new Date().toISOString(),
+        juradosNotificacaoEmProcesso: false,
+        juradosNotificacaoProcessoEm: null,
+    };
+    await updateNotificacaoDados(notifId, dadosAtualizados);
+};
+
+async function fetchJuradosAtivos() {
+    const { data: juradosAtivos, error: errorJurados } = await supabase
+        .from('jurados')
+        .select('nome, whatsapp, email_google')
+        .eq('ativo', true)
+        .not('whatsapp', 'is', null);
+
+    if (errorJurados || !juradosAtivos || juradosAtivos.length === 0) {
+        return [];
+    }
+    return juradosAtivos;
+}
+
+export async function notifyJuradosAguardandoAnalise({ notifId, dadosNotificacao, messageData }) {
+    if (!isBusinessHours()) {
+        if (notifId && dadosNotificacao) {
+            await markJuradoNotificationPending(notifId, dadosNotificacao, 'fora_horario');
+        }
+        return { queued: true, reason: getBusinessHoursMessage() };
+    }
+
+    const mensagemJurados = buildJuradoMessage(messageData || dadosNotificacao);
+    const juradosAtivos = await fetchJuradosAtivos();
+
+    if (juradosAtivos.length === 0) {
+        return { success: false, error: 'Nenhum jurado ativo encontrado' };
+    }
+
+    let sucessosJurados = 0;
+    for (const jurado of juradosAtivos) {
+        if (jurado.whatsapp) {
+            try {
+                const result = await sendWhatsappNotification({
+                    phone: jurado.whatsapp,
+                    email: jurado.email_google || `${jurado.whatsapp}@masterleaguef1.com`,
+                    nome: jurado.nome || 'Jurado',
+                    message: mensagemJurados,
+                });
+
+                if (result.success) {
+                    sucessosJurados++;
+                } else {
+                    console.warn(`⚠️ Erro ao enviar para jurado ${jurado.nome}:`, result.error);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (err) {
+                console.error(`❌ Erro ao enviar notificação para jurado ${jurado.nome}:`, err);
+            }
+        }
+    }
+
+    if (notifId && dadosNotificacao) {
+        if (sucessosJurados > 0) {
+            await markJuradoNotificationSent(notifId, dadosNotificacao, true);
+        } else {
+            await markJuradoNotificationPending(notifId, dadosNotificacao, 'falha_envio');
+        }
+    }
+
+    return { success: sucessosJurados > 0, sent: sucessosJurados, total: juradosAtivos.length };
+}
+
+export async function flushPendingJuradoNotifications() {
+    if (!isBusinessHours()) {
+        return { skipped: true, reason: getBusinessHoursMessage() };
+    }
+
+    const { data: pendentes, error } = await supabase
+        .from('notificacoes_admin')
+        .select('id, dados')
+        .filter('dados->>status', 'eq', 'aguardando_analise')
+        .filter('dados->>juradosNotificacaoPendente', 'eq', 'true');
+
+    if (error || !pendentes || pendentes.length === 0) {
+        return { success: true, processed: 0 };
+    }
+
+    let enviados = 0;
+    for (const pendente of pendentes) {
+        const dados = pendente.dados || {};
+        if (dados.juradosNotificacaoEmProcesso) {
+            continue;
+        }
+
+        const dadosEmProcesso = {
+            ...dados,
+            juradosNotificacaoEmProcesso: true,
+            juradosNotificacaoProcessoEm: new Date().toISOString(),
+        };
+
+        await updateNotificacaoDados(pendente.id, dadosEmProcesso);
+        const result = await notifyJuradosAguardandoAnalise({
+            notifId: pendente.id,
+            dadosNotificacao: dadosEmProcesso,
+            messageData: dadosEmProcesso,
+        });
+
+        if (result?.success) {
+            enviados++;
+        } else {
+            const dadosRevertidos = {
+                ...dadosEmProcesso,
+                juradosNotificacaoPendente: true,
+                juradosNotificacaoEmProcesso: false,
+                juradosNotificacaoProcessoEm: null,
+            };
+            await updateNotificacaoDados(pendente.id, dadosRevertidos);
+        }
+    }
+
+    return { success: true, processed: pendentes.length, sent: enviados };
+}
+
 /**
  * Envia mensagem via WhatsApp usando CallMeBot API (gratuito)
  * Envia para todos os destinatários configurados
  */
 async function sendWhatsAppMessage(message) {
+    // Bloqueia envio fora do horário comercial
+    if (!isBusinessHours()) {
+        console.log(`🔇 ${getBusinessHoursMessage()} - CallMeBot ignorado.`);
+        return false;
+    }
+
     if (!WHATSAPP_RECIPIENTS || WHATSAPP_RECIPIENTS.length === 0) {
         console.warn('⚠️ WhatsApp CallMeBot não configurado');
         return false;
@@ -153,7 +340,7 @@ ${dadosAcusacao.descricao}
 ⏰ ${new Date().toLocaleString('pt-BR')}`;
 
     // 1. Tentar enviar via CallMeBot (se configurado)
-    if (CALLMEBOT_APIKEY) {
+    if (CALLMEBOT_APIKEY && isBusinessHours()) {
         try {
             const url = `https://api.callmebot.com/whatsapp.php?phone=${ADMIN_CONFIG.whatsapp}&text=${encodeURIComponent(mensagemTexto)}&apikey=${CALLMEBOT_APIKEY}`;
             const response = await fetch(url);
@@ -164,6 +351,8 @@ ${dadosAcusacao.descricao}
         } catch (err) {
             console.warn('⚠️ Falha ao enviar WhatsApp via CallMeBot:', err);
         }
+    } else if (CALLMEBOT_APIKEY && !isBusinessHours()) {
+        console.log(`🔇 ${getBusinessHoursMessage()} - CallMeBot Admin ignorado.`);
     }
 
     // 2. Registrar no banco de dados
@@ -371,6 +560,12 @@ export async function notifyAccusedDefenseRequest({ dadosAcusacao, acusado }) {
  * Necessário ter a Edge Function 'send-email' configurada
  */
 export async function sendEmailNotification(to, subject, htmlContent, templateType) {
+    // Bloqueia envio fora do horário comercial
+    if (!isBusinessHours()) {
+        console.log(`🔇 ${getBusinessHoursMessage()} - Email para ${to} ignorado.`);
+        return { success: false, error: getBusinessHoursMessage(), silenced: true };
+    }
+
     try {
         // Log no banco de dados antes de tentar enviar
         const { data: logData, error: logError } = await supabase
@@ -668,70 +863,39 @@ ${dadosDefesa.videoLinkDefesa ? `🎥 Vídeo: ${dadosDefesa.videoLinkDefesa}` : 
         console.error('❌ Falha ao enviar notificações:', err);
     }
 
-    // 3. Notificar todos os jurados cadastrados quando status mudar para aguardando_analise
+    // 3. Notificar jurados quando status mudar para aguardando_analise (com fila fora do horário)
     try {
-        console.log('👨‍⚖️ Buscando jurados ativos para notificação...');
-        const { data: juradosAtivos, error: errorJurados } = await supabase
-            .from('jurados')
-            .select('nome, whatsapp, email_google')
-            .eq('ativo', true)
-            .not('whatsapp', 'is', null);
-        
-        if (!errorJurados && juradosAtivos && juradosAtivos.length > 0) {
-            const codigoLance = dadosDefesa.codigoLance || 'N/A';
-            const acusador = dadosDefesa.acusacaoOriginal?.acusador?.nome || dadosDefesa.acusacaoOriginal?.acusador?.gamertag || 'N/A';
-            const acusado = dadosDefesa.defensor?.nome || dadosDefesa.defensor?.gamertag || 'N/A';
-            const etapa = dadosDefesa.acusacaoOriginal?.etapa?.circuit 
-                ? `${dadosDefesa.acusacaoOriginal.etapa.round} - ${dadosDefesa.acusacaoOriginal.etapa.circuit}`
-                : (dadosDefesa.acusacaoOriginal?.etapa?.round || 'N/A');
-            const grid = dadosDefesa.defensor?.grid?.toUpperCase() || 'N/A';
-            
-            const mensagemJurados = `👨‍⚖️ *NOVO LANCE PARA ANÁLISE - MASTER LEAGUE F1*\n\n` +
-                `🔖 *Código:* ${codigoLance}\n` +
-                `🏁 *Etapa:* ${etapa}\n` +
-                `🏎️ *Grid:* ${grid}\n` +
-                `👤 *Acusador:* ${acusador}\n` +
-                `🎯 *Acusado:* ${acusado}\n\n` +
-                `📋 *Acesse o Painel do Júri para analisar:*\n` +
-                `🔗 ${SITE_URL}/painel-veredito\n\n` +
-                `⏰ ${new Date().toLocaleString('pt-BR')}`;
-            
-            // Enviar notificação para cada jurado ativo
-            let sucessosJurados = 0;
-            for (const jurado of juradosAtivos) {
-                if (jurado.whatsapp) {
-                    try {
-                        const result = await sendWhatsappNotification({
-                            phone: jurado.whatsapp,
-                            email: jurado.email_google || `${jurado.whatsapp}@masterleaguef1.com`,
-                            nome: jurado.nome || 'Jurado',
-                            message: mensagemJurados
-                        });
-                        
-                        if (result.success) {
-                            sucessosJurados++;
-                            console.log(`✅ Notificação enviada para jurado ${jurado.nome}`);
-                        } else {
-                            console.warn(`⚠️ Erro ao enviar para jurado ${jurado.nome}:`, result.error);
-                        }
-                        
-                        // Pequeno delay entre envios
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                    } catch (err) {
-                        console.error(`❌ Erro ao enviar notificação para jurado ${jurado.nome}:`, err);
-                    }
-                }
-            }
-            
-            if (sucessosJurados > 0) {
-                console.log(`📬 Notificações enviadas para ${sucessosJurados} jurado(s) sobre lance em aguardando_analise`);
-            }
-        } else {
-            console.warn('⚠️ Nenhum jurado ativo encontrado ou sem WhatsApp configurado');
+        let notifId = null;
+        let dadosNotificacao = null;
+
+        const { data: notifRow } = await supabase
+            .from('notificacoes_admin')
+            .select('id, dados')
+            .eq('tipo', 'nova_acusacao')
+            .filter('dados->>codigoLance', 'eq', dadosDefesa.codigoLance)
+            .maybeSingle();
+
+        if (notifRow?.id) {
+            notifId = notifRow.id;
+            dadosNotificacao = notifRow.dados;
         }
+
+        const messageData = {
+            codigoLance: dadosDefesa.codigoLance,
+            acusador: dadosDefesa.acusacaoOriginal?.acusador,
+            acusado: dadosDefesa.defensor,
+            etapa: dadosDefesa.acusacaoOriginal?.etapa,
+            grid: dadosDefesa.defensor?.grid,
+            defesa: { defensor: dadosDefesa.defensor },
+        };
+
+        await notifyJuradosAguardandoAnalise({
+            notifId,
+            dadosNotificacao,
+            messageData,
+        });
     } catch (err) {
-        console.error('⚠️ Erro ao enviar notificações para jurados:', err);
-        // Não bloquear o fluxo principal se a notificação falhar
+        console.error('⚠️ Erro ao preparar notificações para jurados:', err);
     }
 
     console.log('📊 Resultado das notificações de defesa:', resultados);

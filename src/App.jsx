@@ -9,6 +9,7 @@ import LoginJurado from './pages/LoginJurado';
 import LoginJuradoTeste from './pages/LoginJuradoTeste';
 import Dashboard from './pages/Dashboard';
 import PowerRanking from './pages/PowerRanking';
+import HistoricoPowerRanking from './pages/HistoricoPowerRanking';
 import HallOfFame from './pages/HallOfFame';
 import Regulamento from './pages/Regulamento';
 import Telemetria from './pages/Telemetria';
@@ -30,6 +31,9 @@ import ExPilotoLogin from './pages/ExPilotoLogin';
 import ExPilotoEscolha from './pages/ExPilotoEscolha';
 import ResultadosCorrida from './pages/ResultadosCorrida';
 import Noticias from './pages/Noticias';
+import Cards from './pages/Cards';
+import CardsCarousel from './pages/CardsCarousel';
+import PowerRankingObjetivos from './pages/PowerRankingObjetivos';
 // import Narrador from './pages/Narrador'; // ADIADO - Sistema de narrador
 
 function App() {
@@ -54,6 +58,7 @@ function App() {
                 {/* <Route path="/narrador" element={<Narrador />} /> */} {/* ADIADO - Sistema de narrador */}
                 <Route path="/standings" element={<Standings />} />
                 <Route path="/powerranking" element={<PowerRanking />} />
+                <Route path="/historicopowerranking" element={<HistoricoPowerRanking />} />
                 <Route path="/halloffame" element={<HallOfFame />} />
                 <Route path="/regulamento" element={<Regulamento />} />
                 <Route path="/telemetria" element={<Telemetria />} />
@@ -65,6 +70,9 @@ function App() {
                 <Route path="/minicup" element={<Minicup />} />
                 <Route path="/resultados-corrida" element={<ResultadosCorrida />} />
                 <Route path="/noticias" element={<Noticias />} />
+                <Route path="/cards" element={<Cards />} />
+                <Route path="/cards-carousel" element={<CardsCarousel />} />
+                <Route path="/admin/powerranking-objetivos" element={<PowerRankingObjetivos />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>

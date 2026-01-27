@@ -235,6 +235,11 @@ export const useLeagueData = () => {
                     }
 
                     if (src) {
+                        // Limpeza de URLs inválidas que podem vir da planilha
+                        if (src === 'image.png' || src.includes('undefined') || src === 'null') {
+                            return null;
+                        }
+
                         // PATCH 1: Corrige erro de digitação "Felipe Kingdom"
                         if (src.includes('Felipe Kingdom')) {
                             src = src.replace('united-Felipe Kingdom', 'united-kingdom');
@@ -255,8 +260,15 @@ export const useLeagueData = () => {
                         const gpName = row[0]?.trim();
                         if (gpName) {
                             const name = gpName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+                            let flag = extractImgSrc(row[1]);
+
+                            // PATCH 3: Fallback para circuitos dos EUA (Texas, Miami, Vegas, Austin)
+                            if (!flag && (name.includes('TEXAS') || name.includes('MIAMI') || name.includes('VEGAS') || name.includes('AUSTIN'))) {
+                                flag = 'https://flagcdn.com/w40/us.png';
+                            }
+
                             trackMap[name] = {
-                                flag: extractImgSrc(row[1]),
+                                flag: flag,
                                 circuitName: row[2] || "Autódromo",
                                 circuit: extractImgSrc(row[3])
                             };

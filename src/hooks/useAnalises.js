@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 /**
  * Parser CSV robusto que lida com campos entre aspas
@@ -53,20 +54,63 @@ export function usePilotosData() {
     useEffect(() => {
         const fetchPilotos = async () => {
             try {
+                const normalizeName = (name) => (name || '')
+                    .toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
                 // CADASTRO MLF1 (gid=1844400629)
                 const sheetId = '2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM';
                 const gid = '1844400629';
-                const url = `https://corsproxy.io/?https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?gid=${gid}&single=true&output=csv`;
+                const baseUrl = `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?gid=${gid}&single=true&output=csv`;
+                const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
 
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Erro ao carregar planilha');
+                const carreiraBaseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1379467380&single=true&output=csv';
+                const lightBaseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1962038690&single=true&output=csv';
+                const carreiraUrl = `https://corsproxy.io/?${encodeURIComponent(carreiraBaseUrl)}`;
+                const lightUrl = `https://corsproxy.io/?${encodeURIComponent(lightBaseUrl)}`;
 
-                const csv = await response.text();
-                const lines = csv.split('\n').slice(1); // Skip header
+                const [cadastroRes, carreiraRes, lightRes] = await Promise.all([
+                    fetch(url),
+                    fetch(carreiraUrl),
+                    fetch(lightUrl)
+                ]);
 
-                console.log('📋 Total de linhas:', lines.length);
+                if (!cadastroRes.ok || !carreiraRes.ok || !lightRes.ok) {
+                    const errors = [];
+                    if (!cadastroRes.ok) errors.push(`Cadastro: HTTP ${cadastroRes.status}`);
+                    if (!carreiraRes.ok) errors.push(`Carreira: HTTP ${carreiraRes.status}`);
+                    if (!lightRes.ok) errors.push(`Light: HTTP ${lightRes.status}`);
+                    console.error('❌ Erros ao carregar planilhas:', errors);
+                    throw new Error(`Erro ao carregar planilhas: ${errors.join(', ')}`);
+                }
 
-                const pilotosProcessados = lines
+                const [cadastroCsv, carreiraCsv, lightCsv] = await Promise.all([
+                    cadastroRes.text(),
+                    carreiraRes.text(),
+                    lightRes.text()
+                ]);
+                
+                // Verificar se alguma resposta é HTML (erro do proxy)
+                const csvs = [cadastroCsv, carreiraCsv, lightCsv];
+                const csvNames = ['Cadastro', 'Carreira', 'Light'];
+                for (let i = 0; i < csvs.length; i++) {
+                    if (csvs[i].trim().startsWith('<!DOCTYPE') || csvs[i].trim().startsWith('<html')) {
+                        console.error(`❌ ${csvNames[i]} retornou HTML ao invés de CSV`);
+                        throw new Error(`${csvNames[i]} retornou HTML. A planilha pode não estar acessível.`);
+                    }
+                }
+
+                const cadastroLines = cadastroCsv.split('\n').slice(1); // Skip header
+                const carreiraLines = carreiraCsv.split('\n').slice(1);
+                const lightLines = lightCsv.split('\n').slice(1);
+
+                console.log('📋 Total de linhas (cadastro):', cadastroLines.length);
+                console.log('📋 Total de linhas (carreira):', carreiraLines.length);
+                console.log('📋 Total de linhas (light):', lightLines.length);
+
+                const cadastroProcessado = cadastroLines
                     .filter(line => line.trim())
                     .map((line, idx) => {
                         const values = parseCSVLine(line);
@@ -88,12 +132,14 @@ export function usePilotosData() {
                         const gamertag = (values[1] || '').trim(); // Coluna B
                         const whatsapp = (values[2] || '').trim(); // Coluna C
                         const plataformaRaw = (values[3] || '').trim(); // Coluna D
-                        const gridRaw = (values[4] || '').toLowerCase(); // Coluna E
+                        const gridRaw = (values[4] || '').toString().trim().toLowerCase(); // Coluna E
                         const emailLogin = (values[7] || '').trim(); // Coluna H - E-mail Login
                         const nomePiloto = (values[14] || nomeCadastrado || '').trim(); // Coluna O - Nome Piloto
                         
                         // Determina grid
-                        const grid = gridRaw.includes('light') ? 'light' : 'carreira';
+                        let grid = 'carreira';
+                        if (gridRaw.includes('light')) grid = 'light';
+                        if (gridRaw.includes('carreira')) grid = 'carreira';
                         
                         return {
                             nome: nomePiloto.toUpperCase(), // Nome oficial da coluna O
@@ -111,15 +157,115 @@ export function usePilotosData() {
                     })
                     .filter(p => p.email && p.nome); // Precisa ter email (coluna H) e nome (coluna O)
 
-                console.log('✅ Pilotos processados:', pilotosProcessados.length);
-                if (pilotosProcessados.length > 0) {
-                    console.log('🎮 Primeiro piloto:', pilotosProcessados[0]);
+                const cadastroMap = new Map();
+                cadastroProcessado.forEach((piloto) => {
+                    const key = normalizeName(piloto.nome);
+                    if (!cadastroMap.has(key)) {
+                        cadastroMap.set(key, piloto);
+                        return;
+                    }
+
+                    const existente = cadastroMap.get(key);
+                    if (existente.grid !== 'carreira' && piloto.grid === 'carreira') {
+                        cadastroMap.set(key, piloto);
+                    }
+                });
+
+                const parseGridNames = (lines, gridName) => {
+                    const nomes = [];
+                    lines.filter(line => line.trim()).forEach((line) => {
+                        const values = parseCSVLine(line);
+                        const nome = (values[0] || '').trim(); // Coluna A
+                        if (nome) {
+                            nomes.push({
+                                nome,
+                                grid: gridName
+                            });
+                        }
+                    });
+                    return nomes;
+                };
+
+                const dedupeByGrid = (items) => {
+                    const gridMap = new Map();
+                    items.forEach((item) => {
+                        const key = normalizeName(item.nome);
+                        if (!gridMap.has(key)) {
+                            gridMap.set(key, item);
+                        }
+                    });
+                    return Array.from(gridMap.values());
+                };
+
+                const nomesCarreira = dedupeByGrid(parseGridNames(carreiraLines, 'carreira'));
+                const nomesLight = dedupeByGrid(parseGridNames(lightLines, 'light'));
+
+                const pilotosFinal = [...nomesCarreira, ...nomesLight].map((item) => {
+                    const key = normalizeName(item.nome);
+                    const cadastro = cadastroMap.get(key);
+                    if (cadastro) {
+                        return {
+                            ...cadastro,
+                            nome: item.nome.toUpperCase(),
+                            grid: item.grid
+                        };
+                    }
+
+                    return {
+                        nome: item.nome.toUpperCase(),
+                        nomeCadastrado: item.nome,
+                        gamertag: '',
+                        whatsapp: '',
+                        grid: item.grid,
+                        email: '',
+                        plataforma: '',
+                        fotoNome: item.nome.toLowerCase()
+                            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                            .replace(/\s+/g, '')
+                    };
+                });
+
+                console.log('✅ Pilotos processados:', pilotosFinal.length);
+                if (pilotosFinal.length > 0) {
+                    console.log('🎮 Primeiro piloto:', pilotosFinal[0]);
                 }
 
-                setPilotos(pilotosProcessados);
+                setPilotos(pilotosFinal);
             } catch (err) {
-                console.error('❌ Erro ao carregar pilotos:', err);
-                setError(err.message);
+                console.error('❌ Erro ao carregar pilotos das planilhas:', err);
+                console.log('🔄 Tentando buscar pilotos do Supabase como fallback...');
+                
+                // Fallback: buscar pilotos do Supabase
+                try {
+                    const { data: pilotosSupabase, error: supabaseError } = await supabase
+                        .from('pilotos')
+                        .select('id, nome, email, grid, gamertag, whatsapp');
+                    
+                    if (supabaseError) {
+                        console.error('❌ Erro ao buscar pilotos do Supabase:', supabaseError);
+                        setError(err.message);
+                    } else if (pilotosSupabase && pilotosSupabase.length > 0) {
+                        const pilotosFormatados = pilotosSupabase.map(p => ({
+                            nome: p.nome.toUpperCase(),
+                            nomeCadastrado: p.nome,
+                            gamertag: p.gamertag || '',
+                            whatsapp: p.whatsapp || '',
+                            grid: (p.grid || 'carreira').toLowerCase(),
+                            email: p.email || '',
+                            plataforma: '',
+                            fotoNome: (p.nome || '').toLowerCase()
+                                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                                .replace(/\s+/g, '')
+                        }));
+                        console.log('✅ Pilotos carregados do Supabase (fallback):', pilotosFormatados.length);
+                        setPilotos(pilotosFormatados);
+                    } else {
+                        setError(err.message);
+                    }
+                } catch (fallbackErr) {
+                    console.error('❌ Erro no fallback do Supabase:', fallbackErr);
+                    setError(err.message);
+                }
             } finally {
                 setLoading(false);
             }
@@ -173,49 +319,79 @@ export function useCalendarioT20() {
         const fetchCalendario = async () => {
             try {
                 // CALENDÁRIO ML1 (gid=0)
-                const url = 'https://corsproxy.io/?https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv';
+                const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv';
+                const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
 
                 const response = await fetch(url);
-                if (!response.ok) throw new Error('Erro ao carregar calendário');
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Erro HTTP ao carregar calendário:', response.status, errorText);
+                    throw new Error(`Erro ao carregar calendário: HTTP ${response.status}`);
+                }
 
                 const csv = await response.text();
+                
+                // Verificar se a resposta é HTML (erro do proxy) ao invés de CSV
+                if (csv.trim().startsWith('<!DOCTYPE') || csv.trim().startsWith('<html')) {
+                    console.error('❌ Proxy retornou HTML ao invés de CSV');
+                    throw new Error('Proxy retornou HTML. A planilha pode não estar acessível.');
+                }
+                
                 const lines = csv.split('\n');
                 
                 console.log('📅 Total linhas calendário:', lines.length);
 
-                // Procura por linhas que começam com "Etapa"
+                // Procura por linhas que começam com "Etapa" (case-insensitive, com ou sem espaços)
                 const etapasProcessadas = [];
                 
                 for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    if (line.toLowerCase().startsWith('etapa')) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const lineLower = line.toLowerCase();
+                    // Verifica se a linha contém "etapa" (pode ter espaços antes)
+                    if (lineLower.includes('etapa')) {
                         const values = parseCSVLine(line);
                         
-                        // Debug
-                        console.log(`📅 Linha ${i}:`, values);
+                        // Debug primeira linha encontrada
+                        if (etapasProcessadas.length === 0) {
+                            console.log(`📅 Primeira linha de etapa encontrada (linha ${i}):`, values);
+                        }
                         
-                        // Coluna A = "Etapa N", extrai o número
-                        const etapaMatch = values[0].match(/etapa\s*(\d+)/i);
+                        // Coluna A = "Etapa N", extrai o número (pode ter espaços ou não)
+                        const etapaMatch = (values[0] || '').match(/etapa\s*(\d+)/i);
                         const round = etapaMatch ? parseInt(etapaMatch[1]) : null;
                         
                         // Coluna C = Data (índice 2)
-                        const date = values[2] || '';
+                        const date = (values[2] || '').trim();
                         
                         // Coluna D = Circuito (índice 3)
-                        const circuit = values[3] || '';
+                        const circuit = (values[3] || '').trim();
                         
                         if (round && circuit) {
                             etapasProcessadas.push({ round, date, circuit });
+                        } else if (round) {
+                            console.warn(`⚠️ Etapa ${round} sem circuito na linha ${i}:`, values);
                         }
                     }
                 }
 
                 console.log('✅ Etapas processadas:', etapasProcessadas);
 
+                if (etapasProcessadas.length === 0) {
+                    console.warn('⚠️ Nenhuma etapa encontrada na planilha. Verifique se a planilha está acessível e se as linhas começam com "Etapa".');
+                }
+
                 setEtapas(etapasProcessadas);
             } catch (err) {
                 console.error('❌ Erro ao carregar calendário:', err);
+                console.error('❌ Detalhes do erro:', {
+                    message: err.message,
+                    stack: err.stack
+                });
                 setError(err.message);
+                // Mesmo com erro, definir array vazio para não bloquear a renderização
+                setEtapas([]);
             } finally {
                 setLoading(false);
             }

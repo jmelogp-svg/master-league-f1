@@ -469,7 +469,14 @@ function HallOfFame() {
 
                 {activeTab === 'records' && (
                     <div className="fade-in" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px'}}>
-                        {Object.entries(trackRecords).map(([gpName, record]) => {
+                        {Object.entries(trackRecords)
+                            .sort(([gpNameA], [gpNameB]) => {
+                                // Ordenar alfabeticamente sem considerar acentos
+                                const normalizedA = normalizeStr(gpNameA).toLowerCase();
+                                const normalizedB = normalizeStr(gpNameB).toLowerCase();
+                                return normalizedA.localeCompare(normalizedB, 'pt-BR', { sensitivity: 'base' });
+                            })
+                            .map(([gpName, record]) => {
                             const gpInfo = tracks[normalizeStr(gpName)] || { flag: null, circuit: null, circuitName: null };
                             return (
                                 <div key={gpName} style={{background: '#1E293B', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', display:'flex', flexDirection:'column'}}>

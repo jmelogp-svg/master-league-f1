@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient';
 import VideoEmbed from '../components/VideoEmbed';
 import { clearLeagueDataCache } from '../hooks/useLeagueData';
 import { isMobileDevice } from '../utils/deviceDetection';
-import { sendWhatsappNotification } from '../utils/whatsappNotify';
+import { notifyJuradosAguardandoAnalise, flushPendingJuradoNotifications } from '../utils/emailService';
 import { atualizarLancesComDefesaExpirada } from '../hooks/useAnalises';
 import AdminPowerRanking from './AdminPowerRanking';
 import '../index.css';
@@ -43,6 +43,8 @@ function Admin() {
     const [filtroStatus, setFiltroStatus] = useState('todos'); // 'todos', 'aguardando_defesa', 'aguardando_analise', 'analise_realizada'
     const [expandedLances, setExpandedLances] = useState({}); // { notifId: true/false }
     const [selectedNotificacoes, setSelectedNotificacoes] = useState(new Set()); // IDs das notificações selecionadas
+    const [lanceVotosModal, setLanceVotosModal] = useState(null); // { lanceId, codigoLance, dados } ou null
+    const [loadingVotos, setLoadingVotos] = useState(false);
 
     // Estados para Jurados
     const [jurados, setJurados] = useState([]);
@@ -60,6 +62,8 @@ function Admin() {
     const [uploadingImage, setUploadingImage] = useState(false);
     const [selectedNewsId, setSelectedNewsId] = useState(1);
     const [newsImageRefreshKey, setNewsImageRefreshKey] = useState(Date.now());
+    const [newsImagesData, setNewsImagesData] = useState([]); // Dados das imagens com is_featured
+    const [loadingNewsImages, setLoadingNewsImages] = useState(false);
     
     // Estados para CMS de Notícias
     const [noticias, setNoticias] = useState([]);
@@ -154,6 +158,83 @@ function Admin() {
         );
     };
 
+    // Carregar dados de news_images (para gerenciar is_featured)
+    const carregarNewsImages = async () => {
+        setLoadingNewsImages(true);
+        try {
+            const { data, error } = await supabase
+                .from('news_images')
+                .select('slot, is_featured, updated_at')
+                .order('slot', { ascending: true });
+            
+            if (error) {
+                // Se a tabela não existe ou não tem o campo, não é erro crítico
+                if (error.message?.includes('does not exist') || error.message?.includes('column') || error.code === 'PGRST116') {
+                    console.warn('⚠️ Tabela news_images ou campo is_featured não existe ainda. Execute o script SQL: scripts/add_featured_to_news_images.sql');
+                    setNewsImagesData([]);
+                    return;
+                }
+                throw error;
+            }
+            setNewsImagesData(data || []);
+        } catch (err) {
+            console.error('Erro ao carregar news_images:', err);
+            setNewsImagesData([]);
+        } finally {
+            setLoadingNewsImages(false);
+        }
+    };
+
+    // Função para marcar/desmarcar notícia como principal
+    const toggleFeaturedNews = async (slot) => {
+        try {
+            // Buscar se já está marcada como principal
+            const currentImage = newsImagesData.find(img => img.slot === slot);
+            const isCurrentlyFeatured = currentImage?.is_featured || false;
+            
+            if (isCurrentlyFeatured) {
+                // Se já está marcada, desmarcar
+                const { error } = await supabase
+                    .from('news_images')
+                    .update({ is_featured: false })
+                    .eq('slot', slot);
+                
+                if (error) throw error;
+                alert(`✅ Notícia ${slot} removida como principal`);
+            } else {
+                // Desmarcar todas as outras primeiro
+                const { error: clearError } = await supabase
+                    .from('news_images')
+                    .update({ is_featured: false })
+                    .neq('slot', slot);
+                
+                if (clearError) throw clearError;
+                
+                // Marcar esta como principal
+                // Se não existe registro, criar; se existe, atualizar
+                const { error: upsertError } = await supabase
+                    .from('news_images')
+                    .upsert({ 
+                        slot, 
+                        is_featured: true,
+                        updated_at: new Date().toISOString()
+                    }, { 
+                        onConflict: 'slot' 
+                    });
+                
+                if (upsertError) throw upsertError;
+                alert(`✅ Notícia ${slot} definida como principal!`);
+            }
+            
+            // Recarregar dados
+            await carregarNewsImages();
+            setNewsImageRefreshKey(Date.now());
+        } catch (err) {
+            console.error('Erro ao atualizar notícia principal:', err);
+            alert('❌ Erro ao atualizar notícia principal: ' + (err.message || 'Erro desconhecido'));
+        }
+    };
+
     // Funções do CMS de Notícias
     const carregarNoticias = async () => {
         setLoadingNoticias(true);
@@ -240,10 +321,11 @@ function Admin() {
         }
     };
 
-    // useEffect para carregar notícias quando a aba for aberta
+    // useEffect para carregar notícias e news_images quando a aba for aberta
     useEffect(() => {
         if (activeTab === 'noticias') {
             carregarNoticias();
+            carregarNewsImages();
         }
     }, [activeTab]);
 
@@ -829,6 +911,45 @@ function Admin() {
         }
     };
 
+    // Abrir modal com votos do lance
+    const abrirModalVotos = async (notif) => {
+        setLoadingVotos(true);
+        try {
+            // Buscar versão mais recente do lance
+            const { data: lanceAtualizado, error } = await supabase
+                .from('notificacoes_admin')
+                .select('id, dados')
+                .eq('id', notif.id)
+                .single();
+            
+            if (error) {
+                console.error('Erro ao buscar lance:', error);
+                alert('Erro ao carregar informações do lance');
+                return;
+            }
+            
+            const dados = lanceAtualizado?.dados || {};
+            setLanceVotosModal({
+                lanceId: notif.id,
+                codigoLance: dados.codigoLance || 'N/A',
+                dados: dados,
+                votos: dados.votos || [],
+                veredito: dados.veredito || null,
+                status: dados.status || 'aguardando_analise'
+            });
+        } catch (err) {
+            console.error('Erro:', err);
+            alert('Erro ao carregar informações do lance');
+        } finally {
+            setLoadingVotos(false);
+        }
+    };
+
+    // Fechar modal de votos
+    const fecharModalVotos = () => {
+        setLanceVotosModal(null);
+    };
+
     const excluirNotificacao = async (id, codigoLance) => {
         // Solicita senha para excluir
         const senhaDigitada = prompt(`⚠️ ATENÇÃO: Você está prestes a EXCLUIR o lance ${codigoLance || ''}.\n\nEsta ação é IRREVERSÍVEL!\n\nDigite a senha de administrador para confirmar:`);
@@ -929,71 +1050,22 @@ function Admin() {
                 n.id === notifId ? { ...n, dados: dadosAtualizados } : n
             ));
             
-            // Buscar todos os jurados ativos e enviar notificação WhatsApp
             try {
-                const { data: juradosAtivos, error: errorJurados } = await supabase
-                    .from('jurados')
-                    .select('nome, whatsapp, email_google')
-                    .eq('ativo', true)
-                    .not('whatsapp', 'is', null);
-                
-                if (!errorJurados && juradosAtivos && juradosAtivos.length > 0) {
-                    const codigoLance = dados.codigoLance || 'N/A';
-                    const acusador = dados.acusador?.nome || dados.acusador?.gamertag || 'N/A';
-                    const acusado = dados.acusado?.nome || dados.acusado?.gamertag || 'N/A';
-                    const etapa = dados.etapa?.circuit || dados.etapa?.round || 'N/A';
-                    
-                    const mensagem = `👨‍⚖️ *NOVO LANCE PARA ANÁLISE - MASTER LEAGUE F1*\n\n` +
-                        `🔖 *Código:* ${codigoLance}\n` +
-                        `🏁 *Etapa:* ${etapa}\n` +
-                        `👤 *Acusador:* ${acusador}\n` +
-                        `🎯 *Acusado:* ${acusado}\n\n` +
-                        `📋 *Acesse o Painel do Júri para analisar:*\n` +
-                        `🔗 masterleaguef1.com.br/veredito`;
-                    
-                    // Enviar notificação para cada jurado ativo
-                    let sucessos = 0;
-                    let erros = 0;
-                    
-                    for (const jurado of juradosAtivos) {
-                        if (jurado.whatsapp) {
-                            try {
-                                const result = await sendWhatsappNotification({
-                                    phone: jurado.whatsapp,
-                                    email: jurado.email_google || `${jurado.whatsapp}@masterleaguef1.com`,
-                                    nome: jurado.nome || 'Jurado',
-                                    message: mensagem
-                                });
-                                
-                                if (result.success) {
-                                    sucessos++;
-                                    console.log(`✅ Notificação enviada para ${jurado.nome}`);
-                                } else {
-                                    erros++;
-                                    console.warn(`⚠️ Erro ao enviar para ${jurado.nome}:`, result.error);
-                                }
-                                
-                                // Pequeno delay entre envios para não sobrecarregar
-                                await new Promise(resolve => setTimeout(resolve, 500));
-                            } catch (err) {
-                                erros++;
-                                console.error(`❌ Erro ao enviar notificação para ${jurado.nome}:`, err);
-                            }
-                        }
-                    }
-                    
-                    if (sucessos > 0) {
-                        console.log(`📬 Notificações enviadas: ${sucessos} sucesso(s), ${erros} erro(s)`);
-                    }
+                const result = await notifyJuradosAguardandoAnalise({
+                    notifId,
+                    dadosNotificacao: dadosAtualizados,
+                    messageData: dadosAtualizados,
+                });
+
+                if (result?.queued) {
+                    alert(`⏳ Lance ${dados.codigoLance} enviado para fila. Será notificado no próximo horário comercial.`);
                 } else {
-                    console.warn('⚠️ Nenhum jurado ativo encontrado ou sem WhatsApp configurado');
+                    alert(`✅ Lance ${dados.codigoLance} enviado para o Júri!`);
                 }
             } catch (err) {
                 console.error('⚠️ Erro ao enviar notificações para jurados:', err);
-                // Não bloquear o fluxo principal se a notificação falhar
+                alert(`⚠️ Lance ${dados.codigoLance} enviado para o Júri, mas houve erro na notificação.`);
             }
-            
-            alert(`✅ Lance ${dados.codigoLance} enviado para o Júri!`);
             
         } catch (err) {
             console.error('Erro ao enviar para júri:', err);
@@ -1038,6 +1110,15 @@ function Admin() {
             return newSet;
         });
     }, [notificacoes, filtroNotificacao, filtroStatus]);
+
+    useEffect(() => {
+        flushPendingJuradoNotifications();
+        const intervalId = setInterval(() => {
+            flushPendingJuradoNotifications();
+        }, 10 * 60 * 1000);
+
+        return () => clearInterval(intervalId);
+    }, []);
 
     // Conta não lidas para badge
     const countNaoLidas = notificacoes.filter(n => !n.lido).length;
@@ -1698,6 +1779,7 @@ function Admin() {
 
     // PAINEL LOGADO
     return (
+        <>
         <div className="page-wrapper">
             <div style={{
                 maxWidth:'1200px', 
@@ -2422,19 +2504,37 @@ function Admin() {
                                                     }}
                                                 />
 
-                                                {/* Código do Lance */}
-                                                <span style={{ 
-                                                    background: '#E5E7EB',
-                                                    color: '#1F2937',
-                                                    padding: '5px 10px',
-                                                    borderRadius: '5px',
-                                                    fontSize: '12px',
-                                                    fontWeight: 'bold',
-                                                    fontFamily: 'monospace',
-                                                    whiteSpace: 'nowrap',
-                                                }}>
-                                                    🔖 {codigoLance}
-                                                </span>
+                                                {/* Código do Lance - Clicável para ver votos */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        abrirModalVotos(notif);
+                                                    }}
+                                                    style={{ 
+                                                        background: '#E5E7EB',
+                                                        color: '#1F2937',
+                                                        padding: '5px 10px',
+                                                        borderRadius: '5px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 'bold',
+                                                        fontFamily: 'monospace',
+                                                        whiteSpace: 'nowrap',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.background = '#D1D5DB';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.background = '#E5E7EB';
+                                                    }}
+                                                    title="Clique para ver os votos dos jurados"
+                                                >
+                                                    🔖 {codigoLance} 👁️
+                                                </button>
 
                                                 {/* Badge de Status */}
                                                 <span style={{ 
@@ -3359,10 +3459,21 @@ function Admin() {
                                             if (uploadError) throw uploadError;
 
                                             // Atualiza a versão (para quebrar cache no front)
+                                            // Preserva o is_featured se já existir
                                             const now = new Date().toISOString();
+                                            const { data: existing } = await supabase
+                                                .from('news_images')
+                                                .select('is_featured')
+                                                .eq('slot', slot)
+                                                .single();
+                                            
                                             const { error: dbError } = await supabase
                                                 .from('news_images')
-                                                .upsert({ slot, updated_at: now }, { onConflict: 'slot' });
+                                                .upsert({ 
+                                                    slot, 
+                                                    updated_at: now,
+                                                    is_featured: existing?.is_featured || false
+                                                }, { onConflict: 'slot' });
 
                                             if (dbError) throw dbError;
 
@@ -3450,12 +3561,52 @@ function Admin() {
                         }}>
                             <h4 style={{ color: '#F59E0B', margin: '0 0 15px 0' }}>🖼️ Imagens Existentes</h4>
                             <p style={{ color: '#94A3B8', fontSize: '12px', marginBottom: '15px' }}>
-                                Preview das imagens no Supabase Storage (bucket <code>noticias</code>):
+                                Preview das imagens no Supabase Storage (bucket <code>noticias</code>). 
+                                <strong style={{ color: '#F59E0B', marginLeft: '8px' }}>⭐ Marque uma como principal</strong> para aparecer na tela inicial.
                             </p>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
-                                {[1, 2, 3, 4, 5, 6].map((id) => (
-                                    <AdminNewsImagePreview key={id} id={id} getSupaUrl={getSupabaseNewsImageUrl} />
-                                ))}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((id) => {
+                                    const imageData = newsImagesData.find(img => img.slot === id);
+                                    const isFeatured = imageData?.is_featured || false;
+                                    
+                                    return (
+                                        <div key={id} style={{ position: 'relative' }}>
+                                            <AdminNewsImagePreview id={id} getSupaUrl={getSupabaseNewsImageUrl} />
+                                            <button
+                                                onClick={() => toggleFeaturedNews(id)}
+                                                style={{
+                                                    width: '100%',
+                                                    marginTop: '8px',
+                                                    padding: '8px',
+                                                    borderRadius: '6px',
+                                                    border: 'none',
+                                                    background: isFeatured 
+                                                        ? 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)'
+                                                        : 'rgba(245, 158, 11, 0.2)',
+                                                    color: isFeatured ? '#FFFFFF' : '#F59E0B',
+                                                    fontSize: '11px',
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease',
+                                                    border: isFeatured ? '2px solid #F59E0B' : '1px solid rgba(245, 158, 11, 0.3)'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (!isFeatured) {
+                                                        e.target.style.background = 'rgba(245, 158, 11, 0.3)';
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (!isFeatured) {
+                                                        e.target.style.background = 'rgba(245, 158, 11, 0.2)';
+                                                    }
+                                                }}
+                                                disabled={loadingNewsImages}
+                                            >
+                                                {isFeatured ? '⭐ PRINCIPAL' : 'Marcar como Principal'}
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -4547,6 +4698,236 @@ function Admin() {
                 )}
             </div>
         </div>
+
+        {/* Modal de Votos dos Jurados */}
+        {lanceVotosModal && (
+            <div
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10000,
+                    padding: isMobile ? '10px' : '20px',
+                }}
+                onClick={fecharModalVotos}
+            >
+                <div
+                    style={{
+                        background: 'linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%)',
+                        borderRadius: '12px',
+                        padding: isMobile ? '20px' : '30px',
+                        maxWidth: isMobile ? '100%' : '800px',
+                        width: '100%',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
+                        border: '1px solid #475569',
+                        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {/* Header do Modal */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <div>
+                            <h2 style={{ color: '#F8FAFC', margin: 0, fontSize: isMobile ? '18px' : '24px' }}>
+                                👨‍⚖️ Votos dos Jurados
+                            </h2>
+                            <p style={{ color: '#94A3B8', margin: '5px 0 0 0', fontSize: '14px' }}>
+                                🔖 {lanceVotosModal.codigoLance}
+                            </p>
+                        </div>
+                        <button
+                            onClick={fecharModalVotos}
+                            style={{
+                                background: '#EF4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '8px 16px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                            }}
+                        >
+                            ✕ Fechar
+                        </button>
+                    </div>
+
+                    {loadingVotos ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
+                            ⏳ Carregando votos...
+                        </div>
+                    ) : (
+                        <>
+                            {/* Resumo do Lance */}
+                            <div style={{
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                border: '1px solid #8B5CF6',
+                                borderRadius: '8px',
+                                padding: '15px',
+                                marginBottom: '20px',
+                            }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center' }}>
+                                    <div>
+                                        <span style={{ color: '#94A3B8', fontSize: '12px' }}>Status:</span>
+                                        <span style={{ 
+                                            color: lanceVotosModal.status === 'analise_realizada' ? '#22C55E' : '#F59E0B',
+                                            marginLeft: '8px',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {lanceVotosModal.status === 'analise_realizada' ? '✅ ANÁLISE REALIZADA' : '⏳ AGUARDANDO ANÁLISE'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#94A3B8', fontSize: '12px' }}>Total de Votos:</span>
+                                        <span style={{ color: '#F8FAFC', marginLeft: '8px', fontWeight: 'bold', fontSize: '18px' }}>
+                                            {lanceVotosModal.votos.length}
+                                        </span>
+                                    </div>
+                                    {lanceVotosModal.votos.length > 0 && (
+                                        <>
+                                            <div>
+                                                <span style={{ color: '#94A3B8', fontSize: '12px' }}>Culpado:</span>
+                                                <span style={{ color: '#EF4444', marginLeft: '8px', fontWeight: 'bold' }}>
+                                                    {lanceVotosModal.votos.filter(v => v.culpado).length}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: '#94A3B8', fontSize: '12px' }}>Inocente:</span>
+                                                <span style={{ color: '#22C55E', marginLeft: '8px', fontWeight: 'bold' }}>
+                                                    {lanceVotosModal.votos.filter(v => !v.culpado).length}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+                                    {lanceVotosModal.veredito && (
+                                        <div style={{ width: '100%', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #475569' }}>
+                                            <div style={{ color: '#94A3B8', fontSize: '12px', marginBottom: '5px' }}>Veredito Final:</div>
+                                            <div style={{ color: '#F8FAFC', fontWeight: 'bold' }}>
+                                                {lanceVotosModal.veredito.decisao} - {lanceVotosModal.veredito.placar}
+                                            </div>
+                                            {lanceVotosModal.veredito.punicao && (
+                                                <div style={{ color: '#F59E0B', fontSize: '14px', marginTop: '5px' }}>
+                                                    Punição: {lanceVotosModal.veredito.labelPunicao || lanceVotosModal.veredito.punicao}
+                                                    {lanceVotosModal.veredito.agravante && ' + Agravante (+5pts)'}
+                                                    {lanceVotosModal.veredito.semVideo && ' + Sem Vídeo (+5pts)'}
+                                                </div>
+                                            )}
+                                            {lanceVotosModal.veredito.pontosPerdidos > 0 && (
+                                                <div style={{ color: '#EF4444', fontSize: '14px', marginTop: '5px', fontWeight: 'bold' }}>
+                                                    Pontos Perdidos: {lanceVotosModal.veredito.pontosPerdidos}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Lista de Votos */}
+                            {lanceVotosModal.votos.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+                                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>📭</div>
+                                    <p>Nenhum voto registrado ainda</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {lanceVotosModal.votos.map((voto, index) => (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                background: voto.culpado ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                                                border: `2px solid ${voto.culpado ? '#EF4444' : '#22C55E'}`,
+                                                borderRadius: '8px',
+                                                padding: '15px',
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ color: '#F8FAFC', fontWeight: 'bold', fontSize: '16px', marginBottom: '5px' }}>
+                                                        {voto.jurado || 'Jurado Anônimo'}
+                                                    </div>
+                                                    {voto.juradoEmail && (
+                                                        <div style={{ color: '#94A3B8', fontSize: '12px', marginBottom: '5px' }}>
+                                                            📧 {voto.juradoEmail}
+                                                        </div>
+                                                    )}
+                                                    <div style={{ 
+                                                        display: 'inline-block',
+                                                        background: voto.culpado ? '#EF4444' : '#22C55E',
+                                                        color: 'white',
+                                                        padding: '4px 10px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 'bold',
+                                                        marginTop: '5px'
+                                                    }}>
+                                                        {voto.culpado ? '❌ CULPADO' : '✅ INOCENTE'}
+                                                    </div>
+                                                </div>
+                                                <div style={{ color: '#64748B', fontSize: '12px', textAlign: 'right' }}>
+                                                    {voto.dataVoto ? new Date(voto.dataVoto).toLocaleString('pt-BR') : '-'}
+                                                </div>
+                                            </div>
+
+                                            {voto.culpado && voto.punicao && (
+                                                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                                    <div style={{ color: '#F59E0B', fontSize: '14px', fontWeight: 'bold' }}>
+                                                        Punição: {voto.punicao}
+                                                        {voto.agravante && ' + Agravante'}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {(voto.semVideo || voto.agravante) && (
+                                                <div style={{ marginTop: '8px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                    {voto.semVideo && (
+                                                        <span style={{
+                                                            background: '#F59E0B',
+                                                            color: 'white',
+                                                            padding: '3px 8px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '11px',
+                                                        }}>
+                                                            🎥 Sem Vídeo
+                                                        </span>
+                                                    )}
+                                                    {voto.agravante && (
+                                                        <span style={{
+                                                            background: '#EF4444',
+                                                            color: 'white',
+                                                            padding: '3px 8px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '11px',
+                                                        }}>
+                                                            ⚠️ Agravante
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {voto.justificativa && (
+                                                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                                    <div style={{ color: '#94A3B8', fontSize: '12px', marginBottom: '5px' }}>Justificativa:</div>
+                                                    <div style={{ color: '#E2E8F0', fontSize: '14px', lineHeight: '1.5' }}>
+                                                        {voto.justificativa}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+            )}
+        </>
     );
 }
 

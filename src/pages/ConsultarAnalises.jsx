@@ -106,6 +106,12 @@ function ConsultarAnalises() {
             });
             
             console.log('📦 Análises carregadas:', analisesDecididas.length);
+            // Debug: verificar grids
+            const gridsEncontrados = analisesDecididas.map(a => {
+                const grid = a.dados?.grid || a.dados?.acusador?.grid || 'N/A';
+                return { codigo: a.dados?.codigoLance || 'N/A', grid };
+            });
+            console.log('🔍 Grids encontrados nas análises:', gridsEncontrados);
             setAnalises(analisesDecididas);
         } catch (err) {
             console.error('Erro ao buscar análises:', err);
@@ -300,7 +306,10 @@ function ConsultarAnalises() {
                         // Extrair etapas únicas do grid selecionado
                         const etapasDoGrid = [...new Set(
                             analises
-                                .filter(l => l.dados?.grid === filtroGrid)
+                                .filter(l => {
+                                    const gridLance = l.dados?.grid || l.dados?.acusador?.grid || 'light';
+                                    return gridLance === filtroGrid;
+                                })
                                 .map(l => l.dados?.etapa?.round)
                                 .filter(Boolean)
                         )].sort((a, b) => a - b);
@@ -376,7 +385,10 @@ function ConsultarAnalises() {
                     let analisesFiltradas = [...analises];
                     
                     if (filtroGrid !== 'todos') {
-                        analisesFiltradas = analisesFiltradas.filter(l => l.dados?.grid === filtroGrid);
+                        analisesFiltradas = analisesFiltradas.filter(l => {
+                            const gridLance = l.dados?.grid || l.dados?.acusador?.grid || 'light';
+                            return gridLance === filtroGrid;
+                        });
                     }
                     
                     if (filtroEtapa !== 'todas') {
@@ -562,16 +574,21 @@ function ConsultarAnalises() {
                                             </span>
 
                                             {/* Grid Badge - na mesma linha do código */}
-                                            <span className="grid-badge-inline" style={{
-                                                background: (etapa.grid || dados.grid) === 'carreira' ? '#8B5CF6' : '#06B6D4',
-                                                color: 'white',
-                                                padding: isMobile ? '3px 10px' : '4px 12px',
-                                                borderRadius: '20px',
-                                                fontSize: isMobile ? '10px' : '12px',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {(etapa.grid || dados.grid) === 'carreira' ? '🏆 CARREIRA' : '💡 LIGHT'}
-                                            </span>
+                                            {(() => {
+                                                const gridLance = dados.grid || dados.acusador?.grid || 'light';
+                                                return (
+                                                    <span className="grid-badge-inline" style={{
+                                                        background: gridLance === 'carreira' ? '#8B0000' : '#06B6D4',
+                                                        color: 'white',
+                                                        padding: isMobile ? '3px 10px' : '4px 12px',
+                                                        borderRadius: '20px',
+                                                        fontSize: isMobile ? '10px' : '12px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {gridLance === 'carreira' ? '🏆 CARREIRA' : '💡 LIGHT'}
+                                                    </span>
+                                                );
+                                            })()}
                                         </div>
 
                                         {/* Temporada */}

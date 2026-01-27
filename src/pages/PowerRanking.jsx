@@ -1,302 +1,273 @@
-import React, { useState, useEffect } from 'react';
-import { usePowerRankingCache } from '../hooks/useSupabaseCache';
-import '../index.css'; 
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+import { usePowerRankingCache, usePowerRankingLightCache } from '../hooks/useSupabaseCache';
+import './Cards.css';
+import './PowerRankingCards.css';
 
-// --- HELPERS VISUAIS ---
-const DriverImage = ({ name, season, className, style }) => {
-    const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
-    const primarySrc = `/pilotos/carreira/s${season}/${cleanName}.png`;
+const DriverImage = ({ name, gridType, season }) => {
+    const cleanName = name
+        ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase()
+        : "pilotoshadow";
+    const s = season || '20';
+
+    const seasonSrc = `/pilotos/${gridType || 'carreira'}/s${s}/${cleanName}.png`;
     const smlSrc = `/pilotos/SML/${cleanName}.png`;
+    const fallbackS19Src = `/pilotos/${gridType || 'carreira'}/s19/${cleanName}.png`;
     const shadowSrc = '/pilotos/pilotoshadow.png';
-    
-    const [imgSrc, setImgSrc] = useState(primarySrc);
-    useEffect(() => { setImgSrc(primarySrc); }, [name, season]);
 
     const handleError = (e) => {
-        if (e.target.src.includes(`/s${season}/`)) {
-            setImgSrc(smlSrc);
+        if (e.target.src.includes(`/s${s}/`)) {
+            e.target.src = smlSrc;
         } else if (e.target.src.includes('/SML/')) {
-            setImgSrc(shadowSrc);
+            if (!e.target.src.includes(`/s19/`)) e.target.src = fallbackS19Src;
+            else e.target.src = shadowSrc;
+        } else if (e.target.src.includes(`/s19/`)) {
+            e.target.src = shadowSrc;
         }
     };
-    
-    return <img src={imgSrc} className={className} style={{...style}} onError={handleError} alt={name} />;
-};
 
-const getTeamLogo = (teamName) => {
-    if(!teamName) return null;
-    const t = teamName.toLowerCase().replace(/\s/g, ''); 
-    if(t.includes("ferrari")) return "/team-logos/f1-ferrari.png"; 
-    if(t.includes("mercedes")) return "/team-logos/f1-mercedes.png"; 
-    if(t.includes("renault")) return "/team-logos/f1-renault.png";
-    if(t.includes("alpine")) return "/team-logos/f1-alpine.png"; 
-    if(t.includes("racingpoint") || (t.includes("racing") && t.includes("point"))) return "/team-logos/f1-racingpoint.png";
-    if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls")) || t.includes("visa")) return "/team-logos/f1-racingbulls.png"; 
-    if(t.includes("redbull") || t.includes("oracle") || t.includes("red bull")) return "/team-logos/f1-redbull.png"; 
-    if(t.includes("mclaren")) return "/team-logos/f1-mclaren.png"; 
-    if(t.includes("aston")) return "/team-logos/f1-astonmartin.png"; 
-    if(t.includes("haas")) return "/team-logos/f1-haas.png"; 
-    if(t.includes("alfaromeo") || t.includes("alfa romeo") || (t.includes("alfa") && !t.includes("tauri"))) return "/team-logos/f1-alfaromeo.png"; 
-    if(t.includes("alphatauri") || t.includes("alpha tauri")) return "/team-logos/f1-alphatauri.png"; 
-    if(t.includes("tororosso") || t.includes("toro rosso") || t.includes("toro")) return "/team-logos/f1-tororosso.png";
-    if(t.includes("williams")) return "/team-logos/f1-williams.png"; 
-    if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/team-logos/f1-sauber.png";
-    return null;
-};
-
-const getTeamColor = (teamName) => {
-    if(!teamName) return "#FF9900";
-    const t = teamName.toLowerCase();
-    // Equipes antigas (verificar primeiro para evitar conflitos)
-    if(t.includes("alfa") && !t.includes("tauri")) return "#900000"; // Alfa Romeo
-    if(t.includes("alpha") || t.includes("tauri")) return "#FFFFFF"; // Alpha Tauri
-    if(t.includes("toro") || t.includes("rosso")) return "#469BFF"; // Toro Rosso
-    if(t.includes("racing point") || t.includes("bwt")) return "#F596C8"; // Racing Point
-    if(t.includes("renault")) return "#FFF500"; // Renault
-    // Equipes atuais
-    if(t.includes("red bull") || t.includes("oracle")) return "#3671C6"; // Red Bull
-    if(t.includes("ferrari")) return "#E8002D"; // Ferrari
-    if(t.includes("mercedes")) return "#27F4D2"; // Mercedes
-    if(t.includes("mclaren")) return "#FF8000"; // McLaren
-    if(t.includes("aston")) return "#229971"; // Aston Martin
-    if(t.includes("alpine")) return "#FD4BC7"; // Alpine
-    if(t.includes("haas")) return "#B6BABD"; // Haas
-    if(t.includes("williams")) return "#64C4FF"; // Williams
-    if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "#52E252"; // Sauber/Stake
-    if(t.includes("vcarb") || (t.includes("racing") && t.includes("bulls"))) return "#6692FF"; // VCARB/Racing Bulls
-    return "#FF9900"; // Cor padrão
-};
-
-const hexToRgb = (hex) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : "255, 153, 0";
-};
-
-const getRankColor = (rank) => {
-    switch(rank) {
-        case 2: return '#2563eb'; 
-        case 3: return '#10b981'; 
-        case 4: return '#db2777'; 
-        case 5: return '#eab308'; 
-        default: return '#64748B'; 
-    }
+    const initialSrc = smlSrc;
+    return <img src={initialSrc} onError={handleError} alt={name || ''} />;
 };
 
 function PowerRanking() {
-    useEffect(() => {
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    }, []);
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [pilotos, setPilotos] = useState([]);
+    const [rankingList, setRankingList] = useState([]);
+    const [statsMap, setStatsMap] = useState({});
+    const selectedSeason = 20;
+    const [selectedGrid, setSelectedGrid] = useState('carreira');
+    const { data: rawPRLight, loading: loadingPRLight } = usePowerRankingLightCache(selectedSeason);
+    const { data: rawPRCarreira, loading: loadingPRCarreira } = usePowerRankingCache(selectedSeason);
 
-    const { data: rawPR, loading } = usePowerRankingCache();
-    const [rankingData, setRankingData] = useState([]);
-    const [availableSeasons, setAvailableSeasons] = useState([]);
-    const [selectedSeason, setSelectedSeason] = useState("");
-    const [isPhone, setIsPhone] = useState(window.innerWidth <= 768);
-    
-    useEffect(() => {
-        const handleResize = () => {
-            setIsPhone(window.innerWidth <= 768);
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-    
-    // Função para formatar nome: primeira letra maiúscula, resto minúscula (ex: "LUCAS RAIOL" -> "Lucas Raiol")
-    const formatNameMobile = (name) => {
-        if (!name) return { first: '', last: '' };
-        const parts = name.trim().split(/\s+/).filter(Boolean);
-        if (parts.length === 0) return { first: '', last: '' };
-        // Primeiro nome: apenas primeira letra maiúscula, resto minúscula
-        const first = parts[0].charAt(0).toUpperCase() + (parts[0].slice(1) || '').toLowerCase();
-        // Sobrenome: primeira letra maiúscula, resto minúscula
-        const rest = parts.slice(1).map(word => word.charAt(0).toUpperCase() + (word.slice(1) || '').toLowerCase()).join(' ');
-        return { first, last: rest };
-    };
+    const normalizeName = (name) => (name || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
     useEffect(() => {
-        if (loading || !rawPR || rawPR.length === 0) return;
-        const seasons = [...new Set(rawPR.map(row => row[9]?.trim()))]
-            .filter(s => s && !isNaN(s))
-            .sort((a, b) => b - a);
-        setAvailableSeasons(seasons);
-        if (seasons.length > 0 && !selectedSeason) setSelectedSeason(seasons[0]);
-    }, [rawPR, loading, selectedSeason]);
+        const loadData = async () => {
+            try {
+                setLoading(true);
 
-    useEffect(() => {
-        if (!selectedSeason || !rawPR || rawPR.length === 0) return;
-        const driverStats = {};
-        let totalRowsProcessed = 0;
-        let rowsForSeason = 0;
-        
-        rawPR.forEach(row => {
-            totalRowsProcessed++;
-            const driverName = (row[0] || '').trim();
-            const totalPR = parseFloat((row[8] || '0').replace(',', '.')); 
-            const rowSeason = (row[9] || '').trim();
-            const teamName = (row[10] || '').trim();
-            
-            // Verificar se a linha pertence à temporada selecionada e tem nome de piloto válido
-            if (rowSeason === String(selectedSeason) && driverName && driverName.length > 0) {
-                rowsForSeason++;
-                if (!driverStats[driverName]) {
-                    driverStats[driverName] = { name: driverName, team: teamName || "Sem Equipe", totalScore: 0 };
+                const rawPR = selectedGrid === 'carreira' ? rawPRCarreira : rawPRLight;
+
+                if (!rawPR || rawPR.length === 0) {
+                    setPilotos([]);
+                    setStatsMap({});
+                    return;
                 }
-                if (teamName && teamName.length > 0) {
-                    driverStats[driverName].team = teamName;
+
+                const driverStats = {};
+                const titularesOverride = new Set([
+                    'lucas searom'
+                ]);
+
+                rawPR.forEach((row) => {
+                    const driverName = (row[0] || '').trim();
+                    const totalPR = parseFloat((row[8] || '0').toString().replace(',', '.'));
+                    const rowSeason = (row[9] || '').trim();
+                    const teamName = (row[10] || '').trim();
+                    const isTitular = !/reserva/i.test(teamName) || titularesOverride.has(normalizeName(driverName));
+
+                    if (rowSeason === String(selectedSeason) && driverName && !isNaN(totalPR) && isTitular) {
+                        const key = normalizeName(driverName);
+                        if (!driverStats[key]) {
+                            driverStats[key] = {
+                                name: driverName,
+                                totalScore: 0
+                            };
+                        }
+                        driverStats[key].totalScore += totalPR;
+                    }
+                });
+
+                const ranking = Object.values(driverStats)
+                    .sort((a, b) => {
+                        if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+                        return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+                    });
+
+                const nomesPR = new Set(ranking.map((d) => normalizeName(d.name)));
+                setRankingList(ranking);
+
+                const { data: pilotosData, error: pilotosError } = await supabase
+                    .from('pilotos')
+                    .select('id, nome, grid')
+                    .ilike('grid', `%${selectedGrid}%`);
+
+                if (pilotosError) throw pilotosError;
+
+                const pilotosByName = new Map();
+                (pilotosData || []).forEach((p) => {
+                    const key = normalizeName(p.nome);
+                    if (!pilotosByName.has(key)) pilotosByName.set(key, p);
+                });
+
+                const pilotosOrdenados = ranking.map((item) => {
+                    const key = normalizeName(item.name);
+                    const piloto = pilotosByName.get(key);
+                    return piloto || { id: key, nome: item.name, grid: 'light' };
+                });
+
+                setPilotos(pilotosOrdenados);
+
+                const ids = pilotosOrdenados.map(p => p.id).filter(id => id && String(id).length > 0);
+                if (!ids.length) {
+                    setStatsMap({});
+                    return;
                 }
-                if (!isNaN(totalPR) && totalPR > 0) {
-                    driverStats[driverName].totalScore += totalPR;
-                }
+
+                const { data: statsData, error: statsError } = await supabase
+                    .from('power_ranking_stats')
+                    .select('piloto_id, performance, racecraft, conduta, overall, historico, power_ranking')
+                    .eq('season', selectedSeason)
+                    .in('piloto_id', ids);
+
+                if (statsError) throw statsError;
+
+                const map = {};
+                (statsData || []).forEach((stat) => {
+                    map[stat.piloto_id] = stat;
+                });
+                setStatsMap(map);
+            } catch (err) {
+                console.error('Erro ao carregar cards do Power Ranking:', err);
+                setPilotos([]);
+                setStatsMap({});
+            } finally {
+                setLoading(false);
             }
-        });
-        
-        const sortedRank = Object.values(driverStats)
-            .sort((a, b) => {
-                // Primeiro critério: maior score
-                if (b.totalScore !== a.totalScore) {
-                    return b.totalScore - a.totalScore;
-                }
-                // Segundo critério (desempate): ordem alfabética do nome
-                return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
-            })
-            .map((d, index) => ({
-                ...d,
-                rank: index + 1,
-                displayScore: d.totalScore.toFixed(0) 
-            }));
-        
-        console.log(`📊 Power Ranking - Temporada ${selectedSeason}:`, {
-            totalRowsInData: rawPR.length,
-            totalRowsProcessed,
-            rowsForSeason,
-            uniqueDrivers: sortedRank.length,
-            drivers: sortedRank.map(d => ({ name: d.name, score: d.totalScore }))
-        });
-        
-        setRankingData(sortedRank);
-    }, [selectedSeason, rawPR]);
+        };
 
-    if (loading) {
-        return <div style={{padding:'100px', textAlign:'center', color:'white', background:'#050505', minHeight:'100vh'}}>Carregando Power Ranking...</div>;
+        loadData();
+    }, [selectedSeason, rawPRLight, rawPRCarreira, selectedGrid]);
+
+    const pilotosOrdenados = useMemo(() => {
+        const getStats = (piloto) => statsMap[piloto.id] || {};
+        const getNumber = (value) => (value === undefined || value === null || isNaN(value)) ? 0 : Number(value);
+
+        return [...pilotos].sort((a, b) => {
+            const statsA = getStats(a);
+            const statsB = getStats(b);
+
+            const criteria = [
+                'power_ranking',
+                'overall',
+                'performance',
+                'racecraft',
+                'conduta',
+                'historico'
+            ];
+
+            for (const key of criteria) {
+                const valA = getNumber(statsA[key]);
+                const valB = getNumber(statsB[key]);
+                if (valB !== valA) return valB - valA;
+            }
+
+            return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+        });
+    }, [pilotos, statsMap]);
+
+    if (loading || loadingPRLight || loadingPRCarreira) {
+        return (
+            <div className="pr-cards-page">
+                <div className="pr-cards-loading">Carregando cards...</div>
+            </div>
+        );
     }
 
-    const leader = rankingData[0];
-    const rest = rankingData.slice(1);
-
     return (
-        <div className="pr-new-wrapper">
-            <header className="pr-new-header">
-                <h1 className="pr-new-title">
-                    POWER RANKING
-                </h1>
-                <div style={{position: 'relative', display:'inline-block'}}>
-                    <select 
-                        className="pr-new-season-selector" 
-                        value={selectedSeason} 
-                        onChange={(e) => setSelectedSeason(e.target.value)}
-                        style={{appearance: 'none', WebkitAppearance: 'none'}}
-                    >
-                        {availableSeasons.map(s => (
-                            <option key={s} value={s}>SEASON {s}</option>
-                        ))}
-                    </select>
-                    <i className="fas fa-chevron-down" style={{position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '8px', pointerEvents: 'none', color: '#888'}}></i>
-                </div>
-            </header>
+        <div className="pr-cards-page">
+            <div className="pr-cards-header">
+                <h1>Power Ranking - Grid {selectedGrid === 'carreira' ? 'Carreira' : 'Light'}</h1>
+            </div>
+            <div className="pr-cards-grid-toggle">
+                <button
+                    className={`grid-btn carreira ${selectedGrid === 'carreira' ? 'active' : ''}`}
+                    onClick={() => setSelectedGrid('carreira')}
+                >
+                    Carreira
+                </button>
+                <button
+                    className={`grid-btn light ${selectedGrid === 'light' ? 'active' : ''}`}
+                    onClick={() => setSelectedGrid('light')}
+                >
+                    Light
+                </button>
+                <button
+                    className="grid-btn historico"
+                    onClick={() => navigate('/historicopowerranking')}
+                >
+                    Histórico
+                </button>
+            </div>
+            <div className="pr-cards-grid">
+                {pilotosOrdenados.map((piloto) => {
+                    const stats = statsMap[piloto.id] || {
+                        performance: 60,
+                        conduta: 100,
+                        racecraft: 60,
+                        overall: 60,
+                        historico: 60,
+                        power_ranking: 60
+                    };
 
-            <main className="pr-new-main">
-                {leader && (
-                    <section 
-                        className="pr-hero-banner" 
-                        style={{
-                            '--team-color': getTeamColor(leader.team),
-                            '--team-color-rgb': hexToRgb(getTeamColor(leader.team))
-                        }}
-                    >
-                        <div className="pr-hero-rank-side">
-                            <span className="pr-hero-pos-num">1</span>
-                            <span className="pr-hero-pos-label hide-mobile">TOP 1</span>
-                        </div>
-                        
-                        <div className="pr-hero-photo-center">
-                            <DriverImage name={leader.name} season={selectedSeason} style={{ height: '100%' }} />
-                        </div>
-
-                        <div className="pr-hero-info-side">
-                            <h2 className="pr-hero-driver-name">
-                                {isPhone ? (() => {
-                                    const formatted = formatNameMobile(leader.name);
-                                    return (
-                                        <>
-                                            <span className="pr-hero-name-first-mobile">{formatted.first}</span>
-                                            {formatted.last && <span className="pr-hero-name-last-mobile"> {formatted.last}</span>}
-                                        </>
-                                    );
-                                })() : (
-                                    <>
-                                        <span className="first">{leader.name?.split(' ')[0]}</span>
-                                        <span className="last">{leader.name?.split(' ').slice(1).join(' ')}</span>
-                                    </>
-                                )}
-                            </h2>
-                            <div className="pr-hero-team-row">
-                                {getTeamLogo(leader.team) && <img src={getTeamLogo(leader.team)} className="pr-hero-team-logo" alt="" />}
-                                <span className="pr-hero-team-name">{leader.team}</span>
-                            </div>
-                            <div className="pr-hero-points-box">
-                                <span className="pr-hero-points-text">{leader.displayScore} PONTOS</span>
-                            </div>
-                        </div>
-                    </section>
-                )}
-
-                <div className="pr-rankings-grid">
-                    {rest.map((driver) => {
-                        const rankColor = getTeamColor(driver.team);
-                        const rankColorRgb = hexToRgb(rankColor);
-                        return (
-                            <div 
-                                key={driver.name} 
-                                className="pr-grid-card"
-                                style={{
-                                    '--rank-color': rankColor,
-                                    '--rank-color-rgb': rankColorRgb
-                                }}
-                            >
-                                <div className="pr-grid-left">
-                                    <div className="pr-grid-rank-box">
-                                        <span className="pr-grid-rank-num">{driver.rank}</span>
+                    return (
+                        <div key={piloto.id} className="pr-card-wrapper">
+                            <div className="driver-card">
+                                <div className="card-bg-layer"></div>
+                                <div className="driver-photo">
+                                    <DriverImage
+                                        name={piloto.nome}
+                                        gridType={piloto.grid || 'light'}
+                                        season={selectedSeason}
+                                    />
+                                </div>
+                                <div className="card-front-layer"></div>
+                                <div className="card-info-overlay">
+                                    <div className="card-pr-badge stat-pr">
+                                        <span className="label"></span>
+                                        <span className="value main-pr">{Math.ceil(stats.power_ranking || 0)}</span>
                                     </div>
-                                    <div className="pr-grid-photo">
-                                        <DriverImage name={driver.name} season={selectedSeason} />
+                                    <div className="card-stat-row overall stat-overall">
+                                        <span className="label"></span>
+                                        <span className="value">{Math.ceil(stats.overall || 60)}</span>
                                     </div>
-                                    <div className="pr-grid-info">
-                                        <span className="pr-grid-name">{driver.name}</span>
-                                        <span className="pr-grid-team">
-                                            {getTeamLogo(driver.team) && <img src={getTeamLogo(driver.team)} className="pr-grid-team-logo" alt="" />}
-                                            {driver.team}
-                                        </span>
+                                    <div className="card-stat-row stat-performance">
+                                        <span className="label"></span>
+                                        <span className="value">{Math.ceil(stats.performance || 0)}</span>
+                                    </div>
+                                    <div className="card-stat-row stat-racecraft">
+                                        <span className="label"></span>
+                                        <span className="value">{Math.ceil(stats.racecraft || 0)}</span>
+                                    </div>
+                                    <div className="card-stat-row stat-conduta">
+                                        <span className="label"></span>
+                                        <span className="value">{Math.ceil(stats.conduta || 0)}</span>
+                                    </div>
+                                    <div className="card-stat-row stat-historico">
+                                        <span className="label"></span>
+                                    </div>
+                                    <div className="historico-value">
+                                        {Math.ceil(stats.historico || 0)}
+                                    </div>
+                                    <div className="card-name-block">
+                                        <div className="driver-name">
+                                            {piloto.nome.split(' ')[0]}<br />
+                                            <span>{piloto.nome.split(' ').slice(1).join(' ')}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="pr-grid-points">
-                                    <div className="pr-grid-points-val">{driver.displayScore}</div>
-                                    <div className="pr-grid-points-label">PTS</div>
-                                </div>
                             </div>
-                        );
-                    })}
-                </div>
-            </main>
-
-            <nav className="pr-bottom-nav">
-                <a href="/" className="pr-nav-link">HOME</a>
-                <a href="/standings" className="pr-nav-link active">RANKINGS</a>
-                <a href="/pilotos" className="pr-nav-link">DRIVERS</a>
-                <a href="/teams" className="pr-nav-link">TEAMS</a>
-                <a href="/news" className="pr-nav-link">NEWS</a>
-            </nav>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }

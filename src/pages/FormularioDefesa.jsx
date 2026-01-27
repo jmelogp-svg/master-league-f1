@@ -125,14 +125,33 @@ function FormularioDefesa() {
                 }
 
                 // Filtrar acusações onde o piloto logado é o ACUSADO e ainda NÃO tem defesa incorporada
+                const normalize = (value) => (value || '').toString().trim().toLowerCase();
+                const normalizeDigits = (value) => (value || '').toString().replace(/\D/g, '');
+
+                const pilotoNome = normalize(pilotoLogado.nome);
+                const pilotoEmail = normalize(pilotoLogado.email);
+                const pilotoGamertag = normalize(pilotoLogado.gamertag);
+                const pilotoWhatsapp = normalizeDigits(pilotoLogado.whatsapp);
+
                 const acusacoesSemDefesa = (data || []).filter(notif => {
                     const dados = notif.dados || {};
                     const acusado = dados.acusado || {};
-                    // Verificar se é contra este piloto
-                    const ehContraMim = acusado.nome?.toUpperCase() === pilotoLogado.nome?.toUpperCase();
-                    // Verificar se já tem defesa INCORPORADA no próprio registro
+
+                    const acusadoNome = normalize(acusado.nome);
+                    const acusadoEmail = normalize(acusado.email);
+                    const acusadoGamertag = normalize(acusado.gamertag);
+                    const acusadoWhatsapp = normalizeDigits(acusado.whatsapp);
+
+                    const ehContraMim =
+                        (acusadoEmail && pilotoEmail && acusadoEmail === pilotoEmail) ||
+                        (acusadoWhatsapp && pilotoWhatsapp && acusadoWhatsapp === pilotoWhatsapp) ||
+                        (acusadoGamertag && pilotoGamertag && acusadoGamertag === pilotoGamertag) ||
+                        (acusadoNome && pilotoNome && acusadoNome === pilotoNome);
+
+                    const status = dados.status || '';
                     const temDefesa = dados.defesa != null;
-                    return ehContraMim && !temDefesa;
+
+                    return ehContraMim && !temDefesa && status === 'aguardando_defesa';
                 });
 
                 setAcusacoesPendentes(acusacoesSemDefesa);
