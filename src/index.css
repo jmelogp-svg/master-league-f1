@@ -3506,7 +3506,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         font-weight: 900 !important;
     }
     
-    /* OCULTA completamente os nomes duplicados da lateral direita no desktop */
+    /* OCULTA completamente os nomes duplicados da lateral direita no desktop (só na vista por equipes) */
     .classification-right .classification-team-info,
     .classification-team-drivers,
     .classification-drivers,
@@ -3521,6 +3521,33 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         position: absolute !important;
         width: 0 !important;
         overflow: hidden !important;
+    }
+
+    /* Na tabela de pilotos (6º em diante), mostrar a equipe no desktop — linha tem .classification-driver-name */
+    .classification-row-new:has(.classification-driver-name) .classification-right .classification-team-info,
+    .classification-row-new:has(.classification-driver-name) .classification-right .classification-team-info *,
+    .classification-row-new:has(.classification-driver-name) .classification-right .classification-team-info .classification-team-name,
+    .classification-row-new:has(.classification-driver-name) .classification-right .classification-team-info span {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: static !important;
+        width: auto !important;
+        overflow: visible !important;
+        font-size: inherit !important;
+        line-height: inherit !important;
+    }
+    .classification-row-new:has(.classification-driver-name) .classification-right .classification-team-info {
+        align-items: center;
+        gap: 8px;
+    }
+    .classification-row-new:has(.classification-driver-name) .classification-right .classification-team-info .classification-team-name {
+        display: block !important;
+        font-size: 1.1rem !important;
+        font-weight: 900 !important;
     }
     
     /* GARANTE que nomes abreviados fiquem ocultos no desktop */
