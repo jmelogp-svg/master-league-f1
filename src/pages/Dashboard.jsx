@@ -757,7 +757,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         
         // Agrupar dados por temporada e grid para calcular campeonatos
         const pontosPorTemporada = {}; // { 'carreira-5': { [nome]: pontos }, 'light-5': { ... } }
-        const equipesPorPiloto = {}; // { [equipe]: corridas }
+        // equipesPorPiloto: chave normalizada (lowercase) → { count, displayName } para evitar duplicar "Haas"/"HAAS"/"haas"
+        const equipesPorPiloto = {};
         const voltasRapidasPorCorrida = {}; // { 'carreira-5-R01': { melhor: tempo, piloto: nome } }
         
         const isSeasonComplete = (grid, season) => {
@@ -876,10 +877,13 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                     stats.statsPorTemporada[season].pontos += points;
                     stats.statsPorTemporada[season].corridas++;
                     
-                    // Contar equipes
-                    if (team && team !== '-' && team !== '') {
-                        if (!equipesPorPiloto[team]) equipesPorPiloto[team] = 0;
-                        equipesPorPiloto[team]++;
+                    // Contar equipes: chave normalizada (evita Haas/HAAS/haas separados) e 1 por evento (sprint+corrida = 1 etapa)
+                    if (team && team.trim() !== '' && team !== '-') {
+                        const teamKey = team.trim().toLowerCase();
+                        const eventKey = `${grid}-${season}-${round}`;
+                        if (!equipesPorPiloto[teamKey]) equipesPorPiloto[teamKey] = { events: new Set(), displayName: team.trim() };
+                        equipesPorPiloto[teamKey].events.add(eventKey);
+                        if (!equipesPorPiloto[teamKey].displayName) equipesPorPiloto[teamKey].displayName = team.trim();
                     }
                 }
                 
@@ -931,14 +935,15 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             }
         });
         
-        // Encontrar equipe mais representada
+        // Encontrar equipe que o piloto mais defendeu (mais etapas/eventos por equipe, nome normalizado para exibição)
         const equipesOrdenadas = Object.entries(equipesPorPiloto)
-            .sort((a, b) => b[1] - a[1]);
+            .map(([key, val]) => ({ key, count: val.events.size, displayName: val.displayName || key }))
+            .sort((a, b) => b.count - a.count);
         
         if (equipesOrdenadas.length > 0) {
             stats.equipeMaisRepresentada = {
-                nome: equipesOrdenadas[0][0],
-                corridas: equipesOrdenadas[0][1]
+                nome: equipesOrdenadas[0].displayName,
+                corridas: equipesOrdenadas[0].count
             };
         }
         

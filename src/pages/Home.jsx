@@ -1974,7 +1974,7 @@ function Home() {
                         <section className="hub-section">
                             <div className="section-header-hub"><h2>ACESSO RÁPIDO</h2></div>
                             <div className="quick-links-grid">
-                                <Link to="/mercado" className="ql-card style-mercado"><div className="ql-icon">💰</div><div className="ql-info"><h3>MERCADO</h3><span>Negocie pilotos</span></div></Link>
+                                <Link to="/powerranking" className="ql-card style-mercado"><div className="ql-icon">📈</div><div className="ql-info"><h3>POWER RANKING</h3><span>Valor e prioridades</span></div></Link>
                                 <Link to="/telemetria" className="ql-card style-analises"><div className="ql-icon">📊</div><div className="ql-info"><h3>TELEMETRIA</h3><span>Dados avançados</span></div></Link>
                                 <Link to="/halloffame" className="ql-card style-hof"><div className="ql-icon">🏆</div><div className="ql-info"><h3>HALL DA FAMA</h3><span>Lendas</span></div></Link>
                             </div>
