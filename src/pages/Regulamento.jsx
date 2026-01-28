@@ -281,6 +281,7 @@ const infographicSections = [
     { id: 'info-punicoes', elementId: 'info-punicoes', title: 'Sistema de Punições', keywords: ['punição', 'penalidade', 'carteira', 'suspensão', 'ban', 'advertência', 'agravante'] },
     { id: 'info-analises', elementId: 'info-analises', title: 'Análises & Defesa', keywords: ['análise', 'defesa', 'vídeo', 'incidente', 'prazo', 'solicitação', 'bug', 'retirada', 'box', 'classificatória', 'qualificação'] },
     { id: 'info-ranking', elementId: 'info-ranking', title: 'Power Ranking', keywords: ['power ranking', 'ranking', 'nota', 'performance', 'conduta', 'racecraft', 'overall', 'histórico'] },
+    { id: 'info-ranking-calculo', elementId: 'info-ranking-calculo', title: 'Regras de Cálculo do Power Ranking', keywords: ['power ranking', 'cálculo', 'pilares', 'performance', 'conduta', 'racecraft', 'overall', 'histórico', 'pesos', 'fórmula'] },
     { id: 'info-infracoes', elementId: 'info-infracoes', title: 'Infrações Críticas', keywords: ['infração', 'falta', 'wo', 'ausência', 'foto', 'formulário', 'telemetria'] },
     { id: 'info-premiacao', elementId: 'info-premiacao', title: 'Premiação e Gerais', keywords: ['premiação', 'troféu', 'troféus', 'frete', 'campeão', 'campeã', 'dupla campeã', 'inscrição grátis'] },
     { id: 'info-disposicoes', elementId: 'info-disposicoes', title: 'Disposições Finais', keywords: ['final', 'alteração', 'administração', 'casos omissos', 'soberania', 'decisão', 'foto', 'obrigatório'] }
@@ -553,7 +554,7 @@ A liga utiliza um sistema de carteira de pontos progressiva. Acúmulo de pontos 
         ],
         extra: `Agravantes (+5 pts): Largada (até volta 2), Última volta, Safety Car, Reincidência.
 
-Suspensão: Ao atingir 20 pontos na carteira, o piloto cumpre suspensão automática na etapa seguinte. (Raceban)`
+Suspensão: Ao atingir 20 pontos de penalização nas análises (incidentes de pista) na carteira, o piloto cumpre suspensão automática na etapa seguinte (Race Ban). Não entram nessa conta as perdas de pontos por falta de envio do vídeo de defesa.`
     },
     {
         id: 'analises',
@@ -610,6 +611,81 @@ O piloto perderá Pontos de Conduta (afetando seu Power Ranking e status na liga
 • Correr com Telemetria Fechada.
 • Correr com numeração do carro errada (diferente da registrada).
 • Não enviar vídeo de defesa quando solicitado.`
+    },
+    {
+        id: 'powerranking-calculo',
+        title: '10.1 Aditivo – Regras de Cálculo do Power Ranking (28/01/2026)',
+        keywords: ['power ranking', 'cálculo', 'pilares', 'performance', 'conduta', 'racecraft', 'overall', 'histórico', 'pesos', 'fórmula'],
+        content: `Este aditivo foi inserido em 28 de janeiro de 2026 e detalha como os pilares do Power Ranking são compostos e como a nota final é calculada.
+
+Peso de cada pilar na nota final (Power Ranking):`,
+        tables: [
+            {
+                title: 'Pesos dos pilares na nota final',
+                headers: ['Pilar', 'Peso'],
+                rows: [
+                    ['Performance', '30%'],
+                    ['Racecraft', '25%'],
+                    ['Overall', '20%'],
+                    ['Conduta', '15%'],
+                    ['Histórico', '10%']
+                ]
+            },
+            {
+                title: 'Pilar 1 – Performance (escala 60–100)',
+                headers: ['Regra', 'Descrição'],
+                rows: [
+                    ['Base', 'Percentual dos pontos da temporada atual em relação ao maior PR do mesmo grid (Carreira ou Light). Escala: 60 + (percentual × 0,24).'],
+                    ['Bônus por etapa', 'Por cada etapa (1 a 8): +1 se não houver NC RACE; +1 se não houver PUNISH RACE. Máximo 16 pontos de bônus.']
+                ]
+            },
+            {
+                title: 'Pilar 2 – Conduta (escala 0–100)',
+                headers: ['Regra', 'Descrição'],
+                rows: [
+                    ['Base', '100 pontos.'],
+                    ['Foto não enviada', '-5 (uma vez por temporada).'],
+                    ['Por etapa', 'Lista de presença não respondida: -1; Numeração errada: -1; Telemetria fechada: -1; Pontos descontados manuais (conforme aplicado).'],
+                    ['Faltas W.O.', '-2 por falta.'],
+                    ['Punições (análises)', 'Metade do valor exibido de defesa faltante (5 pts por defesa não enviada) + metade do valor exibido de punições de incidentes.'],
+                    ['Advertências', '-1 por advertência.']
+                ]
+            },
+            {
+                title: 'Pilar 3 – Racecraft (escala 60–100)',
+                headers: ['Componente', 'Peso'],
+                rows: [
+                    ['Ritmo de Corrida', '30%'],
+                    ['POS. Q (posição média qualy)', '20%'],
+                    ['Ritmo de Classificação (QUALY)', '20%'],
+                    ['POS. R (posição média corrida)', '30%'],
+                    ['Mínimo', '60.']
+                ]
+            },
+            {
+                title: 'Pilar 4 – Overall (escala 60–100)',
+                headers: ['Regra', 'Descrição'],
+                rows: [
+                    ['Cálculo', 'Soma dos pontos dos 5 objetivos contratuais (metas da equipe/contrato).'],
+                    ['Sem corridas na temporada', 'Base 60.']
+                ]
+            },
+            {
+                title: 'Pilar 5 – Histórico (escala 60–100)',
+                headers: ['Componente', 'Descrição'],
+                rows: [
+                    ['60%', 'PR histórico normalizado: média ponderada das últimas 5 temporadas (T atual 35%, T-1 25%, T-2 20%, T-3 15%, T-4 5%) em relação ao maior PR do mesmo grid. Escala 60–100.'],
+                    ['40%', 'Pontuação por quantidade de temporadas disputadas: quantidade + 80 (máx. 100). Ex.: 20 temporadas = 100.']
+                ]
+            },
+            {
+                title: 'Fórmula da nota final (Power Ranking)',
+                headers: ['Fórmula', ''],
+                rows: [
+                    ['PR = (Performance × 0,30) + (Racecraft × 0,25) + (Overall × 0,20) + (Conduta × 0,15) + (Histórico × 0,10)', '']
+                ]
+            }
+        ]
     },
     {
         id: 'infracoes',
@@ -1441,7 +1517,7 @@ const Regulamento = () => {
                             <p className="aggravation-title">Agravantes (+5 pts): Largada (até volta 2), Última volta, Safety Car, Reincidência</p>
                         </div>
                         <p className="reg-suspension-line">
-                            Suspensão: Ao atingir 20 pontos na carteira, o piloto cumpre suspensão automática na etapa seguinte. (Raceban)
+                            Suspensão: Ao atingir 20 pontos de penalização nas análises (incidentes de pista) na carteira, o piloto cumpre suspensão automática na etapa seguinte (Race Ban). Não entram nessa conta as perdas de pontos por falta de envio do vídeo de defesa.
                         </p>
                     </section>
 
@@ -1554,6 +1630,46 @@ const Regulamento = () => {
                                     <li>Correr com numeração do carro errada (diferente da registrada).</li>
                                     <li>Não enviar vídeo de defesa quando solicitado.</li>
                                 </ul>
+                            </div>
+                        </div>
+
+                        {/* Aditivo 28/01/2026 – Regras de Cálculo do Power Ranking */}
+                        <div id="info-ranking-calculo" className="reg-section" style={{marginTop: '32px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.15)'}}>
+                            <div className="reg-section-title" style={{marginBottom: '16px'}}>
+                                <div>
+                                    <span className="reg-mini-pill" style={{background: 'rgba(245, 158, 11, 0.2)', color: '#F59E0B', marginBottom: '8px', display: 'inline-block'}}>Aditivo inserido em 28/01/2026</span>
+                                    <h2 style={{margin: 0, fontSize: '1.35rem'}}>10.1 Regras de Cálculo do Power Ranking</h2>
+                                    <p style={{margin: '8px 0 0', opacity: 0.9, fontSize: '0.95rem'}}>Composição dos pilares e fórmula da nota final.</p>
+                                </div>
+                            </div>
+                            <div className="info-card" style={{marginBottom: '16px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)'}}>
+                                <Info className="reg-icon" style={{color: '#F59E0B'}} />
+                                <div>
+                                    <p style={{margin: 0}}><strong>Pesos na nota final:</strong> Performance 30% • Racecraft 25% • Overall 20% • Conduta 15% • Histórico 10%</p>
+                                    <p style={{margin: '10px 0 0', fontSize: '0.9rem'}}>PR = (Performance × 0,30) + (Racecraft × 0,25) + (Overall × 0,20) + (Conduta × 0,15) + (Histórico × 0,10)</p>
+                                </div>
+                            </div>
+                            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px'}}>
+                                <article className="reg-card" style={{padding: '14px'}}>
+                                    <h4 style={{margin: '0 0 8px', fontSize: '1rem', color: '#3B82F6'}}>Pilar 1 – Performance</h4>
+                                    <p style={{margin: 0, fontSize: '0.85rem', lineHeight: 1.4}}>Base: % dos pontos da temporada vs maior PR do grid (escala 60–100). Bônus por etapa: +1 se sem NC RACE; +1 se sem PUNISH RACE (até 16 pts).</p>
+                                </article>
+                                <article className="reg-card" style={{padding: '14px'}}>
+                                    <h4 style={{margin: '0 0 8px', fontSize: '1rem', color: '#22C55E'}}>Pilar 2 – Conduta</h4>
+                                    <p style={{margin: 0, fontSize: '0.85rem', lineHeight: 1.4}}>Base 100. Descontos: foto -5; por etapa (presença, numeração, telemetria) -1 cada; W.O. -2 cada; punições/defesa (metade do valor); advertências -1 cada.</p>
+                                </article>
+                                <article className="reg-card" style={{padding: '14px'}}>
+                                    <h4 style={{margin: '0 0 8px', fontSize: '1rem', color: '#EF4444'}}>Pilar 3 – Racecraft</h4>
+                                    <p style={{margin: 0, fontSize: '0.85rem', lineHeight: 1.4}}>Média ponderada: Ritmo Corrida 30%, POS. Q 20%, QUALY 20%, POS. R 30%. Mínimo 60.</p>
+                                </article>
+                                <article className="reg-card" style={{padding: '14px'}}>
+                                    <h4 style={{margin: '0 0 8px', fontSize: '1rem', color: '#8B5CF6'}}>Pilar 4 – Overall</h4>
+                                    <p style={{margin: 0, fontSize: '0.85rem', lineHeight: 1.4}}>Soma dos 5 objetivos contratuais. Sem corridas na temporada: base 60.</p>
+                                </article>
+                                <article className="reg-card" style={{padding: '14px'}}>
+                                    <h4 style={{margin: '0 0 8px', fontSize: '1rem', color: '#475569'}}>Pilar 5 – Histórico</h4>
+                                    <p style={{margin: 0, fontSize: '0.85rem', lineHeight: 1.4}}>60% PR histórico (média ponderada 5 temporadas: 35%/25%/20%/15%/5%) normalizado vs maior do grid; 40% pontuação por quantidade de temporadas (qtd+80, máx 100).</p>
+                                </article>
                             </div>
                         </div>
                     </section>
