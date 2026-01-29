@@ -155,27 +155,15 @@
     }
 }
 
-/* Ajustes específicos para evitar corte do nome nos cards do grid */
+/* Ajustes específicos para o grid do Power Ranking */
 .pr-cards-page .card-name-block {
-    left: -60px;
-    right: 22px;
-    width: calc(100% - 44px);
-    text-align: left;
-    overflow: visible;
-    transform: none;
+    overflow: hidden;
 }
 
 .pr-cards-page .driver-name {
-    max-width: none !important;
-    padding-right: 6px;
-    font-size: 19px !important;
-    line-height: 1.05 !important;
-}
-
-@media (max-width: 480px) {
-    .pr-cards-page .driver-name {
-        font-size: 20px !important;
-    }
+    max-width: 100%;
+    font-size: 19px;
+    line-height: 1.05;
 }
 
 .pr-cards-loading {

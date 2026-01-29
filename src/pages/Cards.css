@@ -270,11 +270,13 @@
     position: absolute;
     bottom: 68px;
     left: 22px;
-    right: auto;
-    width: auto;
-    overflow: visible;
+
+    width: calc(100% - 44px);
+    max-width: calc(100% - 44px);
+
+    overflow: hidden; /* 🔒 trava estouro */
     text-align: left;
-    transform: none;
+    pointer-events: none;
 }
 
 /* Valor do Hist\u00f3rico posicionado no lado direito do banner */
@@ -295,18 +297,31 @@
 }
 
 .driver-name {
-    font-family: 'Titillium Web', 'Archivo Black', sans-serif;
+    font-family: 'Titillium Web', sans-serif;
+
+    display: block;
+    max-width: 100%;
+
     font-size: 22px;
-    font-weight: 10px;
+    line-height: 1.05;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
     font-style: italic;
-    line-height: 0.85;
     text-transform: uppercase;
-    letter-spacing: -0.0px;
+
     transform: skewX(-12deg);
+    transform-origin: left center;
+
     margin-bottom: 10px;
-    text-align: center;
+    text-align: left;
+
     color: #8fd4ff;
-    text-shadow: 0 0 8px rgba(143, 212, 255, 0.65), 0 0 16px rgba(143, 212, 255, 0.45);
+    text-shadow:
+        0 0 8px rgba(143, 212, 255, 0.65),
+        0 0 16px rgba(143, 212, 255, 0.45);
 }
 
 .driver-name span {
