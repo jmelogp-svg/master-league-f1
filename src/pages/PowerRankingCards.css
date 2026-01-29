@@ -158,12 +158,15 @@
 /* Ajustes específicos para o grid do Power Ranking */
 .pr-cards-page .card-name-block {
     overflow: hidden;
+    left: 40px;  /* ← ajuste aqui para mover horizontalmente */
 }
 
 .pr-cards-page .driver-name {
     max-width: 100%;
     font-size: 19px;
     line-height: 1.05;
+    text-align: left;
+    transform-origin: center center;
 }
 
 .pr-cards-loading {
@@ -186,5 +189,9 @@
 
     .pr-cards-grid-toggle {
         margin-bottom: 20px;
+    }
+
+    .pr-cards-page .driver-name {
+        font-size: 19px !important;  /* ← tamanho para celular */
     }
 }
