@@ -161,13 +161,14 @@
     left: 40px;  /* ← ajuste aqui para mover horizontalmente */
 }
 
-.pr-cards-page .driver-name {
+.pr-cards-page .driver-card .card-name-block .driver-name {
     max-width: 100% !important;
     font-size: 19px !important;
     line-height: 1.05 !important;
     text-align: left !important;
     letter-spacing: normal !important;
     font-weight: normal !important;
+    color: #8fd4ff !important;
 }
 
 .pr-cards-loading {
@@ -192,7 +193,7 @@
         margin-bottom: 20px;
     }
 
-    .pr-cards-page .driver-name {
-        font-size: 19px !important;  /* ← tamanho para celular */
+    .pr-cards-page .driver-card .card-name-block .driver-name {
+        font-size: 17px !important;  /* ← tamanho para celular */
     }
 }
