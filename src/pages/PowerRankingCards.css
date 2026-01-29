@@ -162,11 +162,12 @@
 }
 
 .pr-cards-page .driver-name {
-    max-width: 100%;
-    font-size: 19px;
-    line-height: 1.05;
-    text-align: left;
-    transform-origin: center center;
+    max-width: 100% !important;
+    font-size: 19px !important;
+    line-height: 1.05 !important;
+    text-align: left !important;
+    letter-spacing: normal !important;
+    font-weight: normal !important;
 }
 
 .pr-cards-loading {
