@@ -237,6 +237,8 @@ function Home() {
     const [news, setNews] = useState([]);
     const [newsImageVersions, setNewsImageVersions] = useState({}); // { [slot:number]: updated_at:string }
     const [punicoes, setPunicoes] = useState({}); // { 'nome-normalizado': pontosPerdidos }
+    const [punicoesCarrosselCarreira, setPunicoesCarrosselCarreira] = useState({}); // Punições T20 Carreira (fixo para carrossel)
+    const [punicoesCarrosselLight, setPunicoesCarrosselLight] = useState({}); // Punições T20 Light (fixo para carrossel)
 
     const scrollRef = useRef(null);
     const scrollRefLight = useRef(null);
@@ -318,6 +320,59 @@ function Home() {
 
         buscarPunicoes();
     }, [selectedSeason, gridType]);
+
+    // Buscar punições específicas para os carrosséis (T20 fixo, separado por grid)
+    useEffect(() => {
+        const buscarPunicoesCarrossel = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('notificacoes_admin')
+                    .select('dados')
+                    .eq('dados->>status', 'analise_realizada');
+
+                if (error) {
+                    console.error('Erro ao buscar punições do carrossel:', error);
+                    return;
+                }
+
+                const punicoesCarreira = {};
+                const punicoesLight = {};
+                
+                (data || []).forEach(item => {
+                    const veredito = item.dados?.veredito;
+                    const acusado = item.dados?.acusado;
+                    const etapa = item.dados?.etapa || {};
+                    const temporadaLance = etapa?.season || etapa?.temporada || item.dados?.season || item.dados?.temporada || null;
+                    const gridLance = etapa?.grid || item.dados?.grid || null;
+
+                    // Filtrar apenas T20
+                    const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === 20 : true;
+
+                    if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && temporadaCompativel) {
+                        const nomePilotoNormalizado = normalizeNomePiloto(acusado.nome);
+                        const pontosPerdidos = parseInt(veredito.pontosPerdidos) || 0;
+                        
+                        if (pontosPerdidos > 0 && nomePilotoNormalizado) {
+                            // Separar por grid
+                            if (gridLance === 'carreira' || !gridLance) {
+                                punicoesCarreira[nomePilotoNormalizado] = (punicoesCarreira[nomePilotoNormalizado] || 0) + pontosPerdidos;
+                            }
+                            if (gridLance === 'light' || !gridLance) {
+                                punicoesLight[nomePilotoNormalizado] = (punicoesLight[nomePilotoNormalizado] || 0) + pontosPerdidos;
+                            }
+                        }
+                    }
+                });
+
+                setPunicoesCarrosselCarreira(punicoesCarreira);
+                setPunicoesCarrosselLight(punicoesLight);
+            } catch (err) {
+                console.error('Erro ao buscar punições do carrossel:', err);
+            }
+        };
+
+        buscarPunicoesCarrossel();
+    }, []); // Executar apenas uma vez na montagem
 
     // Auto-scroll
     useEffect(() => {
@@ -746,19 +801,28 @@ function Home() {
         setNextRaceData(upcoming);
         
         // Subtrair pontos perdidos em punições para cada piloto (antes de ordenar)
+        // Usando punições específicas do carrossel (T20 fixo por grid)
         Object.keys(totals).forEach(nomePiloto => {
             const nomePilotoNormalizado = normalizeNomePiloto(nomePiloto);
-            const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
+            const pontosPerdidos = punicoesCarrosselCarreira[nomePilotoNormalizado] || 0;
+            
+            // Armazenar pontos perdidos no objeto do piloto
+            totals[nomePiloto].pontosPerdidos = pontosPerdidos;
+            
             if (pontosPerdidos > 0) {
-                totals[nomePiloto].points = totals[nomePiloto].points - pontosPerdidos;
+                totals[nomePiloto].points = totals[nomePiloto].points - pontosPerdidos; // Permite valores negativos
             }
         });
         
         Object.keys(totalsLight).forEach(nomePiloto => {
             const nomePilotoNormalizado = normalizeNomePiloto(nomePiloto);
-            const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
+            const pontosPerdidos = punicoesCarrosselLight[nomePilotoNormalizado] || 0;
+            
+            // Armazenar pontos perdidos no objeto do piloto
+            totalsLight[nomePiloto].pontosPerdidos = pontosPerdidos;
+            
             if (pontosPerdidos > 0) {
-                totalsLight[nomePiloto].points = totalsLight[nomePiloto].points - pontosPerdidos;
+                totalsLight[nomePiloto].points = totalsLight[nomePiloto].points - pontosPerdidos; // Permite valores negativos
             }
         });
         
@@ -802,7 +866,7 @@ function Home() {
         setTopDriversLight(sortedLightFull.slice(0, 3));
         setSeasonDrivers(sorted);
         setSeasonDriversLightFull(sortedLightFull);
-    }, [rawCarreira, rawLight, draftCarreira, draftLight, loading, seasons, punicoes]);
+    }, [rawCarreira, rawLight, draftCarreira, draftLight, loading, seasons, punicoesCarrosselCarreira, punicoesCarrosselLight]);
 
     // Rounds
     useEffect(() => {
