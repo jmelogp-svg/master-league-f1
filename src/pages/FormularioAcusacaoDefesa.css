@@ -88,8 +88,21 @@
     margin-bottom: 18px !important;
   }
 
-  /* Selects e inputs: área de toque >= 44px, evita zoom no iOS */
-  .form-steward-select,
+  /* Selects (dropdowns): texto menor e mais ajustado no celular */
+  .form-steward-select {
+    min-height: 44px !important;
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+    box-sizing: border-box !important;
+  }
+
+  .form-steward-select option {
+    font-size: 14px !important;
+    padding: 8px 4px !important;
+  }
+
+  /* Inputs e textarea: área de toque adequada, evita zoom no iOS */
   .form-steward-input,
   .form-steward-textarea {
     min-height: 48px !important;
@@ -189,5 +202,16 @@
 
   .form-steward-card-title {
     font-size: 1rem !important;
+  }
+
+  /* Dropdowns ainda mais compactos no celular pequeno */
+  .form-steward-select {
+    font-size: 13px !important;
+    padding: 8px 10px !important;
+    min-height: 42px !important;
+  }
+
+  .form-steward-select option {
+    font-size: 13px !important;
   }
 }
