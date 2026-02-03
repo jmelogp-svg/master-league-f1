@@ -680,9 +680,10 @@ Peso de cada pilar na nota final (Power Ranking):`,
             },
             {
                 title: 'Fórmula da nota final (Power Ranking)',
-                headers: ['Fórmula', ''],
+                headers: ['Fórmula / Regra', 'Descrição'],
                 rows: [
-                    ['PR = (Performance × 0,30) + (Racecraft × 0,25) + (Overall × 0,20) + (Conduta × 0,15) + (Histórico × 0,10)', '']
+                    ['Cálculo pelos pilares', 'PR = (Performance × 0,30) + (Racecraft × 0,25) + (Overall × 0,20) + (Conduta × 0,15) + (Histórico × 0,10)'],
+                    ['Desconto por faltas (W.O.)', 'Cada falta do piloto (ausência em etapa) desconta 1 ponto no número final do Power Ranking. Ex.: nota 95 com 2 faltas = Power Ranking final 93.']
                 ]
             }
         ]
