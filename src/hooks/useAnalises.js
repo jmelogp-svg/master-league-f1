@@ -305,99 +305,128 @@ export const calcLightDate = (carreiraDate) => {
     }
 };
 
+/** Fallback de 8 etapas quando cache/Sheets falham (ex.: site publicado com rede lenta ou CORS) */
+function getFallbackEtapas() {
+    const fallbackEtapas = [];
+    for (let i = 1; i <= 8; i++) {
+        fallbackEtapas.push({ round: i, date: '-', circuit: `Etapa ${i}` });
+    }
+    return fallbackEtapas;
+}
+
+/** Normaliza linha do cache: Supabase pode devolver array ou objeto; devolve array de valores. */
+function normalizeRow(row) {
+    if (Array.isArray(row)) return row;
+    if (row && typeof row === 'object') {
+        const keys = Object.keys(row).sort();
+        return keys.map(k => row[k] ?? '');
+    }
+    return [row];
+}
+
 /**
  * Hook para buscar etapas do calendário da T20
- * Planilha "CALENDÁRIO ML1" - Linhas começam no índice 14
- * Coluna A = "Etapa N", C = Data, D = Circuito
+ * Usa Supabase cache primeiro, com fallback para Google Sheets
+ * No site publicado: timeout + fallback garantem etapas mesmo com rede/CORS falhando
  */
 export function useCalendarioT20() {
-    const [etapas, setEtapas] = useState([]);
+    // Inicializar já com 8 etapas fallback: no site publicado o select nunca fica vazio
+    const [etapas, setEtapas] = useState(() => getFallbackEtapas());
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        const CALENDARIO_TIMEOUT_MS = 12000; // 12s: evita loading infinito no site publicado
+
         const fetchCalendario = async () => {
+            let rows = null;
+
             try {
-                // CALENDÁRIO ML1 (gid=0)
-                const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv';
-                const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
+                // 1. Tentar buscar do Supabase cache primeiro
+                try {
+                    const { data: cacheData, error: cacheError } = await supabase
+                        .from('calendario_cache')
+                        .select('*')
+                        .eq('season', 20)
+                        .order('last_synced_at', { ascending: false })
+                        .limit(1);
 
-                const response = await fetch(url);
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('❌ Erro HTTP ao carregar calendário:', response.status, errorText);
-                    throw new Error(`Erro ao carregar calendário: HTTP ${response.status}`);
-                }
-
-                const csv = await response.text();
-                
-                // Verificar se a resposta é HTML (erro do proxy) ao invés de CSV
-                if (csv.trim().startsWith('<!DOCTYPE') || csv.trim().startsWith('<html')) {
-                    console.error('❌ Proxy retornou HTML ao invés de CSV');
-                    throw new Error('Proxy retornou HTML. A planilha pode não estar acessível.');
-                }
-                
-                const lines = csv.split('\n');
-                
-                console.log('📅 Total linhas calendário:', lines.length);
-
-                // Procura por linhas que começam com "Etapa" (case-insensitive, com ou sem espaços)
-                const etapasProcessadas = [];
-                
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-                    
-                    const lineLower = line.toLowerCase();
-                    // Verifica se a linha contém "etapa" (pode ter espaços antes)
-                    if (lineLower.includes('etapa')) {
-                        const values = parseCSVLine(line);
-                        
-                        // Debug primeira linha encontrada
-                        if (etapasProcessadas.length === 0) {
-                            console.log(`📅 Primeira linha de etapa encontrada (linha ${i}):`, values);
+                    if (!cacheError && cacheData && cacheData.length > 0 && cacheData[0].data?.rows) {
+                        const raw = cacheData[0].data.rows;
+                        rows = Array.isArray(raw) ? raw.map(normalizeRow) : [];
+                        if (rows.length > 0) {
+                            console.log('📅 Calendário carregado do Supabase cache:', rows.length, 'linhas');
                         }
-                        
-                        // Coluna A = "Etapa N", extrai o número (pode ter espaços ou não)
-                        const etapaMatch = (values[0] || '').match(/etapa\s*(\d+)/i);
+                    }
+                } catch (supabaseErr) {
+                    console.warn('⚠️ Erro ao buscar calendário do Supabase:', supabaseErr?.message || supabaseErr);
+                }
+
+                // 2. Se não encontrou no cache, tentar Google Sheets via proxy (com timeout)
+                if (!rows || rows.length === 0) {
+                    console.log('📅 Tentando carregar calendário do Google Sheets...');
+                    const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv';
+                    const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
+
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                    const response = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) throw new Error(`Erro HTTP ${response.status}`);
+
+                    const csv = await response.text();
+                    if (csv.trim().startsWith('<!DOCTYPE') || csv.trim().startsWith('<html')) {
+                        throw new Error('Proxy retornou HTML');
+                    }
+                    rows = csv.split('\n').map(line => parseCSVLine(line));
+                    console.log('📅 Calendário carregado do Google Sheets:', rows.length, 'linhas');
+                }
+
+                // 3. Processar as linhas para extrair etapas
+                const etapasProcessadas = [];
+                for (let i = 0; i < rows.length; i++) {
+                    const values = normalizeRow(rows[i]);
+                    const firstCol = (values[0] || '').toString().toLowerCase();
+
+                    if (firstCol.includes('etapa')) {
+                        const etapaMatch = (values[0] || '').toString().match(/etapa\s*(\d+)/i);
                         const round = etapaMatch ? parseInt(etapaMatch[1]) : null;
-                        
-                        // Coluna C = Data (índice 2)
-                        const date = (values[2] || '').trim();
-                        
-                        // Coluna D = Circuito (índice 3)
-                        const circuit = (values[3] || '').trim();
-                        
+                        const date = (values[2] || '').toString().trim();
+                        const circuit = (values[3] || '').toString().trim();
                         if (round && circuit) {
                             etapasProcessadas.push({ round, date, circuit });
-                        } else if (round) {
-                            console.warn(`⚠️ Etapa ${round} sem circuito na linha ${i}:`, values);
                         }
                     }
                 }
 
-                console.log('✅ Etapas processadas:', etapasProcessadas);
-
                 if (etapasProcessadas.length === 0) {
-                    console.warn('⚠️ Nenhuma etapa encontrada na planilha. Verifique se a planilha está acessível e se as linhas começam com "Etapa".');
+                    console.warn('⚠️ Nenhuma etapa encontrada. Usando fallback de 8 etapas.');
+                    setEtapas(getFallbackEtapas());
+                } else {
+                    setEtapas(etapasProcessadas);
                 }
-
-                setEtapas(etapasProcessadas);
             } catch (err) {
-                console.error('❌ Erro ao carregar calendário:', err);
-                console.error('❌ Detalhes do erro:', {
-                    message: err.message,
-                    stack: err.stack
-                });
-                setError(err.message);
-                // Mesmo com erro, definir array vazio para não bloquear a renderização
-                setEtapas([]);
+                console.error('❌ Erro ao carregar calendário:', err?.message || err);
+                setError(err?.message || null);
+                setEtapas(getFallbackEtapas());
+                console.log('📅 Usando fallback de 8 etapas genéricas');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchCalendario();
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('timeout')), CALENDARIO_TIMEOUT_MS);
+        });
+
+        Promise.race([fetchCalendario(), timeoutPromise]).catch(() => {
+            setLoading(false);
+            setEtapas(getFallbackEtapas());
+            setError('timeout');
+            console.warn('📅 Calendário: timeout, usando 8 etapas fallback');
+        });
     }, []);
 
     return { etapas, loading, error };
