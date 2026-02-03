@@ -7,6 +7,7 @@ import { getVideoEmbedUrl } from '../utils/videoEmbed';
 import CustomAlert from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 import '../index.css';
+import './FormularioAcusacaoDefesa.css';
 
 // Temporada atual
 const TEMPORADA_ATUAL = 20;
@@ -491,17 +492,17 @@ Aguarde análise dos Stewards.`
     }
 
     return (
-        <div style={{ 
+        <div className="form-steward-page" style={{ 
             minHeight: '100vh', 
             background: 'var(--bg-dark-main)', 
             color: 'white', 
             padding: '80px 20px 40px',
             fontFamily: "'Montserrat', sans-serif"
         }}>
-            <div style={{ maxWidth: '750px', margin: '0 auto' }}>
+            <div className="form-steward-container" style={{ maxWidth: '750px', margin: '0 auto' }}>
                 
                 {/* Header */}
-                <div style={{ 
+                <div className="form-steward-header" style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'space-between',
@@ -542,7 +543,7 @@ Aguarde análise dos Stewards.`
                 </div>
 
                 {/* Card do Formulário - Estilo Documento */}
-                <div style={{
+                <div className="form-steward-card" style={{
                     background: '#FFFFFF',
                     borderRadius: '12px',
                     boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
@@ -550,12 +551,12 @@ Aguarde análise dos Stewards.`
                     overflow: 'hidden'
                 }}>
                     {/* Cabeçalho Vermelho */}
-                    <div style={{
+                    <div className="form-steward-card-header" style={{
                         background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)',
                         padding: '20px 30px',
                         textAlign: 'center'
                     }}>
-                        <h1 style={{ 
+                        <h1 className="form-steward-card-title" style={{ 
                             fontSize: '1.3rem', 
                             fontWeight: '900', 
                             margin: 0,
@@ -563,7 +564,7 @@ Aguarde análise dos Stewards.`
                             textTransform: 'uppercase',
                             letterSpacing: '3px'
                         }}>⚖️ Formulário de Acusação</h1>
-                        <p style={{ 
+                        <p className="form-steward-card-subtitle" style={{ 
                             fontSize: '0.8rem', 
                             color: 'rgba(255,255,255,0.8)', 
                             margin: '8px 0 0 0' 
@@ -573,7 +574,7 @@ Aguarde análise dos Stewards.`
                     </div>
 
                     {/* Corpo do Documento */}
-                    <div style={{ padding: '35px 40px' }}>
+                    <div className="form-steward-card-body" style={{ padding: '35px 40px' }}>
                         
                         {/* Aviso se dados não estiverem carregados */}
                         {(etapasCalendario.length === 0 || pilotosGrid.length === 0) && !loadingCalendario && !loadingPilotos && (
@@ -609,6 +610,7 @@ Aguarde análise dos Stewards.`
                                 Tipo de Solicitação <span style={{ color: '#EF4444' }}>*</span>
                             </label>
                             <select
+                                className="form-steward-select"
                                 value={formData.tipoSolicitacao}
                                 onChange={(e) => {
                                     setFormData({ ...formData, tipoSolicitacao: e.target.value });
@@ -648,13 +650,13 @@ Aguarde análise dos Stewards.`
                                 📋 Dados do Acusador
                             </h2>
                             
-                            <div style={{ 
+                            <div className="form-steward-acusador-row" style={{ 
                                 display: 'flex', 
                                 gap: '25px',
                                 alignItems: 'flex-start'
                             }}>
                                 {/* Foto 3x4 */}
-                                <div style={{
+                                <div className="form-steward-acusador-foto" style={{
                                     width: '120px',
                                     height: '160px',
                                     background: '#1F2937',
@@ -676,8 +678,8 @@ Aguarde análise dos Stewards.`
                                 </div>
 
                                 {/* Informações */}
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ 
+                                <div className="form-steward-acusador-info" style={{ flex: 1 }}>
+                                    <div className="form-steward-info-grid" style={{ 
                                         display: 'grid', 
                                         gridTemplateColumns: '1fr 1fr',
                                         gap: '15px'
@@ -759,7 +761,7 @@ Aguarde análise dos Stewards.`
                                                 whiteSpace: 'nowrap'
                                             }}>{pilotoLogado.grid}</p>
                                         </div>
-                                        <div style={{ gridColumn: 'span 2' }}>
+                                        <div className="span-2" style={{ gridColumn: 'span 2' }}>
                                             <label style={{ 
                                                 fontSize: '0.7rem', 
                                                 color: '#6B7280', 
@@ -812,6 +814,7 @@ Aguarde análise dos Stewards.`
                                         letterSpacing: '0.5px'
                                     }}>Grid selecionado</label>
                                     <select
+                                        className="form-steward-select"
                                         value={selectedGrid}
                                         onChange={handleGridChange}
                                         style={{
@@ -857,6 +860,7 @@ Aguarde análise dos Stewards.`
                                     Etapa (T{TEMPORADA_ATUAL}) <span style={{ color: '#EF4444' }}>*</span>
                                 </label>
                                 <select
+                                    className="form-steward-select"
                                     value={formData.etapa}
                                     onChange={(e) => setFormData({ ...formData, etapa: e.target.value })}
                                     required
@@ -902,6 +906,7 @@ Aguarde análise dos Stewards.`
                                     {formData.tipoSolicitacao === 'retirada_bug' ? 'Destinatário' : 'Piloto Acusado'} <span style={{ color: '#EF4444' }}>*</span>
                                 </label>
                                 <select
+                                    className="form-steward-select"
                                     value={formData.pilotoAcusado}
                                     onChange={handlePilotoAcusadoChange}
                                     required
@@ -1013,6 +1018,7 @@ Aguarde análise dos Stewards.`
                                     Descrição do Lance <span style={{ color: '#EF4444' }}>*</span>
                                 </label>
                                 <textarea
+                                    className="form-steward-textarea"
                                     value={formData.descricao}
                                     onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                                     placeholder="Descreva detalhadamente o que ocorreu no lance. Inclua informações como volta, curva, e o que aconteceu..."
@@ -1049,6 +1055,7 @@ Aguarde análise dos Stewards.`
                                 </label>
                                 <input
                                     type="url"
+                                    className="form-steward-input"
                                     value={formData.videoLink}
                                     onChange={(e) => setFormData({ ...formData, videoLink: e.target.value })}
                                     placeholder="https://youtube.com/watch?v=... ou https://streamable.com/..."
@@ -1119,6 +1126,7 @@ Aguarde análise dos Stewards.`
                             {/* Botão Enviar */}
                             <button
                                 type="submit"
+                                className="form-steward-btn-submit"
                                 disabled={submitting}
                                 style={{
                                     width: '100%',
@@ -1155,7 +1163,7 @@ Aguarde análise dos Stewards.`
 
             {/* Modal de Sucesso */}
             {showSuccess && (
-                <div style={{
+                <div className="form-steward-modal" style={{
                     position: 'fixed',
                     top: 0,
                     left: 0,
@@ -1168,7 +1176,7 @@ Aguarde análise dos Stewards.`
                     zIndex: 1000,
                     padding: '20px'
                 }}>
-                    <div style={{
+                    <div className="form-steward-modal-inner" style={{
                         background: '#FFFFFF',
                         borderRadius: '16px',
                         padding: '40px',

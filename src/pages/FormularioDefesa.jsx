@@ -7,6 +7,7 @@ import { getVideoEmbedUrl } from '../utils/videoEmbed';
 import CustomAlert from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 import '../index.css';
+import './FormularioAcusacaoDefesa.css';
 
 // Temporada atual
 const TEMPORADA_ATUAL = 20;
@@ -438,7 +439,7 @@ Aguarde análise dos Stewards.`
     // Modal de sucesso
     if (showSuccess) {
         return (
-            <div style={{ 
+            <div className="form-steward-modal" style={{ 
                 minHeight: '100vh', 
                 background: 'var(--bg-dark-main)', 
                 color: 'white', 
@@ -447,7 +448,7 @@ Aguarde análise dos Stewards.`
                 justifyContent: 'center',
                 padding: '20px'
             }}>
-                <div style={{ 
+                <div className="form-steward-modal-inner" style={{ 
                     textAlign: 'center', 
                     maxWidth: '450px',
                     background: 'linear-gradient(135deg, #065F46 0%, #064E3B 100%)',
@@ -469,17 +470,17 @@ Aguarde análise dos Stewards.`
     }
 
     return (
-        <div style={{ 
+        <div className="form-steward-page" style={{ 
             minHeight: '100vh', 
             background: 'var(--bg-dark-main)', 
             color: 'white', 
             padding: '80px 20px 40px',
             fontFamily: "'Montserrat', sans-serif"
         }}>
-            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <div className="form-steward-container" style={{ maxWidth: '800px', margin: '0 auto' }}>
                 
                 {/* Header */}
-                <div style={{ 
+                <div className="form-steward-header" style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
                     gap: '15px', 
@@ -520,7 +521,7 @@ Aguarde análise dos Stewards.`
                 </div>
 
                 {/* Card do Piloto Logado */}
-                <div style={{
+                <div className="form-steward-piloto-card" style={{
                     background: 'linear-gradient(135deg, #164E63 0%, #0F172A 100%)',
                     borderRadius: '12px',
                     padding: '20px',
@@ -530,7 +531,7 @@ Aguarde análise dos Stewards.`
                     gap: '20px',
                     border: '1px solid #0E7490'
                 }}>
-                    <div style={{
+                    <div className="avatar" style={{
                         width: '70px',
                         height: '70px',
                         background: '#1F2937',
@@ -606,6 +607,7 @@ Aguarde análise dos Stewards.`
                                     return (
                                         <div
                                             key={acusacao.id}
+                                            className="form-steward-acusacao-item"
                                             style={{
                                                 background: '#1E293B',
                                                 border: '2px solid #EF4444',
@@ -618,7 +620,7 @@ Aguarde análise dos Stewards.`
                                             onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.01)'}
                                             onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
                                         >
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+                                            <div className="top-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                     <span style={{ 
                                                         background: '#E5E7EB',
@@ -647,7 +649,7 @@ Aguarde análise dos Stewards.`
                                                 </span>
                                             </div>
 
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                                            <div className="info-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
                                                 <div>
                                                     <p style={{ color: '#94A3B8', fontSize: '0.75rem', margin: '0 0 5px 0' }}>ACUSADOR</p>
                                                     <p style={{ color: '#F8FAFC', fontWeight: '700', margin: 0 }}>{acusador.nome}</p>
@@ -689,14 +691,14 @@ Aguarde análise dos Stewards.`
                     </div>
                 ) : (
                     // FORMULÁRIO DE DEFESA
-                    <div style={{
+                    <div className="form-steward-card" style={{
                         background: 'white',
                         borderRadius: '12px',
                         overflow: 'hidden',
                         boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
                     }}>
                         {/* Header do formulário */}
-                        <div style={{
+                        <div className="form-steward-defesa-form-header" style={{
                             background: 'linear-gradient(135deg, #0E7490 0%, #164E63 100%)',
                             padding: '25px 30px',
                             color: 'white'
@@ -720,7 +722,7 @@ Aguarde análise dos Stewards.`
                         </div>
 
                         {/* Resumo da acusação */}
-                        <div style={{ padding: '20px 30px', background: '#FEE2E2', borderBottom: '1px solid #FECACA' }}>
+                        <div className="form-steward-defesa-resumo" style={{ padding: '20px 30px', background: '#FEE2E2', borderBottom: '1px solid #FECACA' }}>
                             <h3 style={{ color: '#991B1B', fontSize: '0.9rem', margin: '0 0 10px 0' }}>⚖️ ACUSAÇÃO ORIGINAL</h3>
                             <p style={{ color: '#1F2937', margin: '0 0 10px 0', fontSize: '0.85rem' }}>
                                 <strong>Acusador:</strong> {acusacaoSelecionada.dados?.acusador?.nome} (GT: {acusacaoSelecionada.dados?.acusador?.gamertag})
@@ -787,7 +789,7 @@ Aguarde análise dos Stewards.`
                         </div>
 
                         {/* Formulário */}
-                        <form onSubmit={handleSubmit} style={{ padding: '30px' }}>
+                        <form className="form-steward-defesa-form" onSubmit={handleSubmit} style={{ padding: '30px' }}>
                             {/* Descrição da Defesa */}
                             <div style={{ marginBottom: '20px' }}>
                                 <label style={{ 
@@ -802,6 +804,7 @@ Aguarde análise dos Stewards.`
                                     Sua Defesa <span style={{ color: '#EF4444' }}>*</span>
                                 </label>
                                 <textarea
+                                    className="form-steward-textarea"
                                     value={formData.descricaoDefesa}
                                     onChange={(e) => setFormData({ ...formData, descricaoDefesa: e.target.value })}
                                     required
@@ -839,6 +842,7 @@ Aguarde análise dos Stewards.`
                                 </label>
                                 <input
                                     type="url"
+                                    className="form-steward-input"
                                     value={formData.videoLinkDefesa}
                                     onChange={(e) => setFormData({ ...formData, videoLinkDefesa: e.target.value })}
                                     placeholder="https://youtube.com/watch?v=..."
@@ -928,7 +932,7 @@ Aguarde análise dos Stewards.`
                             </div>
 
                             {/* Botões */}
-                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
+                            <div className="form-steward-btn-row" style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
                                 <button
                                     type="button"
                                     onClick={() => setAcusacaoSelecionada(null)}
@@ -947,6 +951,7 @@ Aguarde análise dos Stewards.`
                                 </button>
                                 <button
                                     type="submit"
+                                    className="form-steward-btn-submit"
                                     disabled={submitting}
                                     style={{
                                         padding: '14px 40px',
