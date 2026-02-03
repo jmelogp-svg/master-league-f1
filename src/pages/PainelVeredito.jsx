@@ -49,7 +49,7 @@ function PainelVeredito() {
 
     // Opções de punição com peso para desempate
     const punicoes = [
-        { value: 'advertencia', label: '⚠️ Advertência - Alerta Disciplinar', pontos: 0, peso: 1 },
+        { value: 'advertencia', label: '⚠️ Advertência (Alerta Disciplinar!)', pontos: 0, peso: 1 },
         { value: 'leve', label: '🟡 Leve - Perda de 5 pontos', pontos: 5, peso: 2 },
         { value: 'media', label: '🟠 Média - Perda de 10 pontos', pontos: 10, peso: 3 },
         { value: 'grave', label: '🔴 Grave - Perda de 15 pontos', pontos: 15, peso: 4 },

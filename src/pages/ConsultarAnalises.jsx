@@ -482,11 +482,27 @@ function ConsultarAnalises() {
                             let pontosDeducted = 0;
                             let raceBan = false;
                             let temAgravante = false;
+                            let semVideoDefesa = false;
+                            let pontosSemVideo = 0;
+                            
+                            // Verificar se houve perda de pontos por não enviar vídeo de defesa
+                            // Isso se aplica MESMO quando inocentado
+                            if (veredito && veredito.semVideo && !isRetiradaBug) {
+                                semVideoDefesa = true;
+                                pontosSemVideo = 5; // Sempre 5 pontos por não enviar vídeo
+                            } else if (!isRetiradaBug) {
+                                // Verificar nos votos se há marcação de semVideo
+                                const algumVotoSemVideo = votos.some(v => v.semVideo);
+                                if (algumVotoSemVideo) {
+                                    semVideoDefesa = true;
+                                    pontosSemVideo = 5;
+                                }
+                            }
                             
                             if (veredito && veredito.culpado && !isRetiradaBug && veredito.labelPunicao) {
                                 // Usar dados do veredito
                                 const punicoes = {
-                                    'advertencia': { label: '⚠️ Advertência', pontos: 0 },
+                                    'advertencia': { label: '⚠️ Advertência (Alerta Disciplinar!)', pontos: 0 },
                                     'leve': { label: '🟡 Leve', pontos: 5 },
                                     'media': { label: '🟠 Média', pontos: 10 },
                                     'grave': { label: '🔴 Grave', pontos: 15 },
@@ -496,8 +512,9 @@ function ConsultarAnalises() {
                                 const punicaoBase = veredito.punicao || '';
                                 const baseInfo = punicoes[punicaoBase] || { label: veredito.labelPunicao, pontos: veredito.pontosPerdidos || 0 };
                                 
+                                // Usar label atualizado da tabela (não do banco que pode estar desatualizado)
                                 punicaoFinal = {
-                                    label: veredito.labelPunicao,
+                                    label: baseInfo.label,
                                     pontos: baseInfo.pontos
                                 };
                                 pontosDeducted = veredito.pontosPerdidos || 0;
@@ -506,7 +523,7 @@ function ConsultarAnalises() {
                             } else if (!isRetiradaBug && (decisao === 'CULPADO' || decisao === 'RETIRAR PUNIÇÃO')) {
                                 const votosCulpadosList = votos.filter(v => v.culpado);
                                 const punicoes = {
-                                    'advertencia': { label: '⚠️ Advertência', pontos: 0 },
+                                    'advertencia': { label: '⚠️ Advertência (Alerta Disciplinar!)', pontos: 0 },
                                     'leve': { label: '🟡 Leve', pontos: 5 },
                                     'media': { label: '🟠 Média', pontos: 10 },
                                     'grave': { label: '🔴 Grave', pontos: 15 },
@@ -769,8 +786,8 @@ function ConsultarAnalises() {
                                                         fontWeight: 'bold',
                                                         fontSize: isMobile ? '10px' : '11px'
                                                     }}>
-                                                        {punicaoFinal.label} {pontosDeducted > 0 && `(-${pontosDeducted}pts)`}
-                                                        {temAgravante && ' +Agr'}
+                                                        {punicaoFinal.label} {punicaoFinal.pontos > 0 && `(-${punicaoFinal.pontos}pts)`}
+                                                        {temAgravante && ' (+5pts Agravante)'}
                                                     </span>
                                                 )}
 
@@ -784,6 +801,20 @@ function ConsultarAnalises() {
                                                         fontSize: isMobile ? '10px' : '11px'
                                                     }}>
                                                         🚫 BAN
+                                                    </span>
+                                                )}
+
+                                                {/* Perda de pontos por não enviar vídeo de defesa - SEMPRE exibir quando aplicável */}
+                                                {semVideoDefesa && !isRetiradaBug && (
+                                                    <span style={{
+                                                        background: '#DC2626',
+                                                        color: 'white',
+                                                        padding: isMobile ? '4px 8px' : '5px 10px',
+                                                        borderRadius: '5px',
+                                                        fontWeight: 'bold',
+                                                        fontSize: isMobile ? '10px' : '11px'
+                                                    }}>
+                                                        📹 Sem vídeo de defesa (-{pontosSemVideo}pts)
                                                     </span>
                                                 )}
                                             </div>

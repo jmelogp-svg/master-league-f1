@@ -28,6 +28,37 @@ const LINKS = {
     draftLight: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=905408135&single=true&output=csv"
 };
 
+// Timeout para requisições (8 segundos)
+const FETCH_TIMEOUT = 8000;
+
+// Função de fetch com timeout para evitar travamentos
+const fetchWithTimeout = async (url, timeout = FETCH_TIMEOUT) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            console.warn(`⏱️ Timeout na requisição: ${url.substring(0, 50)}...`);
+        }
+        throw error;
+    }
+};
+
+// Função segura para fetch que retorna array vazio em caso de erro
+const safeFetch = async (url, timeout = FETCH_TIMEOUT) => {
+    try {
+        const response = await fetchWithTimeout(url, timeout);
+        return response;
+    } catch {
+        return { text: async () => '' };
+    }
+};
+
 // Cache global para evitar recarregar dados
 const cacheData = {
     rawCarreira: null,
@@ -117,110 +148,59 @@ export const useLeagueData = () => {
                     Papa.parse(text, { header: false, skipEmptyLines: true, complete: (res) => resolve(res.data.slice(1)) });
                 });
 
-                // Tentar buscar do Supabase primeiro
-                let rowsC = null, rowsL = null, rowsT = null, rowsPR = null, rowsG20 = null, rowsDC = null, rowsDL = null;
-                let fromSupabase = false;
+                // Dados principais para a classificação
+                let rowsC = [], rowsL = [], rowsT = [], rowsPR = [];
+                // Dados secundários (não bloqueiam carregamento)
+                let rowsG20 = [], rowsDC = [], rowsDL = [];
 
+                // PASSO 1: Buscar dados ESSENCIAIS do Supabase (prioridade máxima)
                 try {
-                    const season = 20; // Temporada atual
-                    
-                    // Buscar classificação do Supabase
-                    const { data: carreiraData } = await supabase
-                        .from('classificacao_cache')
-                        .select('*')
-                        .eq('grid', 'carreira')
-                        .eq('season', season)
-                        .single();
-
-                    const { data: lightData } = await supabase
-                        .from('classificacao_cache')
-                        .select('*')
-                        .eq('grid', 'light')
-                        .eq('season', season)
-                        .single();
-
-                    // Buscar tracks do Supabase (pegar registro mais recente)
-                    const { data: tracksRows } = await supabase
-                        .from('tracks_cache')
-                        .select('*')
-                        .order('last_synced_at', { ascending: false })
-                        .limit(1);
-                    const tracksData = tracksRows && tracksRows.length > 0 ? tracksRows[0] : null;
-
-                // Buscar Power Ranking do Supabase (com tratamento de erro específico)
-                let prData = null;
-                try {
-                    const { data: prRows, error } = await supabase
-                        .from('power_ranking_cache')
-                        .select('*')
-                        .order('last_synced_at', { ascending: false })
-                        .limit(1);
-                    
-                    if (!error && prRows && prRows.length > 0) {
-                        prData = { data: prRows[0] };
-                    }
-                } catch (prError) {
-                    // Ignora erro 406 ou outros erros do Supabase para power_ranking_cache
-                    // Vai fazer fallback para Google Sheets
-                    prData = null;
-                }
-
-                if (carreiraData?.data?.rows && lightData?.data?.rows) {
-                    rowsC = carreiraData.data.rows;
-                    rowsL = lightData.data.rows;
-                } else {
-                    const [resC, resL] = await Promise.all([
-                        fetch(PROXY_URL + encodeURIComponent(LINKS.carreira)).catch(() => ({ text: async () => '[]' })),
-                        fetch(PROXY_URL + encodeURIComponent(LINKS.light)).catch(() => ({ text: async () => '[]' }))
+                    const [carreiraResult, lightResult, tracksResult, prResult] = await Promise.all([
+                        supabase.from('classificacao_cache').select('*').eq('grid', 'carreira').order('season', { ascending: false }).limit(1).single().catch(() => ({ data: null })),
+                        supabase.from('classificacao_cache').select('*').eq('grid', 'light').order('season', { ascending: false }).limit(1).single().catch(() => ({ data: null })),
+                        supabase.from('tracks_cache').select('*').order('last_synced_at', { ascending: false }).limit(1).catch(() => ({ data: null })),
+                        supabase.from('power_ranking_cache').select('*').order('last_synced_at', { ascending: false }).limit(1).catch(() => ({ data: null }))
                     ]);
-                    rowsC = await parseCSV(await resC.text());
-                    rowsL = await parseCSV(await resL.text());
+
+                    const carreiraData = carreiraResult?.data;
+                    const lightData = lightResult?.data;
+                    const tracksData = tracksResult?.data?.[0];
+                    const prData = prResult?.data?.[0];
+
+                    // Usar dados do Supabase se disponíveis
+                    if (carreiraData?.data?.rows) rowsC = carreiraData.data.rows;
+                    if (lightData?.data?.rows) rowsL = lightData.data.rows;
+                    if (tracksData?.data?.rows) rowsT = tracksData.data.rows;
+                    if (prData?.data?.rows) rowsPR = prData.data.rows;
+                } catch (supabaseError) {
+                    console.warn('⚠️ Erro ao buscar do Supabase:', supabaseError.message);
                 }
 
-                if (tracksData?.data?.rows) {
-                    rowsT = tracksData.data.rows;
-                } else {
-                    const resT = await fetch(PROXY_URL + encodeURIComponent(LINKS.tracks)).catch(() => ({ text: async () => '[]' }));
-                    rowsT = await parseCSV(await resT.text());
+                // PASSO 2: Fallback para Google Sheets APENAS para dados faltantes (com timeout)
+                const needsCarreira = !rowsC || rowsC.length === 0;
+                const needsLight = !rowsL || rowsL.length === 0;
+                const needsTracks = !rowsT || rowsT.length === 0;
+                const needsPR = !rowsPR || rowsPR.length === 0;
+
+                if (needsCarreira || needsLight || needsTracks || needsPR) {
+                    console.log('📡 Buscando dados faltantes do Google Sheets...');
+                    const fallbackPromises = [];
+                    
+                    if (needsCarreira) fallbackPromises.push(safeFetch(PROXY_URL + encodeURIComponent(LINKS.carreira)).then(r => r.text()).then(parseCSV).then(d => { rowsC = d; }));
+                    if (needsLight) fallbackPromises.push(safeFetch(PROXY_URL + encodeURIComponent(LINKS.light)).then(r => r.text()).then(parseCSV).then(d => { rowsL = d; }));
+                    if (needsTracks) fallbackPromises.push(safeFetch(PROXY_URL + encodeURIComponent(LINKS.tracks)).then(r => r.text()).then(parseCSV).then(d => { rowsT = d; }));
+                    if (needsPR) fallbackPromises.push(safeFetch(PROXY_URL + encodeURIComponent(LINKS.pr)).then(r => r.text()).then(parseCSV).then(d => { rowsPR = d; }));
+                    
+                    await Promise.allSettled(fallbackPromises);
                 }
 
-                if (prData?.data?.rows) {
-                    rowsPR = prData.data.rows;
-                } else {
-                    const resPR = await fetch(PROXY_URL + encodeURIComponent(LINKS.pr)).catch(() => ({ text: async () => '[]' }));
-                    rowsPR = await parseCSV(await resPR.text());
-                }
-
-                // Buscar Grids T20 e DRAFTS (sempre do Google Sheets por enquanto)
-                const [resG20, resDC, resDL] = await Promise.all([
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.gridsT20)).catch(() => ({ text: async () => '[]' })),
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.draftCarreira)).catch(() => ({ text: async () => '[]' })),
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.draftLight)).catch(() => ({ text: async () => '[]' }))
-                ]);
-                
-                rowsG20 = await parseCSV(await resG20.text());
-                rowsDC = await parseCSV(await resDC.text());
-                rowsDL = await parseCSV(await resDL.text());
-
-            } catch (supabaseError) {
-                const [resC, resL, resT, resPR, resG20, resDC, resDL] = await Promise.all([
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.carreira)).catch(() => ({ text: async () => '[]' })),
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.light)).catch(() => ({ text: async () => '[]' })),
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.tracks)).catch(() => ({ text: async () => '[]' })),
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.pr)).catch(() => ({ text: async () => '[]' })),
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.gridsT20)).catch(() => ({ text: async () => '[]' })),
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.draftCarreira)).catch(() => ({ text: async () => '[]' })),
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.draftLight)).catch(() => ({ text: async () => '[]' }))
-                ]);
-
-                rowsC = await parseCSV(await resC.text());
-                rowsL = await parseCSV(await resL.text());
-                rowsT = await parseCSV(await resT.text());
-                rowsPR = await parseCSV(await resPR.text());
-                rowsG20 = await parseCSV(await resG20.text());
-                rowsDC = await parseCSV(await resDC.text());
-                rowsDL = await parseCSV(await resDL.text());
-            }
+                // PASSO 3: Buscar dados SECUNDÁRIOS em background (não bloqueia)
+                // Esses dados são usados em outras páginas, não na classificação
+                Promise.allSettled([
+                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.gridsT20)).then(r => r.text()).then(parseCSV).then(d => { rowsG20 = d; cacheData.rawGridsT20 = d; }),
+                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.draftCarreira)).then(r => r.text()).then(parseCSV).then(d => { rowsDC = d; cacheData.draftCarreira = d; }),
+                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.draftLight)).then(r => r.text()).then(parseCSV).then(d => { rowsDL = d; cacheData.draftLight = d; })
+                ]).catch(() => {}); // Ignora erros - dados secundários
                 const trackMap = {};
                 
                 // --- FUNÇÃO DE EXTRAÇÃO E CORREÇÃO DE IMAGENS ---
@@ -290,38 +270,35 @@ export const useLeagueData = () => {
                     });
                 }
 
-                // Processando datas: Coluna A (data), Coluna D (temporada), Coluna F (etapa)
-                // Sempre buscar datas do Google Sheets (não estão no cache ainda)
+                // Processando datas: usar os dados já carregados (rowsC e rowsL)
+                // Não é necessário buscar novamente - os dados de data estão nas colunas dos mesmos arrays
                 const datesCarreiraMap = {};
                 const datesLightMap = {};
 
-                const [resDateC, resDateL] = await Promise.all([
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.dataCarreira)).catch(() => ({ text: async () => '[]' })),
-                    fetch(PROXY_URL + encodeURIComponent(LINKS.dataLight)).catch(() => ({ text: async () => '[]' }))
-                ]);
+                // Usar rowsC e rowsL que já foram carregados (evita requisições duplicadas)
+                if (rowsC && rowsC.length > 0) {
+                    rowsC.forEach(row => {
+                        const date = row[0]; // Coluna A
+                        const season = row[3]; // Coluna D
+                        const round = row[5]; // Coluna F
+                        if (date && season && round) {
+                            const key = `${season}-${round}`;
+                            datesCarreiraMap[key] = date;
+                        }
+                    });
+                }
 
-                const rowsDateC = await parseCSV(await resDateC.text());
-                const rowsDateL = await parseCSV(await resDateL.text());
-
-                rowsDateC.forEach(row => {
-                    const date = row[0]; // Coluna A
-                    const season = row[3]; // Coluna D
-                    const round = row[5]; // Coluna F
-                    if (date && season && round) {
-                        const key = `${season}-${round}`;
-                        datesCarreiraMap[key] = date;
-                    }
-                });
-
-                rowsDateL.forEach(row => {
-                    const date = row[0]; // Coluna A
-                    const season = row[3]; // Coluna D
-                    const round = row[5]; // Coluna F
-                    if (date && season && round) {
-                        const key = `${season}-${round}`;
-                        datesLightMap[key] = date;
-                    }
-                });
+                if (rowsL && rowsL.length > 0) {
+                    rowsL.forEach(row => {
+                        const date = row[0]; // Coluna A
+                        const season = row[3]; // Coluna D
+                        const round = row[5]; // Coluna F
+                        if (date && season && round) {
+                            const key = `${season}-${round}`;
+                            datesLightMap[key] = date;
+                        }
+                    });
+                }
                 
                 const newData = {
                     rawCarreira: rowsC,

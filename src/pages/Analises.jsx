@@ -1299,7 +1299,7 @@ function Analises() {
                                         // Se culpado e não for retirada de bug, montar punicaoInfo do veredito
                                         if (veredito.culpado && !isRetiradaBug && veredito.labelPunicao) {
                                             const punicoes = {
-                                                'advertencia': { label: '⚠️ Advertência', pontos: 0 },
+                                                'advertencia': { label: '⚠️ Advertência (Alerta Disciplinar!)', pontos: 0 },
                                                 'leve': { label: '🟡 Leve - 5 pontos', pontos: 5 },
                                                 'media': { label: '🟠 Média - 10 pontos', pontos: 10 },
                                                 'grave': { label: '🔴 Grave - 15 pontos', pontos: 15 },
@@ -1309,8 +1309,9 @@ function Analises() {
                                             const punicaoBase = veredito.punicao || '';
                                             const baseInfo = punicoes[punicaoBase] || { label: veredito.labelPunicao, pontos: veredito.pontosPerdidos || 0 };
                                             
+                                            // Usar label atualizado da tabela (não do banco que pode estar desatualizado)
                                             punicaoInfo = {
-                                                label: veredito.labelPunicao,
+                                                label: baseInfo.label,
                                                 pontos: baseInfo.pontos,
                                                 agravante: veredito.agravante || false,
                                                 pontosTotal: veredito.pontosPerdidos || 0,
@@ -1332,7 +1333,7 @@ function Analises() {
                                         if (decisao === 'CULPADO' && !isRetiradaBug) {
                                             const votosCulpadosList = votos.filter(v => v.culpado);
                                             const punicoes = {
-                                                'advertencia': { label: '⚠️ Advertência', pontos: 0 },
+                                                'advertencia': { label: '⚠️ Advertência (Alerta Disciplinar!)', pontos: 0 },
                                                 'leve': { label: '🟡 Leve - 5 pontos', pontos: 5 },
                                                 'media': { label: '🟠 Média - 10 pontos', pontos: 10 },
                                                 'grave': { label: '🔴 Grave - 15 pontos', pontos: 15 },
@@ -1906,7 +1907,7 @@ function Analises() {
                                                 }}
                                             >
                                                 <option value="" style={{ background: '#0f172a', color: 'white' }}>Nenhuma</option>
-                                                <option value="advertencia" style={{ background: '#0f172a', color: 'white' }}>Advertência (0 pts)</option>
+                                                <option value="advertencia" style={{ background: '#0f172a', color: 'white' }}>Advertência (Alerta Disciplinar!)</option>
                                                 <option value="leve" style={{ background: '#0f172a', color: 'white' }}>Leve (5 pts)</option>
                                                 <option value="media" style={{ background: '#0f172a', color: 'white' }}>Média (10 pts)</option>
                                                 <option value="grave" style={{ background: '#0f172a', color: 'white' }}>Grave (15 pts)</option>

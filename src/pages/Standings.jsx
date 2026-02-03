@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import { useLeagueData } from '../hooks/useLeagueData';
@@ -117,75 +117,95 @@ function Standings() {
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
     const [punicoes, setPunicoes] = useState({}); // { 'Nome do Piloto': pontosPerdidos }
+    
+    // Cache de punições para evitar re-fetching
+    const punicoesCache = useRef({});
+    const punicoesRawData = useRef(null);
 
-    const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
+    // Memoizar normalizeStr para evitar recálculos
+    const normalizeStr = useCallback((str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "", []);
     
     // Função auxiliar para normalizar nome do piloto (usada para comparação de punições)
-    const normalizeNomePiloto = (nome) => {
+    const normalizeNomePiloto = useCallback((nome) => {
         if (!nome) return '';
         // Remove acentuação, espaços extras e converte para minúsculas para comparação case-insensitive
         return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, ' ').toLowerCase();
-    };
+    }, []);
 
-    // Buscar punições do Supabase (vereditos finalizados)
+    // Buscar punições do Supabase UMA VEZ e cachear
     useEffect(() => {
-        const buscarPunicoes = async () => {
-            // Verificar se selectedSeason está definido (pode ser string ou número)
-            const seasonValido = selectedSeason && (parseInt(selectedSeason) > 0 || selectedSeason > 0);
-            
-            if (!seasonValido) {
-                setPunicoes({});
-                return;
-            }
+        const buscarTodasPunicoes = async () => {
+            // Se já temos os dados raw, não buscar novamente
+            if (punicoesRawData.current) return;
             
             try {
-                // Buscar todas as análises finalizadas
                 const { data, error } = await supabase
                     .from('notificacoes_admin')
                     .select('dados')
                     .eq('dados->>status', 'analise_realizada');
 
-                if (error) {
-                    setPunicoes({});
-                    return;
+                if (!error && data) {
+                    punicoesRawData.current = data;
                 }
-
-                // Processar vereditos e somar pontos perdidos por piloto
-                const punicoesMap = {};
-                
-                (data || []).forEach((item) => {
-                    const veredito = item.dados?.veredito;
-                    const acusado = item.dados?.acusado;
-                    const etapa = item.dados?.etapa || {};
-                    const temporadaLance = etapa?.season || etapa?.temporada || item.dados?.season || item.dados?.temporada || null;
-                    const gridLance = etapa?.grid || item.dados?.grid || null;
-                    
-                    // Verificar se tem veredito e se é para a temporada e grid atual (ou se não tem info, aplicar a todas)
-                    const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === parseInt(selectedSeason) : true;
-                    const gridCompativel = gridLance ? gridLance === gridType : true;
-                    const aplicarPunicao = !veredito ? false : temporadaCompativel && gridCompativel;
-                    
-                    if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && aplicarPunicao) {
-                        // Normalizar nome do piloto para comparação
-                        const nomePilotoNormalizado = normalizeNomePiloto(acusado.nome);
-                        const pontosPerdidos = parseInt(veredito.pontosPerdidos) || 0;
-                        
-                        if (pontosPerdidos > 0 && nomePilotoNormalizado) {
-                            // Somar pontos perdidos (um piloto pode ter múltiplas punições)
-                            punicoesMap[nomePilotoNormalizado] = (punicoesMap[nomePilotoNormalizado] || 0) + pontosPerdidos;
-                        }
-                    }
-                });
-
-                setPunicoes(punicoesMap);
             } catch (err) {
                 console.error('❌ [Punições] Erro ao buscar punições:', err);
-                setPunicoes({});
             }
         };
 
-        buscarPunicoes();
-    }, [selectedSeason, gridType]); // Recarregar quando a temporada ou grid mudar
+        buscarTodasPunicoes();
+    }, []); // Buscar apenas uma vez na montagem
+
+    // Processar punições quando temporada/grid mudar (usando dados cacheados)
+    useEffect(() => {
+        const processarPunicoes = () => {
+            const seasonValido = selectedSeason && (parseInt(selectedSeason) > 0 || selectedSeason > 0);
+            
+            if (!seasonValido || !punicoesRawData.current) {
+                setPunicoes({});
+                return;
+            }
+            
+            // Verificar cache
+            const cacheKey = `${selectedSeason}-${gridType}`;
+            if (punicoesCache.current[cacheKey]) {
+                setPunicoes(punicoesCache.current[cacheKey]);
+                return;
+            }
+
+            // Processar vereditos e somar pontos perdidos por piloto
+            const punicoesMap = {};
+            
+            (punicoesRawData.current || []).forEach((item) => {
+                const veredito = item.dados?.veredito;
+                const acusado = item.dados?.acusado;
+                const etapa = item.dados?.etapa || {};
+                const temporadaLance = etapa?.season || etapa?.temporada || item.dados?.season || item.dados?.temporada || null;
+                const gridLance = etapa?.grid || item.dados?.grid || null;
+                
+                // Verificar se tem veredito e se é para a temporada e grid atual (ou se não tem info, aplicar a todas)
+                const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === parseInt(selectedSeason) : true;
+                const gridCompativel = gridLance ? gridLance === gridType : true;
+                const aplicarPunicao = !veredito ? false : temporadaCompativel && gridCompativel;
+                
+                if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && aplicarPunicao) {
+                    // Normalizar nome do piloto para comparação
+                    const nomePilotoNormalizado = normalizeNomePiloto(acusado.nome);
+                    const pontosPerdidos = parseInt(veredito.pontosPerdidos) || 0;
+                    
+                    if (pontosPerdidos > 0 && nomePilotoNormalizado) {
+                        // Somar pontos perdidos (um piloto pode ter múltiplas punições)
+                        punicoesMap[nomePilotoNormalizado] = (punicoesMap[nomePilotoNormalizado] || 0) + pontosPerdidos;
+                    }
+                }
+            });
+
+            // Salvar no cache
+            punicoesCache.current[cacheKey] = punicoesMap;
+            setPunicoes(punicoesMap);
+        };
+
+        processarPunicoes();
+    }, [selectedSeason, gridType, normalizeNomePiloto]); // Reprocessar quando a temporada ou grid mudar
 
     // Função auxiliar para extrair número de uma string (ex: "Etapa 8" -> 8, "8" -> 8)
     const extrairNumero = (str) => {
@@ -326,45 +346,68 @@ function Standings() {
         }
     }, [selectedSeason, selectedRound, gridType, rawCarreira, rawLight]);
 
-    // Helpers (Stats, Logos, Colors, Getters...)
-    // (Mantendo a mesma lógica de antes, omitindo linhas repetitivas para economizar espaço visual, mas o código deve ser completo igual ao anterior)
-    const getDriverStats = (driverName) => { /* Lógica Mantida */ 
+    // MEMOIZADO: Mapa de stats por piloto para acesso rápido
+    const driverStatsMap = useMemo(() => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
-        let stats = { points: 0, wins: 0, podiums: 0, poles: 0, races: 0 };
+        if (!rawData || rawData.length === 0) return {};
+        
+        const statsMap = {};
+        const targetSeason = parseInt(selectedSeason);
+        
         rawData.forEach(row => {
             const s = parseInt(row[3]);
-            if (s !== parseInt(selectedSeason)) return;
-            if (row[9] === driverName) {
-                stats.races++;
-                const qualy = parseInt(row[6]); if (qualy === 1) stats.poles++;
-                const racePos = parseInt(row[8]); if (racePos === 1) stats.wins++; if (racePos >= 1 && racePos <= 3) stats.podiums++;
-                let p = 0;
-                if (s >= 20) { 
-                    p = parseFloat((row[15]||'0').replace(',', '.')); 
-                    if (isNaN(p)) p = 0;
-                    // Se p for 0, tenta o fallback da corrida
-                    if (p === 0 && racePos >= 1 && racePos <= 10) p = POINTS_RACE[racePos - 1];
-                } else {
-                    if (racePos >= 1 && racePos <= 10) p = POINTS_RACE[racePos - 1];
-                }
-                
-                // Sempre soma pontos da Sprint separadamente (não estão incluídos na coluna 15)
-                const sprintPos = parseInt(row[7]);
-                if (sprintPos >= 1 && sprintPos <= 8) p += POINTS_SPRINT[sprintPos - 1];
-                
-                stats.points += p;
+            if (s !== targetSeason) return;
+            
+            const driverName = row[9];
+            if (!driverName) return;
+            
+            if (!statsMap[driverName]) {
+                statsMap[driverName] = { points: 0, wins: 0, podiums: 0, poles: 0, races: 0 };
             }
+            
+            const stats = statsMap[driverName];
+            stats.races++;
+            
+            const qualy = parseInt(row[6]); 
+            if (qualy === 1) stats.poles++;
+            
+            const racePos = parseInt(row[8]); 
+            if (racePos === 1) stats.wins++; 
+            if (racePos >= 1 && racePos <= 3) stats.podiums++;
+            
+            let p = 0;
+            if (s >= 20) { 
+                p = parseFloat((row[15]||'0').replace(',', '.')); 
+                if (isNaN(p)) p = 0;
+                if (p === 0 && racePos >= 1 && racePos <= 10) p = POINTS_RACE[racePos - 1];
+            } else {
+                if (racePos >= 1 && racePos <= 10) p = POINTS_RACE[racePos - 1];
+            }
+            
+            const sprintPos = parseInt(row[7]);
+            if (sprintPos >= 1 && sprintPos <= 8) p += POINTS_SPRINT[sprintPos - 1];
+            
+            stats.points += p;
         });
         
-        // Subtrair pontos perdidos em punições (permite valores negativos)
-        const nomePilotoNormalizado = normalizeNomePiloto(driverName);
-        const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
-        stats.points = stats.points - pontosPerdidos; // Permite valores negativos
-        stats.points = stats.points.toFixed(0);
+        // Aplicar punições
+        Object.keys(statsMap).forEach(driverName => {
+            const nomePilotoNormalizado = normalizeNomePiloto(driverName);
+            const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
+            statsMap[driverName].points = (statsMap[driverName].points - pontosPerdidos).toFixed(0);
+        });
         
-        return stats;
-    };
-    const handleDriverClick = (driver) => { setSelectedDriver({ ...driver, stats: getDriverStats(driver.name) }); };
+        return statsMap;
+    }, [gridType, rawCarreira, rawLight, selectedSeason, punicoes, normalizeNomePiloto]);
+    
+    // Função rápida para buscar stats (usa o mapa memoizado)
+    const getDriverStats = useCallback((driverName) => {
+        return driverStatsMap[driverName] || { points: 0, wins: 0, podiums: 0, poles: 0, races: 0 };
+    }, [driverStatsMap]);
+    
+    const handleDriverClick = useCallback((driver) => { 
+        setSelectedDriver({ ...driver, stats: getDriverStats(driver.name) }); 
+    }, [getDriverStats]);
     
     // Função para formatar nome: primeiro nome primeira letra maiúscula (sem negrito), segundo nome todo maiúsculo (negrito)
     const formatDriverName = (fullName) => {
@@ -397,7 +440,7 @@ function Standings() {
         );
     };
     
-    const getTeamLogo = (teamName) => {
+    const getTeamLogo = useCallback((teamName) => {
         if(!teamName) return null;
         const t = teamName.toLowerCase().replace(/\s/g, ''); 
         // Equipe de reservas usa logo da Master League F1
@@ -418,62 +461,56 @@ function Standings() {
         if(t.includes("williams")) return "/team-logos/f1-williams.png"; 
         if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "/team-logos/f1-sauber.png";
         return null;
-    };
-    const getTeamColor = (teamName) => {
+    }, []);
+    const getTeamColor = useCallback((teamName) => {
         if(!teamName) return "#94A3B8";
         const t = teamName.toLowerCase();
         if(t.includes("red bull") || t.includes("oracle")) return "var(--f1-redbull)"; if(t.includes("ferrari")) return "var(--f1-ferrari)"; if(t.includes("mercedes")) return "var(--f1-mercedes)"; if(t.includes("mclaren")) return "var(--f1-mclaren)"; if(t.includes("aston")) return "var(--f1-aston)"; if(t.includes("alpine")) return "var(--f1-alpine)"; if(t.includes("haas")) return "var(--f1-haas)"; if(t.includes("williams")) return "var(--f1-williams)"; if(t.includes("stake") || t.includes("kick") || t.includes("sauber")) return "var(--f1-sauber)"; if(t.includes("vcarb") || t.includes("racing") && t.includes("bulls")) return "var(--f1-vcarb)";
         return "#94A3B8";
-    };
+    }, []);
 
-    const getDrivers = () => {
+    // MEMOIZADO: getDrivers só recalcula quando os dados de entrada mudam
+    const drivers = useMemo(() => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
+        if (!rawData || rawData.length === 0) return [];
+        
         const totals = {};
+        const targetSeason = parseInt(selectedSeason);
+        
         rawData.forEach(row => {
-            const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return;
-            const name = row[9]; const team = row[10]; if (!name) return;
+            const s = parseInt(row[3]); 
+            if (s !== targetSeason) return;
+            const name = row[9]; 
+            const team = row[10]; 
+            if (!name) return;
+            
             if (!totals[name]) {
-                totals[name] = { name, team, points: 0, bestPosition: Infinity }; // Infinity = nunca teve posição válida ainda
+                totals[name] = { name, team, points: 0, bestPosition: Infinity };
             }
             
-            // Debug para piloto específico
-            if (name && name.toLowerCase().includes('alann')) {
-                console.log('🔍 Piloto encontrado na planilha:', {
-                    nomeOriginal: name,
-                    nomeNormalizado: normalizeNomePiloto(name),
-                    temporada: s,
-                    temporadaSelecionada: selectedSeason
-                });
-            }
-            
-            // Rastrear melhor posição (menor número = melhor) - considerar tanto corrida principal quanto sprint
+            // Rastrear melhor posição (menor número = melhor)
             const racePos = parseInt(row[8]);
             const sprintPos = parseInt(row[7]);
             
-            // Atualizar melhor posição pela corrida principal (se válida)
             if (racePos >= 1 && racePos < totals[name].bestPosition) {
                 totals[name].bestPosition = racePos;
             }
-            // Atualizar melhor posição pela sprint (se válida e melhor que a atual)
             if (sprintPos >= 1 && sprintPos < totals[name].bestPosition) {
                 totals[name].bestPosition = sprintPos;
             }
             
             // Calcular pontos (depende da temporada)
             if (s >= 20) { 
-                // Para temporada 20+, os pontos vêm da coluna 15 (coluna P na planilha)
                 let p = 0;
                 if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
                     p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
                     if (isNaN(p)) p = 0;
                 }
                 
-                // Se não encontrou pontos na coluna 15, calcular baseado na posição (fallback corrida)
                 if (p === 0 && racePos >= 1 && racePos <= 10) {
                     p = POINTS_RACE[racePos - 1];
                 }
                 
-                // IMPORTANTE: Sempre somar pontos da Sprint, pois eles não estão na coluna P
                 if (sprintPos >= 1 && sprintPos <= 8) {
                     p += POINTS_SPRINT[sprintPos - 1];
                 }
@@ -491,56 +528,39 @@ function Standings() {
             }
         });
         
-        // Subtrair pontos perdidos em punições para cada piloto (permite valores negativos)
+        // Subtrair pontos perdidos em punições para cada piloto
         Object.keys(totals).forEach(nomePiloto => {
             const nomePilotoNormalizado = normalizeNomePiloto(nomePiloto);
             const pontosPerdidos = punicoes[nomePilotoNormalizado] || 0;
             
-            // Debug para pilotos específicos
-            if (nomePiloto.includes('Alann') || pontosPerdidos > 0) {
-                console.log('🔍 Aplicando punição:', {
-                    nomeOriginal: nomePiloto,
-                    nomeNormalizado: nomePilotoNormalizado,
-                    pontosAntes: totals[nomePiloto].points,
-                    pontosPerdidos: pontosPerdidos,
-                    pontosDepois: totals[nomePiloto].points - pontosPerdidos
-                });
-            }
-            
-            // Armazenar pontos perdidos no objeto do piloto
             totals[nomePiloto].pontosPerdidos = pontosPerdidos;
             
             if (pontosPerdidos > 0) {
-                totals[nomePiloto].points = totals[nomePiloto].points - pontosPerdidos; // Permite valores negativos
+                totals[nomePiloto].points = totals[nomePiloto].points - pontosPerdidos;
             }
         });
         
-        // Ordenar por: 1) Pontos (maior = melhor), 2) Melhor posição (menor = melhor), 3) Nome alfabético
+        // Ordenar por: 1) Pontos, 2) Melhor posição, 3) Nome alfabético
         const sorted = Object.values(totals).sort((a, b) => {
-            // Converter pontos para número para comparação
             const pontosA = parseFloat(a.points) || 0;
             const pontosB = parseFloat(b.points) || 0;
             
-            // 1. Critério: Pontos (maior = melhor)
-            if (pontosB !== pontosA) {
-                return pontosB - pontosA;
-            }
-            // 2. Critério: Melhor posição obtida (menor número = melhor)
-            // Se ambos têm Infinity (nunca terminaram), mantém empate
+            if (pontosB !== pontosA) return pontosB - pontosA;
+            
             if (a.bestPosition !== b.bestPosition) {
-                // Se um tem Infinity e outro não, o que não tem Infinity fica na frente
-                if (a.bestPosition === Infinity) return 1; // a fica atrás
-                if (b.bestPosition === Infinity) return -1; // b fica atrás
-                // Ambos têm posições válidas: menor número fica na frente
+                if (a.bestPosition === Infinity) return 1;
+                if (b.bestPosition === Infinity) return -1;
                 return a.bestPosition - b.bestPosition;
             }
-            // 3. Critério: Ordem alfabética pelo nome (A antes de B)
+            
             return a.name.localeCompare(b.name, 'pt-BR');
         });
 
-        // Preservar pontosPerdidos ao mapear para posições
         return sorted.map((d, i) => ({ ...d, pos: i + 1, pontosPerdidos: d.pontosPerdidos || 0 }));
-    };
+    }, [gridType, rawCarreira, rawLight, selectedSeason, punicoes, normalizeNomePiloto]);
+    
+    // Manter compatibilidade com código existente
+    const getDrivers = useCallback(() => drivers, [drivers]);
 
     // Regra única para responsividade: "mobile" = até 768px; "PC" = acima disso
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -554,8 +574,10 @@ function Standings() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const getConstructors = () => {
-        const drivers = getDrivers();
+    // MEMOIZADO: getConstructors usa o array de drivers já memoizado
+    const constructors = useMemo(() => {
+        if (!drivers || drivers.length === 0) return [];
+        
         const teams = {};
         drivers.forEach(d => {
             // Ignorar equipes "Reserva"
@@ -570,10 +592,16 @@ function Standings() {
             }
         });
         return Object.values(teams).sort((a, b) => b.points - a.points).map((t, i) => ({ ...t, pos: i + 1 }));
-    };
-    const getRaceResults = () => { 
+    }, [drivers]);
+    
+    // Manter compatibilidade com código existente
+    const getConstructors = useCallback(() => constructors, [constructors]);
+    // MEMOIZADO: getRaceResults só recalcula quando os dados de entrada mudam
+    const raceResults = useMemo(() => { 
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight; 
-        const raceResults = [];
+        if (!rawData || rawData.length === 0) return [];
+        
+        const results = [];
         const currentSeasonInt = parseInt(selectedSeason);
         const currentRoundInt = parseInt(selectedRound);
 
@@ -582,15 +610,13 @@ function Standings() {
             const r = parseInt(row[4]);
             if (s === currentSeasonInt && r === currentRoundInt && r > 0) {
                 const pos = parseInt(row[8]);
-                // Mesmo que não tenha posição (>0), se o piloto estiver na linha, consideramos parte dos resultados
-                // Isso ajuda a mostrar a etapa mesmo que vazia ou incompleta
                 if (row[9] && row[9] !== '-') {
                     let stagePoints = 0; 
                     if (!isNaN(pos) && pos >= 1 && pos <= 10) stagePoints += POINTS_RACE[pos - 1]; 
                     const sprintPos = parseInt(row[7]); 
                     if (!isNaN(sprintPos) && sprintPos >= 1 && sprintPos <= 8) stagePoints += POINTS_SPRINT[sprintPos - 1];
-                    raceResults.push({ 
-                        pos: isNaN(pos) || pos === 0 ? 99 : pos, // Posição 99 para quem não terminou/não tem pos
+                    results.push({ 
+                        pos: isNaN(pos) || pos === 0 ? 99 : pos,
                         name: row[9], 
                         team: row[10], 
                         date: row[0], 
@@ -601,8 +627,11 @@ function Standings() {
                 }
             }
         });
-        return raceResults.sort((a, b) => a.pos - b.pos);
-    };
+        return results.sort((a, b) => a.pos - b.pos);
+    }, [gridType, rawCarreira, rawLight, selectedSeason, selectedRound]);
+    
+    // Manter compatibilidade
+    const getRaceResults = useCallback(() => raceResults, [raceResults]);
 
     // Função para obter informações do GP com fallbacks (especialmente para bandeiras dos EUA)
     const getGPInfo = (gpName) => {
@@ -630,9 +659,14 @@ function Standings() {
         }
         return Infinity;
     };
-    const getCalendar = () => { /* Mesma Lógica */ 
-        const rawData = gridType === 'carreira' ? rawCarreira : rawLight; const raceMap = new Map();
+    // MEMOIZADO: getCalendar só recalcula quando os dados de entrada mudam
+    const calendarData = useMemo(() => {
+        const rawData = gridType === 'carreira' ? rawCarreira : rawLight; 
+        if (!rawData || rawData.length === 0) return { races: [], nextRace: null };
+        
+        const raceMap = new Map();
         const currentSeasonInt = parseInt(selectedSeason);
+        
         rawData.forEach(row => {
             const s = parseInt(row[3]); 
             if (s !== currentSeasonInt) return; 
@@ -645,19 +679,43 @@ function Standings() {
                 if(race) { race.winner = row[9]; race.winnerTeam = row[10]; } 
             }
         });
+        
         const races = Array.from(raceMap.values()).sort((a,b) => a.round - b.round);
-        const parseDate = (dateStr) => { if (!dateStr) return 0; if (dateStr.includes('/')) { const [d, m, y] = dateStr.split('/'); return new Date(`${y}-${m}-${d}`).getTime(); } return new Date(dateStr).getTime(); };
-        const today = new Date().getTime(); let nextRace = null;
-        const processedRaces = races.map(race => { const rDate = parseDate(race.date); let status = 'soon'; if (race.winner) status = 'done'; else if (rDate >= today) { status = 'next'; if (!nextRace) nextRace = { ...race, timestamp: rDate }; } return { ...race, status }; });
+        const parseDate = (dateStr) => { 
+            if (!dateStr) return 0; 
+            if (dateStr.includes('/')) { 
+                const [d, m, y] = dateStr.split('/'); 
+                return new Date(`${y}-${m}-${d}`).getTime(); 
+            } 
+            return new Date(dateStr).getTime(); 
+        };
+        
+        const today = new Date().getTime(); 
+        let nextRace = null;
+        const processedRaces = races.map(race => { 
+            const rDate = parseDate(race.date); 
+            let status = 'soon'; 
+            if (race.winner) status = 'done'; 
+            else if (rDate >= today) { 
+                status = 'next'; 
+                if (!nextRace) nextRace = { ...race, timestamp: rDate }; 
+            } 
+            return { ...race, status }; 
+        });
+        
         return { races: processedRaces, nextRace };
-    };
+    }, [gridType, rawCarreira, rawLight, selectedSeason]);
+    
+    // Manter compatibilidade
+    const getCalendar = useCallback(() => calendarData, [calendarData]);
 
     const renderContent = () => {
         if (loading) return <div style={{padding:'40px', textAlign:'center', color:'var(--text-muted)'}}>Carregando Dados...</div>;
         if (gridType === 'light' && parseInt(selectedSeason) < 16) return <div style={{textAlign:'center', padding:'60px', color:'white'}}>TEMPORADA NÃO DISPONÍVEL NO GRID LIGHT</div>;
 
         if (viewType === 'calendar') {
-            const { races, nextRace } = getCalendar();
+            // Usa os dados memoizados diretamente
+            const { races, nextRace } = calendarData;
             const nextInfo = nextRace ? getGPInfo(nextRace.gp) : null;
             return (
                 <>
@@ -688,10 +746,10 @@ function Standings() {
         }
         // ... (VIEWTYPE DRIVERS/TEAMS/RESULTS MANTIDO IGUAL AO ANTERIOR - Resumido aqui para caber, mas use o código completo da versão anterior)
         if (viewType === 'drivers') {
-            const data = getDrivers();
+            // Usa o array memoizado diretamente
             const topCount = isMobile ? 3 : 5;
-            const topDrivers = data.slice(0, topCount);
-            const rest = data.slice(topCount);
+            const topDrivers = drivers.slice(0, topCount);
+            const rest = drivers.slice(topCount);
             
             return (
                 <>
@@ -906,11 +964,11 @@ function Standings() {
             );
         }
         if (viewType === 'teams') {
-            const data = getConstructors();
+            // Usa o array memoizado diretamente
             return (
                 <>
                     <div className="classification-section-new">
-                        {data.map(team => {
+                        {constructors.map(team => {
                             const teamColor = getTeamColor(team.team);
                             const teamLogo = getTeamLogo(team.team);
                             return (
@@ -970,18 +1028,18 @@ function Standings() {
             );
         }
         if (viewType === 'results') {
-            const data = getRaceResults();
-            if(data.length === 0) return <div style={{padding:'40px', textAlign:'center', color:'#94A3B8'}}>Sem resultados para esta etapa.</div>;
+            // Usa os dados memoizados diretamente
+            if(raceResults.length === 0) return <div style={{padding:'40px', textAlign:'center', color:'#94A3B8'}}>Sem resultados para esta etapa.</div>;
             
-            const podium = data.slice(0,3); 
-            const rest = data.slice(3); 
+            const podium = raceResults.slice(0,3); 
+            const rest = raceResults.slice(3); 
             const p1 = podium.find(p=>p.pos===1); 
             const p2 = podium.find(p=>p.pos===2); 
             const p3 = podium.find(p=>p.pos===3); 
-            const gpInfo = getGPInfo(data[0].gp);
+            const gpInfo = getGPInfo(raceResults[0].gp);
             
             // Encontrar a melhor volta (menor tempo)
-            const validLaps = data.filter(r => r.fastestLap && r.fastestLap !== '-').map(r => ({...r, timeMs: parseTime(r.fastestLap)}));
+            const validLaps = raceResults.filter(r => r.fastestLap && r.fastestLap !== '-').map(r => ({...r, timeMs: parseTime(r.fastestLap)}));
             const bestLapData = validLaps.length > 0 ? validLaps.reduce((best, current) => current.timeMs < best.timeMs ? current : best) : null;
             const bestLap = bestLapData ? bestLapData.fastestLap : null;
             
@@ -994,8 +1052,8 @@ function Standings() {
                                 {isPhone && gpInfo.circuit && <img src={gpInfo.circuit} className="rh-circuit-mobile" style={{filter:'invert(1)'}} alt="" />}
                             </div>
                             <div className="rh-info">
-                                <div className="rh-gp">{data[0].gp}</div>
-                                <div className="rh-details-line">{gpInfo.circuitName}<span className="rh-divider">|</span><span className="rh-date">{data[0].date}</span></div>
+                                <div className="rh-gp">{raceResults[0].gp}</div>
+                                <div className="rh-details-line">{gpInfo.circuitName}<span className="rh-divider">|</span><span className="rh-date">{raceResults[0].date}</span></div>
                             </div>
                         </div>
                         <div className="rh-right">
@@ -1218,7 +1276,8 @@ function Standings() {
         }
     };
 
-    const nextGPName = normalizeStr(getCalendar().nextRace?.gp || "");
+    // Usa os dados memoizados diretamente
+    const nextGPName = normalizeStr(calendarData.nextRace?.gp || "");
     const nextInfo = getGPInfo(nextGPName);
 
     return (

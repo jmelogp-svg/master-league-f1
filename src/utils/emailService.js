@@ -1,9 +1,9 @@
 import { supabase } from '../supabaseClient';
-import { sendWhatsappNotification } from './whatsappNotify';
+import { sendWhatsappNotification, ADMIN_WHATSAPP } from './whatsappNotify';
 
 // Configurações do Admin
 export const ADMIN_CONFIG = {
-    whatsapp: '555183433940', // WhatsApp do admin (formato: 55 + DDD + número)
+    whatsapp: ADMIN_WHATSAPP || '5551983433940', // WhatsApp do admin (formato: 55 + DDD + número)
     email: 'admin@masterleague-f1.com', // Email do admin (alterar para o real)
     telegramChatId: '5176212626', // Chat ID do Telegram do admin
 };
@@ -13,9 +13,9 @@ const SITE_URL = 'https://masterleaguef1.com.br';
 // Bot do Telegram da Master League F1
 const TELEGRAM_BOT_TOKEN = '8564635113:AAGjr7wnmepztm3CwmZoSw5RmC8BO1pNG04';
 
-// CallMeBot WhatsApp API - Lista de destinatários
+// CallMeBot WhatsApp API - Lista de destinatários (backup)
 const WHATSAPP_RECIPIENTS = [
-    { phone: '555183433940', apikey: '6022419', nome: 'Admin' },
+    { phone: '5551983433940', apikey: '6022419', nome: 'Admin' },
     { phone: '5511940133084', apikey: '3666307', nome: 'Edvan Paiva' },
 ];
 
@@ -148,6 +148,14 @@ export async function flushPendingJuradoNotifications() {
 }
 
 /**
+ * Normaliza texto para UTF-8 (garante acentuação correta em português)
+ */
+function normalizeText(text) {
+    if (!text) return '';
+    return String(text).normalize('NFC');
+}
+
+/**
  * Envia mensagem via WhatsApp usando CallMeBot API (gratuito)
  * Envia para todos os destinatários configurados
  */
@@ -157,7 +165,9 @@ async function sendWhatsAppMessage(message) {
         return false;
     }
 
-    const encodedMessage = encodeURIComponent(message);
+    // Normalizar mensagem para UTF-8 (acentuação correta)
+    const normalizedMessage = normalizeText(message);
+    const encodedMessage = encodeURIComponent(normalizedMessage);
     let sucessos = 0;
 
     for (const recipient of WHATSAPP_RECIPIENTS) {
@@ -197,13 +207,18 @@ async function sendTelegramMessage(message) {
 
     try {
         console.log('📤 Enviando mensagem para Telegram...');
+        // Normalizar mensagem para UTF-8 (acentuação correta em português)
+        const normalizedMessage = normalizeText(message);
+        
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json; charset=utf-8'
+            },
             body: JSON.stringify({
                 chat_id: ADMIN_CONFIG.telegramChatId,
-                text: message,
+                text: normalizedMessage,
                 // Removido parse_mode para evitar erros com caracteres especiais
             }),
         });
@@ -248,13 +263,15 @@ const CALLMEBOT_APIKEY = ''; // TODO: Adicionar apikey do CallMeBot quando confi
 
 /**
  * Envia notificação automática ao admin sobre nova acusação
- * Tenta múltiplos métodos: CallMeBot WhatsApp, Email, Log no banco
+ * Tenta múltiplos métodos: Twilio WhatsApp, CallMeBot, Email, Log no banco, Telegram
+ * SEM RESTRIÇÃO DE HORÁRIO - Envio imediato 24/7
  */
 export async function notifyAdminNewAccusation(dadosAcusacao) {
-    console.log('🚀 Iniciando notificação ao admin...', dadosAcusacao);
+    console.log('🚀 [ADMIN] Iniciando notificação ao admin (sem restrição de horário)...', dadosAcusacao);
     
     const resultados = {
-        whatsapp: false,
+        whatsappTwilio: false,
+        whatsappCallMeBot: false,
         email: false,
         database: false,
         telegram: false,
@@ -263,14 +280,16 @@ export async function notifyAdminNewAccusation(dadosAcusacao) {
     // Verificar se é retirada de bug
     const isRetiradaBug = dadosAcusacao.tipoSolicitacao === 'retirada_bug';
     
-    // Formatar mensagem para WhatsApp/Telegram
-    let mensagemTexto = `🚨 ${isRetiradaBug ? 'RETIRADA DE BUG' : 'NOVA ACUSAÇÃO'} - ML F1
+    // Formatar mensagem para WhatsApp/Telegram (normalizada para UTF-8)
+    const mensagemTexto = normalizeText(`🚨 ${isRetiradaBug ? 'RETIRADA DE BUG' : 'NOVA ACUSAÇÃO'} - ML F1
+
+🔖 Código: ${dadosAcusacao.codigoLance || 'N/A'}
 
 👤 Acusador: ${dadosAcusacao.acusador.nome}
 📱 Gamertag: ${dadosAcusacao.acusador.gamertag}
 📞 WhatsApp: ${dadosAcusacao.acusador.whatsapp || '-'}
 
-${isRetiradaBug ? 'ℹ️ Tipo: Retirada de Bug\n⚠️ Este lance será analisado pois não possui piloto acusado.\n' : `⚖️ Acusado: ${dadosAcusacao.acusado.nome}\n📱 Gamertag: ${dadosAcusacao.acusado.gamertag || '-'}\n`}
+${isRetiradaBug ? 'ℹ️ Tipo: Retirada de Bug\n⚠️ Este lance será analisado pois não possui piloto acusado.\n' : `⚖️ Acusado: ${dadosAcusacao.acusado.nome}\n📱 Gamertag: ${dadosAcusacao.acusado.gamertag || '-'}\n📞 WhatsApp: ${dadosAcusacao.acusado.whatsapp || '-'}\n`}
 📍 Etapa: ${dadosAcusacao.etapa.round} - ${dadosAcusacao.etapa.circuit}
 🏁 Grid: ${dadosAcusacao.acusador.grid?.toUpperCase()}
 
@@ -279,25 +298,46 @@ ${dadosAcusacao.descricao}
 
 🎥 Vídeo: ${dadosAcusacao.videoLink}
 
-⏰ ${new Date().toLocaleString('pt-BR')}`;
+🔗 Painel: ${SITE_URL}/analises
 
-    // 1. Tentar enviar via CallMeBot (se configurado)
-    if (CALLMEBOT_APIKEY) {
+⏰ ${new Date().toLocaleString('pt-BR')}`);
+
+    // 1. PRIORIDADE: Enviar via Twilio (principal método para admin)
+    try {
+        console.log('📱 [ADMIN] Enviando via Twilio para admin...');
+        const twilioResult = await sendWhatsappNotification({
+            phone: ADMIN_CONFIG.whatsapp,
+            email: ADMIN_CONFIG.email,
+            nome: 'Admin MLF1',
+            message: mensagemTexto,
+        });
+        resultados.whatsappTwilio = !!twilioResult.success;
+        if (twilioResult.success) {
+            console.log('✅ [ADMIN] WhatsApp enviado via Twilio!');
+        } else {
+            console.warn('⚠️ [ADMIN] Falha Twilio:', twilioResult.error);
+        }
+    } catch (err) {
+        console.error('❌ [ADMIN] Erro ao enviar via Twilio:', err);
+    }
+
+    // 2. Backup: Enviar via CallMeBot (se Twilio falhar)
+    if (!resultados.whatsappTwilio && CALLMEBOT_APIKEY) {
         try {
             const url = `https://api.callmebot.com/whatsapp.php?phone=${ADMIN_CONFIG.whatsapp}&text=${encodeURIComponent(mensagemTexto)}&apikey=${CALLMEBOT_APIKEY}`;
             const response = await fetch(url);
             if (response.ok) {
-                resultados.whatsapp = true;
-                console.log('✅ WhatsApp enviado ao admin via CallMeBot');
+                resultados.whatsappCallMeBot = true;
+                console.log('✅ [ADMIN] WhatsApp enviado via CallMeBot (backup)');
             }
         } catch (err) {
-            console.warn('⚠️ Falha ao enviar WhatsApp via CallMeBot:', err);
+            console.warn('⚠️ [ADMIN] Falha CallMeBot:', err);
         }
     }
 
-    // 2. Registrar no banco de dados
+    // 3. Registrar no banco de dados
     try {
-        console.log('💾 Salvando no banco de dados...');
+        console.log('💾 [ADMIN] Salvando no banco de dados...');
         const { data, error } = await supabase
             .from('notificacoes_admin')
             .insert([{
@@ -310,16 +350,16 @@ ${dadosAcusacao.descricao}
             .select();
         
         if (error) {
-            console.error('❌ Erro ao salvar no banco:', error);
+            console.error('❌ [ADMIN] Erro ao salvar no banco:', error);
         } else {
             resultados.database = true;
-            console.log('✅ Notificação salva no banco de dados:', data);
+            console.log('✅ [ADMIN] Notificação salva no banco de dados');
         }
     } catch (err) {
-        console.error('❌ Exceção ao salvar notificação no banco:', err);
+        console.error('❌ [ADMIN] Exceção ao salvar notificação no banco:', err);
     }
 
-    // 3. Tentar enviar email (se Edge Function configurada)
+    // 4. Tentar enviar email
     try {
         const template = getEmailTemplate('admin_nova_acusacao', {
             codigo_lance: dadosAcusacao.codigoLance || 'N/A',
@@ -341,43 +381,30 @@ ${dadosAcusacao.descricao}
             resultados.email = result.success;
         }
     } catch (err) {
-        console.warn('⚠️ Falha ao enviar email ao admin:', err);
+        console.warn('⚠️ [ADMIN] Falha ao enviar email:', err);
     }
 
-    // 4. Tentar enviar via Telegram (se configurado)
+    // 5. SEMPRE enviar via Telegram (não é backup, é canal adicional)
     try {
-        console.log('📤 Preparando envio Telegram...');
-        // Usando texto simples sem Markdown para evitar erros de parsing
-        const mensagemTelegram = `🚨 ${isRetiradaBug ? 'RETIRADA DE BUG' : 'NOVA ACUSAÇÃO'} - ML F1
-
-🔖 Código: ${dadosAcusacao.codigoLance || 'N/A'}
-
-👤 Acusador: ${dadosAcusacao.acusador.nome}
-📱 Gamertag: ${dadosAcusacao.acusador.gamertag}
-📞 WhatsApp: ${dadosAcusacao.acusador.whatsapp || '-'}
-
-${isRetiradaBug ? 'ℹ️ Tipo: Retirada de Bug\n⚠️ Este lance será analisado pois não possui piloto acusado.\n' : `⚖️ Acusado: ${dadosAcusacao.acusado.nome}\n📱 Gamertag: ${dadosAcusacao.acusado.gamertag || '-'}\n📞 WhatsApp: ${dadosAcusacao.acusado.whatsapp || '-'}\n`}
-📍 Etapa: ${dadosAcusacao.etapa.round} - ${dadosAcusacao.etapa.circuit}
-🏁 Grid: ${dadosAcusacao.acusador.grid?.toUpperCase()}
-
-📝 Descrição:
-${dadosAcusacao.descricao}
-
-🎥 Vídeo: ${dadosAcusacao.videoLink}
-
-⏰ ${new Date().toLocaleString('pt-BR')}`;
-
-        resultados.telegram = await sendTelegramMessage(mensagemTelegram);
-        
-        // Enviar também via WhatsApp
-        resultados.whatsapp = await sendWhatsAppMessage(mensagemTelegram);
+        console.log('📤 [ADMIN] Enviando via Telegram...');
+        resultados.telegram = await sendTelegramMessage(mensagemTexto);
+        if (resultados.telegram) {
+            console.log('✅ [ADMIN] Telegram enviado com sucesso!');
+        } else {
+            console.warn('⚠️ [ADMIN] Falha ao enviar Telegram');
+        }
     } catch (err) {
-        console.error('❌ Falha ao enviar notificações:', err);
+        console.error('❌ [ADMIN] Falha ao enviar Telegram:', err);
     }
 
-    // REMOVIDO: Notificações para jurados - apenas ADM recebe notificações
+    // 6. CallMeBot para lista de destinatários (backup adicional)
+    try {
+        await sendWhatsAppMessage(mensagemTexto);
+    } catch (err) {
+        console.warn('⚠️ [ADMIN] Falha CallMeBot lista:', err);
+    }
 
-    console.log('📊 Resultado das notificações:', resultados);
+    console.log('📊 [ADMIN] Resultado das notificações:', resultados);
     return resultados;
 }
 
@@ -398,24 +425,24 @@ export async function notifyAccusatorAnalysisOpened({ dadosAcusacao, acusador })
         const motorhomeUrl = `${SITE_URL}/dashboard`;
         const analisesUrl = `${SITE_URL}/analises`;
 
-        let msgWhats = `*MENSAGEM AUTOMÁTICA*\n\n` +
+        let msgWhats = normalizeText(`*MENSAGEM AUTOMÁTICA*\n\n` +
             `✅ *SUA ANÁLISE FOI ABERTA - MASTER LEAGUE F1*\n\n` +
             `🔖 *Código:* ${codigo}\n` +
-            `🏁 *Etapa:* ${etapa}\n\n`;
+            `🏁 *Etapa:* ${etapa}\n\n`);
 
         if (isRetiradaBug) {
-            msgWhats += `📋 *Tipo:* Retirada de Bug\n\n` +
+            msgWhats += normalizeText(`📋 *Tipo:* Retirada de Bug\n\n` +
                 `ℹ️ Este lance será analisado pela comissão pois não possui piloto acusado.\n\n` +
-                `📊 A comissão de análise irá avaliar o lance e publicar o veredito.\n\n`;
+                `📊 A comissão de análise irá avaliar o lance e publicar o veredito.\n\n`);
         } else {
-            msgWhats += `👤 *Acusado:* ${acusadoNome}\n\n` +
+            msgWhats += normalizeText(`👤 *Acusado:* ${acusadoNome}\n\n` +
                 `📝 *Descrição:*\n${dadosAcusacao.descricao || '-'}\n\n` +
                 `🎥 *Vídeo do lance:*\n${dadosAcusacao.videoLink || '-'}\n\n` +
                 `ℹ️ O piloto acusado será notificado para enviar sua defesa.\n\n` +
-                `⏰ Assim que a defesa for enviada ou o prazo for encerrado, a comissão de análise irá analisar o lance.\n\n`;
+                `⏰ Assim que a defesa for enviada ou o prazo for encerrado, a comissão de análise irá analisar o lance.\n\n`);
         }
 
-        msgWhats += `🔗 Acompanhe: ${analisesUrl}`;
+        msgWhats += normalizeText(`🔗 Acompanhe: ${analisesUrl}`);
 
         const resultados = { whatsapp: false };
 
@@ -439,16 +466,41 @@ export async function notifyAccusatorAnalysisOpened({ dadosAcusacao, acusador })
 }
 
 /**
- * Notifica o PILOTO ACUSADO para enviar DEFESA (somente WhatsApp).
+ * Notifica o PILOTO ACUSADO para enviar DEFESA (via Twilio WhatsApp).
  * Importante: só deve ser chamado quando status = 'aguardando_defesa' (acusação normal).
+ * SEM RESTRIÇÃO DE HORÁRIO - Envio imediato 24/7
  */
 export async function notifyAccusedDefenseRequest({ dadosAcusacao, acusado }) {
+    console.log('🛡️ [ACUSADO] Iniciando notificação ao piloto acusado (sem restrição de horário)...', {
+        codigo: dadosAcusacao?.codigoLance,
+        acusado: acusado?.nome,
+        whatsapp: acusado?.whatsapp,
+        status: dadosAcusacao?.status,
+        tipoSolicitacao: dadosAcusacao?.tipoSolicitacao
+    });
+
     try {
-        if (!dadosAcusacao || !acusado) return { whatsapp: false };
+        if (!dadosAcusacao || !acusado) {
+            console.warn('⚠️ [ACUSADO] Dados incompletos - dadosAcusacao ou acusado ausente');
+            return { whatsapp: false, error: 'Dados incompletos' };
+        }
 
         // Não notificar se for retirada de bug (não existe defesa)
-        if (dadosAcusacao.tipoSolicitacao === 'retirada_bug' || dadosAcusacao.status !== 'aguardando_defesa') {
-            return { whatsapp: false, skipped: true };
+        if (dadosAcusacao.tipoSolicitacao === 'retirada_bug') {
+            console.log('ℹ️ [ACUSADO] Retirada de bug - não notificar acusado');
+            return { whatsapp: false, skipped: true, reason: 'retirada_bug' };
+        }
+
+        // Não notificar se status não for aguardando_defesa
+        if (dadosAcusacao.status !== 'aguardando_defesa') {
+            console.log('ℹ️ [ACUSADO] Status não é aguardando_defesa:', dadosAcusacao.status);
+            return { whatsapp: false, skipped: true, reason: `status_${dadosAcusacao.status}` };
+        }
+
+        // Verificar se tem WhatsApp
+        if (!acusado.whatsapp) {
+            console.warn('⚠️ [ACUSADO] Piloto acusado não tem WhatsApp cadastrado:', acusado.nome);
+            return { whatsapp: false, error: 'WhatsApp não cadastrado' };
         }
 
         const codigo = dadosAcusacao.codigoLance || 'N/A';
@@ -458,34 +510,39 @@ export async function notifyAccusedDefenseRequest({ dadosAcusacao, acusado }) {
 
         const motorhomeUrl = `${SITE_URL}/dashboard`;
 
-        const msgWhats = `*MENSAGEM AUTOMÁTICA*\n\n` +
+        const msgWhats = normalizeText(`*MENSAGEM AUTOMÁTICA*\n\n` +
             `🛡️ *VOCÊ FOI ACUSADO - MASTER LEAGUE F1*\n\n` +
             `🔖 *Código:* ${codigo}\n` +
             `👤 *Acusador:* ${dadosAcusacao.acusador?.nome || '-'}\n` +
-            `🏁 *Etapa:* ${etapa}\n\n` +
+            `🏁 *Etapa:* ${etapa}\n` +
+            `🏎️ *Grid:* ${(dadosAcusacao.acusador?.grid || dadosAcusacao.grid || '').toUpperCase()}\n\n` +
             `📝 *Descrição:*\n${dadosAcusacao.descricao || '-'}\n\n` +
             `🎥 *Vídeo do lance:*\n${dadosAcusacao.videoLink || '-'}\n\n` +
             `⏰ *Prazo:* até *12:00h do dia seguinte*.\n` +
             `✅ Envie o *vídeo de defesa* pelo *link verde do Motorhome*.\n\n` +
-            `🔗 Motorhome: ${motorhomeUrl}`;
+            `🔗 Motorhome: ${motorhomeUrl}`);
 
-        const resultados = { whatsapp: false };
+        console.log('📱 [ACUSADO] Enviando WhatsApp via Twilio para:', acusado.whatsapp);
 
-        // WhatsApp (se tiver número)
-        if (acusado.whatsapp) {
-            const w = await sendWhatsappNotification({
-                phone: acusado.whatsapp,
-                email: acusado.email || `${String(acusado.whatsapp).replace(/\D/g, '')}@masterleaguef1.com`,
-                nome: acusado.nome || 'Piloto',
-                message: msgWhats,
-            });
-            resultados.whatsapp = !!w.success;
-            if (!w.success) console.warn('⚠️ Falha ao notificar acusado via WhatsApp:', w.error);
+        const w = await sendWhatsappNotification({
+            phone: acusado.whatsapp,
+            email: acusado.email || `${String(acusado.whatsapp).replace(/\D/g, '')}@masterleaguef1.com`,
+            nome: acusado.nome || 'Piloto',
+            message: msgWhats,
+        });
+
+        const resultados = { whatsapp: !!w.success };
+
+        if (w.success) {
+            console.log('✅ [ACUSADO] WhatsApp enviado com sucesso para:', acusado.nome);
+        } else {
+            console.error('❌ [ACUSADO] Falha ao enviar WhatsApp:', w.error);
+            resultados.error = w.error;
         }
 
         return resultados;
     } catch (err) {
-        console.error('❌ Erro ao notificar acusado:', err);
+        console.error('❌ [ACUSADO] Exceção ao notificar acusado:', err);
         return { whatsapp: false, error: err?.message || String(err) };
     }
 }
@@ -696,21 +753,22 @@ export function getEmailTemplate(type, data) {
 /**
  * Envia notificação ao admin sobre nova defesa recebida
  * ATUALIZA a acusação existente com os dados da defesa (não cria registro separado)
+ * SEM RESTRIÇÃO DE HORÁRIO - Envio imediato 24/7
  */
 export async function notifyAdminNewDefense(dadosDefesa) {
-    console.log('🛡️ Iniciando notificação de defesa ao admin...', dadosDefesa);
+    console.log('🛡️ [DEFESA] Iniciando notificação de defesa ao admin (sem restrição de horário)...', dadosDefesa);
 
     const skipDatabaseUpdate = !!dadosDefesa?.skipDatabaseUpdate;
     
     const resultados = {
-        whatsapp: false,
-        email: false,
+        whatsappTwilio: false,
+        whatsappCallMeBot: false,
         database: false,
         telegram: false,
     };
 
-    // Formatar mensagem para Telegram
-    const mensagemTelegram = `🛡️ NOVA DEFESA - ML F1
+    // Formatar mensagem (normalizada para UTF-8)
+    const mensagem = normalizeText(`🛡️ NOVA DEFESA - ML F1
 
 🔖 Código: ${dadosDefesa.codigoLance || 'N/A'}
 
@@ -728,16 +786,34 @@ ${dadosDefesa.descricaoDefesa}
 
 ${dadosDefesa.videoLinkDefesa ? `🎥 Vídeo: ${dadosDefesa.videoLinkDefesa}` : ''}
 
-⏰ ${new Date().toLocaleString('pt-BR')}`;
+🔗 Painel: ${SITE_URL}/analises
 
-    // 1. ATUALIZAR a acusação existente com os dados da defesa (incorporar ao mesmo registro)
-    // OBS: quando a defesa é enviada pelo FormularioDefesa.jsx, ele já atualiza o banco.
-    // Aqui deixamos a atualização como fallback (e dá para desabilitar via skipDatabaseUpdate).
+⏰ ${new Date().toLocaleString('pt-BR')}`);
+
+    // 1. PRIORIDADE: Enviar via Twilio para admin
+    try {
+        console.log('📱 [DEFESA] Enviando via Twilio para admin...');
+        const twilioResult = await sendWhatsappNotification({
+            phone: ADMIN_CONFIG.whatsapp,
+            email: ADMIN_CONFIG.email,
+            nome: 'Admin MLF1',
+            message: mensagem,
+        });
+        resultados.whatsappTwilio = !!twilioResult.success;
+        if (twilioResult.success) {
+            console.log('✅ [DEFESA] WhatsApp enviado via Twilio!');
+        } else {
+            console.warn('⚠️ [DEFESA] Falha Twilio:', twilioResult.error);
+        }
+    } catch (err) {
+        console.error('❌ [DEFESA] Erro ao enviar via Twilio:', err);
+    }
+
+    // 2. ATUALIZAR a acusação existente com os dados da defesa
     if (!skipDatabaseUpdate) {
         try {
-            console.log('💾 Atualizando acusação existente com defesa...');
+            console.log('💾 [DEFESA] Atualizando acusação existente com defesa...');
             
-            // Buscar a acusação original pelo código do lance
             const { data: acusacaoExistente, error: fetchError } = await supabase
                 .from('notificacoes_admin')
                 .select('*')
@@ -746,9 +822,8 @@ ${dadosDefesa.videoLinkDefesa ? `🎥 Vídeo: ${dadosDefesa.videoLinkDefesa}` : 
                 .single();
             
             if (fetchError || !acusacaoExistente) {
-                console.error('❌ Acusação original não encontrada:', fetchError);
+                console.error('❌ [DEFESA] Acusação original não encontrada:', fetchError);
             } else {
-                // Incorporar a defesa nos dados da acusação
                 const dadosAtualizados = {
                     ...acusacaoExistente.dados,
                     defesa: {
@@ -758,50 +833,60 @@ ${dadosDefesa.videoLinkDefesa ? `🎥 Vídeo: ${dadosDefesa.videoLinkDefesa}` : 
                         videoEmbedDefesa: dadosDefesa.videoEmbedDefesa,
                         dataEnvioDefesa: dadosDefesa.dataEnvio,
                     },
-                    status: 'aguardando_analise', // Lance completo, pronto para júri
+                    status: 'aguardando_analise',
                 };
                 
                 const { error: updateError } = await supabase
                     .from('notificacoes_admin')
                     .update({
                         dados: dadosAtualizados,
-                        lido: false, // Marcar como não lido para admin ver a atualização
+                        lido: false,
                     })
                     .eq('id', acusacaoExistente.id);
                 
                 if (updateError) {
-                    console.error('❌ Erro ao atualizar acusação com defesa:', updateError);
+                    console.error('❌ [DEFESA] Erro ao atualizar acusação:', updateError);
                 } else {
                     resultados.database = true;
-                    console.log('✅ Acusação atualizada com defesa!');
+                    console.log('✅ [DEFESA] Acusação atualizada com defesa!');
                 }
             }
         } catch (err) {
-            console.error('❌ Exceção ao atualizar acusação:', err);
+            console.error('❌ [DEFESA] Exceção ao atualizar acusação:', err);
         }
     }
 
-    // 2. Enviar via Telegram
+    // 3. SEMPRE enviar via Telegram (canal adicional, não backup)
     try {
-        console.log('📤 Enviando defesa para Telegram...');
-        resultados.telegram = await sendTelegramMessage(mensagemTelegram);
-        
-        // Enviar também via WhatsApp
-        resultados.whatsapp = await sendWhatsAppMessage(mensagemTelegram);
+        console.log('📤 [DEFESA] Enviando via Telegram...');
+        resultados.telegram = await sendTelegramMessage(mensagem);
+        if (resultados.telegram) {
+            console.log('✅ [DEFESA] Telegram enviado com sucesso!');
+        } else {
+            console.warn('⚠️ [DEFESA] Falha ao enviar Telegram');
+        }
     } catch (err) {
-        console.error('❌ Falha ao enviar notificações:', err);
+        console.error('❌ [DEFESA] Falha ao enviar Telegram:', err);
     }
 
-    // REMOVIDO: Notificações para jurados - apenas ADM recebe notificações
+    // 4. CallMeBot para lista de destinatários (backup adicional)
+    try {
+        resultados.whatsappCallMeBot = await sendWhatsAppMessage(mensagem);
+    } catch (err) {
+        console.warn('⚠️ [DEFESA] Falha CallMeBot lista:', err);
+    }
 
-    console.log('📊 Resultado das notificações de defesa:', resultados);
+    console.log('📊 [DEFESA] Resultado das notificações:', resultados);
     return resultados;
 }
 
 /**
  * Notifica o ADM sobre o veredito final
+ * SEM RESTRIÇÃO DE HORÁRIO - Envio imediato 24/7
  */
 export async function notifyAdminVereditoFinal(lance, resultado) {
+    console.log('👨‍⚖️ [VEREDITO] Iniciando notificação de veredito ao admin (sem restrição de horário)...');
+    
     try {
         const dados = lance.dados || {};
         const codigo = dados.codigoLance || 'N/A';
@@ -814,42 +899,77 @@ export async function notifyAdminVereditoFinal(lance, resultado) {
         const gridLabel = grid === 'carreira' ? '🏆 CARREIRA' : (grid === 'light' ? '💡 LIGHT' : grid);
         const isRetiradaBug = dados?.tipoSolicitacao === 'retirada_bug' || acusadoNome === 'Administração Master League F1';
         
-        // Se for retirada de bug, abreviar nome da administração
         const acusado = (isRetiradaBug && acusadoNome === 'Administração Master League F1') ? 'ADM MLF1' : acusadoNome;
 
-        let mensagem = `👨‍⚖️ *VEREDITO FINAL - MASTER LEAGUE F1*\n\n` +
+        // Mensagem normalizada para UTF-8 (acentuação correta)
+        let mensagem = normalizeText(`👨‍⚖️ *VEREDITO FINAL - MASTER LEAGUE F1*\n\n` +
             `🔖 *Código:* ${codigo}\n` +
             `${gridLabel ? `🎯 *Grid:* ${gridLabel}\n` : ''}` +
             `🏁 *Round ${round} - ${circuit}*\n` +
             `👤 *Acusador:* ${acusador}\n` +
             `🎯 *Acusado:* ${acusado}\n\n` +
             `📊 *Placar:* ${resultado.placar}\n` +
-            `⚖️ *Decisão:* ${resultado.decisao}`;
+            `⚖️ *Decisão:* ${resultado.decisao}`);
 
         if (!isRetiradaBug && resultado.culpado) {
-            mensagem += `\n\n⚠️ *Punição:* ${resultado.labelPunicao}`;
-            if (resultado.agravante) mensagem += `\n➕ *Agravante:* +5 pontos`;
-            if (resultado.semVideo) mensagem += `\n📹 *Sem envio do vídeo:* -5 pontos`;
-            mensagem += `\n📉 *Pontos perdidos:* ${resultado.pontosPerdidos}`;
-            if (resultado.raceBan) mensagem += `\n⛔ *RACE BAN APLICADO!*`;
+            mensagem += normalizeText(`\n\n⚠️ *Punição:* ${resultado.labelPunicao}`);
+            if (resultado.agravante) mensagem += normalizeText(`\n➕ *Agravante:* +5 pontos`);
+            if (resultado.semVideo) mensagem += normalizeText(`\n📹 *Sem envio do vídeo:* -5 pontos`);
+            mensagem += normalizeText(`\n📉 *Pontos perdidos:* ${resultado.pontosPerdidos}`);
+            if (resultado.raceBan) mensagem += normalizeText(`\n⛔ *RACE BAN APLICADO!*`);
         } else if (!isRetiradaBug && resultado.semVideo) {
-            mensagem += `\n\n📹 *Sem envio do vídeo:* -5 pontos`;
-            mensagem += `\n📉 *Pontos perdidos:* ${resultado.pontosPerdidos}`;
+            mensagem += normalizeText(`\n\n📹 *Sem envio do vídeo:* -5 pontos`);
+            mensagem += normalizeText(`\n📉 *Pontos perdidos:* ${resultado.pontosPerdidos}`);
         }
 
-        mensagem += `\n\n🔗 ${SITE_URL}/analises`;
+        mensagem += normalizeText(`\n\n🔗 ${SITE_URL}/analises`);
 
-        // Enviar via WhatsApp para ADM
-        const resultados = { whatsapp: false, telegram: false };
+        const resultados = { whatsappTwilio: false, whatsappCallMeBot: false, telegram: false };
         
-        resultados.whatsapp = await sendWhatsAppMessage(mensagem);
-        resultados.telegram = await sendTelegramMessage(mensagem);
+        // 1. PRIORIDADE: Enviar via Twilio para admin
+        try {
+            console.log('📱 [VEREDITO] Enviando via Twilio para admin...');
+            const twilioResult = await sendWhatsappNotification({
+                phone: ADMIN_CONFIG.whatsapp,
+                email: ADMIN_CONFIG.email,
+                nome: 'Admin MLF1',
+                message: mensagem,
+            });
+            resultados.whatsappTwilio = !!twilioResult.success;
+            if (twilioResult.success) {
+                console.log('✅ [VEREDITO] WhatsApp enviado via Twilio!');
+            } else {
+                console.warn('⚠️ [VEREDITO] Falha Twilio:', twilioResult.error);
+            }
+        } catch (err) {
+            console.error('❌ [VEREDITO] Erro ao enviar via Twilio:', err);
+        }
 
-        console.log('📊 Resultado das notificações de veredito:', resultados);
+        // 2. SEMPRE enviar via Telegram (canal adicional, não backup)
+        try {
+            console.log('📤 [VEREDITO] Enviando via Telegram...');
+            resultados.telegram = await sendTelegramMessage(mensagem);
+            if (resultados.telegram) {
+                console.log('✅ [VEREDITO] Telegram enviado com sucesso!');
+            } else {
+                console.warn('⚠️ [VEREDITO] Falha ao enviar Telegram');
+            }
+        } catch (telegramErr) {
+            console.error('❌ [VEREDITO] Falha Telegram:', telegramErr);
+        }
+
+        // 3. CallMeBot para lista de destinatários (backup adicional)
+        try {
+            resultados.whatsappCallMeBot = await sendWhatsAppMessage(mensagem);
+        } catch (callmebotErr) {
+            console.warn('⚠️ [VEREDITO] Falha CallMeBot lista:', callmebotErr);
+        }
+
+        console.log('📊 [VEREDITO] Resultado das notificações:', resultados);
         return resultados;
     } catch (err) {
-        console.error('❌ Erro ao notificar ADM sobre veredito:', err);
-        return { whatsapp: false, telegram: false, error: err?.message || String(err) };
+        console.error('❌ [VEREDITO] Erro ao notificar ADM:', err);
+        return { whatsappTwilio: false, whatsappCallMeBot: false, telegram: false, error: err?.message || String(err) };
     }
 }
 

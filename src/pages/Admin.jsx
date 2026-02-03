@@ -72,6 +72,12 @@ function Admin() {
     const [savingNoticia, setSavingNoticia] = useState(false);
     const [showNovaNoticia, setShowNovaNoticia] = useState(false);
 
+    // Estados para Revisão de Vereditos
+    const [lancesRevisao, setLancesRevisao] = useState([]);
+    const [loadingRevisao, setLoadingRevisao] = useState(false);
+    const [revisandoLance, setRevisandoLance] = useState(null);
+    const [editandoVeredito, setEditandoVeredito] = useState(null); // Lance sendo editado manualmente
+
     const getSupabaseNewsImageUrl = (slot) => {
         try {
             const key = `noticia${slot}`; // nome fixo no Storage
@@ -481,6 +487,271 @@ function Admin() {
             fetchNarradores();
         }
     }, [activeTab, isAuthenticated]);
+
+    // Carregar lances para revisão quando mudar para aba revisao-vereditos
+    useEffect(() => {
+        if (isAuthenticated && activeTab === 'revisao-vereditos') {
+            fetchLancesRevisao();
+        }
+    }, [activeTab, isAuthenticated]);
+
+    // Função para carregar lances que precisam de revisão
+    const fetchLancesRevisao = async () => {
+        setLoadingRevisao(true);
+        try {
+            // Buscar todos os registros da tabela (sem filtro de tipo)
+            const { data, error } = await supabase
+                .from('notificacoes_admin')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            console.log('📊 [REVISÃO] Total de registros:', data?.length);
+
+            // Filtrar lances que têm veredito (culpado, inocente com semVideo, ou qualquer veredito)
+            const lancesComVeredito = (data || []).filter(lance => {
+                const veredito = lance.dados?.veredito;
+                // Incluir qualquer lance que tenha um veredito definido
+                return veredito && (veredito.decisao || veredito.culpado !== undefined);
+            });
+
+            console.log('📊 [REVISÃO] Lances com veredito:', lancesComVeredito.length);
+            
+            // Debug: mostrar estrutura do primeiro lance para entender os campos
+            if (lancesComVeredito.length > 0) {
+                console.log('📊 [REVISÃO] Exemplo de estrutura de lance:', {
+                    dados: lancesComVeredito[0].dados,
+                    keys: Object.keys(lancesComVeredito[0].dados || {})
+                });
+            }
+
+            // Tabela de punições para recálculo
+            const punicoesTabela = {
+                'advertencia': { pontos: 0, label: '⚠️ Advertência (Alerta Disciplinar!)' },
+                'leve': { pontos: 5, label: '🟡 Leve - 5 pontos' },
+                'media': { pontos: 10, label: '🟠 Média - 10 pontos' },
+                'grave': { pontos: 15, label: '🔴 Grave - 15 pontos' },
+                'gravissima': { pontos: 20, label: '⛔ Gravíssima - 20 pontos' }
+            };
+
+            // Analisar cada lance
+            const lancesAnalisados = lancesComVeredito.map(lance => {
+                const veredito = lance.dados.veredito;
+                const punicaoInfo = punicoesTabela[veredito.punicao] || { pontos: 0, label: 'Desconhecida' };
+                
+                // Calcular pontos corretos
+                const pontosBase = punicaoInfo.pontos;
+                const pontosAgravante = veredito.agravante ? 5 : 0;
+                const pontosSemVideo = veredito.semVideo ? 5 : 0;
+                const pontosCorretos = pontosBase + pontosAgravante + pontosSemVideo;
+                const pontosAtuais = veredito.pontosPerdidos || 0;
+                
+                // Verificar se há discrepância
+                const temProblema = pontosCorretos !== pontosAtuais;
+
+                // Extrair nome do acusado (pode ser string ou objeto)
+                const acusadoNome = typeof lance.dados.acusado === 'object' 
+                    ? lance.dados.acusado?.nome || 'Desconhecido'
+                    : lance.dados.acusado || 'Desconhecido';
+                
+                const acusadorNome = typeof lance.dados.acusador === 'object'
+                    ? lance.dados.acusador?.nome || 'Desconhecido'
+                    : lance.dados.acusador || 'Desconhecido';
+
+                // Verificar se enviou vídeo de defesa
+                const defesa = lance.dados.defesa;
+                const enviouVideoDefesa = defesa && (defesa.videoLinkDefesa || defesa.descricaoDefesa);
+
+                // Função auxiliar para normalizar objeto (pode ser objeto ou string JSON)
+                const normalizeObject = (value) => {
+                    if (value === null || value === undefined) return null;
+                    if (typeof value === 'object') return value;
+                    if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
+                        try {
+                            return JSON.parse(value);
+                        } catch (e) {
+                            return null;
+                        }
+                    }
+                    return null;
+                };
+
+                // Extrair valores que podem ser objetos, strings ou strings JSON
+                let roundValue = 'N/A';
+                let circuitValue = 'N/A';
+                let dateValue = lance.created_at;
+
+                // Tentar várias fontes de dados para round
+                const roundSources = [lance.dados.round, lance.dados.etapa, lance.dados.selectedRound];
+                let roundObj = null;
+                
+                for (const source of roundSources) {
+                    if (source) {
+                        roundObj = normalizeObject(source);
+                        if (roundObj) break;
+                        // Se não é objeto, pode ser valor direto
+                        if (typeof source === 'string' || typeof source === 'number') {
+                            roundValue = String(source);
+                        }
+                    }
+                }
+
+                if (roundObj) {
+                    // Extrair do objeto {date, round, circuit}
+                    roundValue = roundObj.round || roundObj.etapa || roundObj.name || 'N/A';
+                    circuitValue = roundObj.circuit || roundObj.circuito || roundObj.pista || 'N/A';
+                    dateValue = roundObj.date || roundObj.data || lance.dados.date || lance.created_at;
+                    
+                    // Garantir que são primitivos
+                    if (typeof roundValue === 'object') roundValue = 'N/A';
+                    if (typeof circuitValue === 'object') circuitValue = 'N/A';
+                } else {
+                    // Fallbacks diretos
+                    if (roundValue === 'N/A') {
+                        roundValue = lance.dados.etapa || lance.dados.round || 'N/A';
+                    }
+                    circuitValue = lance.dados.circuit || lance.dados.circuito || lance.dados.pista || 'N/A';
+                    dateValue = lance.dados.date || lance.dados.data || lance.created_at;
+                }
+                
+                // Conversão final para string primitiva
+                roundValue = String(roundValue);
+                circuitValue = String(circuitValue);
+
+                // Extrair código do lance de várias fontes possíveis
+                const codigoLance = lance.dados.codigo || 
+                                   lance.dados.codigoLance || 
+                                   lance.dados.codigo_lance ||
+                                   lance.codigo_lance || 
+                                   lance.codigo ||
+                                   lance.dados.lanceId ||
+                                   'N/A';
+                
+                console.log('🔍 [DEBUG] Código lance:', codigoLance, 'Dados keys:', Object.keys(lance.dados || {}));
+
+                return {
+                    id: lance.id,
+                    codigo: codigoLance,
+                    acusado: acusadoNome,
+                    acusador: acusadorNome,
+                    temporada: lance.dados.season || lance.dados.temporada || 'N/A',
+                    round: roundValue,
+                    circuit: circuitValue,
+                    grid: lance.dados.grid || 'N/A',
+                    date: dateValue,
+                    placar: veredito.placar || 'N/A',
+                    veredito: veredito,
+                    punicaoLabel: punicaoInfo.label,
+                    pontosBase,
+                    pontosAgravante,
+                    pontosSemVideo,
+                    pontosCorretos,
+                    pontosAtuais,
+                    temProblema,
+                    enviouVideoDefesa,
+                    dadosCompletos: lance.dados
+                };
+            });
+
+            // Ordenar: primeiro os com problema, depois por data
+            lancesAnalisados.sort((a, b) => {
+                if (a.temProblema && !b.temProblema) return -1;
+                if (!a.temProblema && b.temProblema) return 1;
+                return 0;
+            });
+
+            setLancesRevisao(lancesAnalisados);
+        } catch (error) {
+            console.error('Erro ao carregar lances para revisão:', error);
+            alert('Erro ao carregar lances: ' + error.message);
+        } finally {
+            setLoadingRevisao(false);
+        }
+    };
+
+    // Função para recalcular e salvar os pontos de um lance
+    const recalcularPontosLance = async (lance) => {
+        if (!window.confirm(`Recalcular pontos do lance ${lance.codigo}?\n\nPontos atuais: ${lance.pontosAtuais}\nPontos corretos: ${lance.pontosCorretos}`)) {
+            return;
+        }
+
+        setRevisandoLance(lance.id);
+        try {
+            const novoVeredito = {
+                ...lance.veredito,
+                pontosPerdidos: lance.pontosCorretos
+            };
+
+            const { error } = await supabase
+                .from('notificacoes_admin')
+                .update({
+                    dados: {
+                        ...lance.dadosCompletos,
+                        veredito: novoVeredito
+                    }
+                })
+                .eq('id', lance.id);
+
+            if (error) throw error;
+
+            alert(`✅ Lance ${lance.codigo} atualizado!\n\nPontos: ${lance.pontosAtuais} → ${lance.pontosCorretos}`);
+            
+            // Recarregar lista
+            fetchLancesRevisao();
+        } catch (error) {
+            console.error('Erro ao recalcular pontos:', error);
+            alert('Erro ao recalcular: ' + error.message);
+        } finally {
+            setRevisandoLance(null);
+        }
+    };
+
+    // Função para recalcular TODOS os lances com problema
+    const recalcularTodosProblemas = async () => {
+        const lancesComProblema = lancesRevisao.filter(l => l.temProblema);
+        
+        if (lancesComProblema.length === 0) {
+            alert('Nenhum lance com discrepância encontrado!');
+            return;
+        }
+
+        if (!window.confirm(`Recalcular ${lancesComProblema.length} lance(s) com discrepância?`)) {
+            return;
+        }
+
+        setLoadingRevisao(true);
+        let corrigidos = 0;
+        let erros = 0;
+
+        for (const lance of lancesComProblema) {
+            try {
+                const novoVeredito = {
+                    ...lance.veredito,
+                    pontosPerdidos: lance.pontosCorretos
+                };
+
+                const { error } = await supabase
+                    .from('notificacoes_admin')
+                    .update({
+                        dados: {
+                            ...lance.dadosCompletos,
+                            veredito: novoVeredito
+                        }
+                    })
+                    .eq('id', lance.id);
+
+                if (error) throw error;
+                corrigidos++;
+            } catch (error) {
+                console.error(`Erro ao corrigir lance ${lance.codigo}:`, error);
+                erros++;
+            }
+        }
+
+        alert(`✅ Correção concluída!\n\nCorrigidos: ${corrigidos}\nErros: ${erros}`);
+        fetchLancesRevisao();
+    };
 
     const fetchAllUsers = async () => {
         // setLoading(true); // Comentado para não piscar a tela no refresh
@@ -2008,6 +2279,9 @@ function Admin() {
                     </button>
                     <button className={`adm-tab-btn ${activeTab === 'power-ranking' ? 'active' : ''}`} onClick={() => setActiveTab('power-ranking')}>
                         📊 POWER RANKING
+                    </button>
+                    <button className={`adm-tab-btn ${activeTab === 'revisao-vereditos' ? 'active' : ''}`} onClick={() => setActiveTab('revisao-vereditos')}>
+                        🔧 REVISÃO
                     </button>
                     <button 
                         className="adm-tab-btn"
@@ -4166,6 +4440,491 @@ function Admin() {
                     </div>
                 )}
 
+                {/* ===== ABA DE REVISÃO DE VEREDITOS ===== */}
+                {activeTab === 'revisao-vereditos' && (
+                    <div className="adm-content">
+                        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                            <h3 style={{ color: '#F59E0B', margin: 0 }}>🔧 Revisão de Vereditos</h3>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    onClick={fetchLancesRevisao}
+                                    disabled={loadingRevisao}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: '#3B82F6',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: loadingRevisao ? 'not-allowed' : 'pointer',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    🔄 Atualizar Lista
+                                </button>
+                                <button
+                                    onClick={recalcularTodosProblemas}
+                                    disabled={loadingRevisao || lancesRevisao.filter(l => l.temProblema).length === 0}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: lancesRevisao.filter(l => l.temProblema).length > 0 ? '#EF4444' : '#475569',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: lancesRevisao.filter(l => l.temProblema).length > 0 ? 'pointer' : 'not-allowed',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    ⚡ Corrigir Todos ({lancesRevisao.filter(l => l.temProblema).length})
+                                </button>
+                            </div>
+                        </div>
+
+                        <p style={{ color: '#94A3B8', marginBottom: '20px', fontSize: '14px', lineHeight: '1.6' }}>
+                            Esta ferramenta verifica e corrige discrepâncias nos pontos dos vereditos. 
+                            Lances com <span style={{ color: '#EF4444', fontWeight: 'bold' }}>⚠️ DISCREPÂNCIA</span> têm pontos calculados incorretamente e precisam de correção.
+                        </p>
+
+                        {loadingRevisao ? (
+                            <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
+                                ⏳ Carregando lances para revisão...
+                            </div>
+                        ) : lancesRevisao.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
+                                📭 Nenhum lance com veredito encontrado.
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                {/* Resumo */}
+                                <div style={{
+                                    background: '#1E293B',
+                                    padding: '15px 20px',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    gap: '30px',
+                                    flexWrap: 'wrap',
+                                    border: '1px solid #475569'
+                                }}>
+                                    <div>
+                                        <span style={{ color: '#94A3B8', fontSize: '12px' }}>Total de Lances</span>
+                                        <div style={{ color: '#F8FAFC', fontSize: '24px', fontWeight: 'bold' }}>{lancesRevisao.length}</div>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#22C55E', fontSize: '12px' }}>✅ Corretos</span>
+                                        <div style={{ color: '#22C55E', fontSize: '24px', fontWeight: 'bold' }}>{lancesRevisao.filter(l => !l.temProblema).length}</div>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#EF4444', fontSize: '12px' }}>⚠️ Com Discrepância</span>
+                                        <div style={{ color: '#EF4444', fontSize: '24px', fontWeight: 'bold' }}>{lancesRevisao.filter(l => l.temProblema).length}</div>
+                                    </div>
+                                </div>
+
+                                {/* Lista de Lances */}
+                                {lancesRevisao.map((lance) => (
+                                    <div
+                                        key={lance.id}
+                                        style={{
+                                            background: lance.temProblema ? 'rgba(239, 68, 68, 0.1)' : '#1E293B',
+                                            padding: '20px',
+                                            borderRadius: '10px',
+                                            border: lance.temProblema ? '2px solid #EF4444' : '1px solid #475569'
+                                        }}
+                                    >
+                                        {/* Header do Lance */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ color: '#F59E0B', fontWeight: 'bold', fontSize: '14px' }}>🔖 {lance.codigo}</span>
+                                                    {lance.temProblema ? (
+                                                        <span style={{ background: '#EF4444', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>
+                                                            ⚠️ DISCREPÂNCIA
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ background: '#22C55E', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>
+                                                            ✅ OK
+                                                        </span>
+                                                    )}
+                                                    <span style={{ background: '#3B82F6', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>
+                                                        📊 {lance.placar}
+                                                    </span>
+                                                </div>
+                                                
+                                                {/* Informações do Lance */}
+                                                <div style={{ 
+                                                    display: 'grid', 
+                                                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+                                                    gap: '8px',
+                                                    marginBottom: '10px',
+                                                    padding: '10px',
+                                                    background: 'rgba(0,0,0,0.2)',
+                                                    borderRadius: '6px'
+                                                }}>
+                                                    <div style={{ color: '#CBD5E1', fontSize: '13px' }}>
+                                                        <span style={{ color: '#94A3B8' }}>📊 Temporada:</span> <strong>{String(lance.temporada || 'N/A')}</strong>
+                                                    </div>
+                                                    <div style={{ color: '#CBD5E1', fontSize: '13px' }}>
+                                                        <span style={{ color: '#94A3B8' }}>🏁 Etapa:</span> <strong>{String(lance.round || 'N/A')}</strong> {lance.circuit && lance.circuit !== 'N/A' && `- ${String(lance.circuit)}`}
+                                                    </div>
+                                                    <div style={{ color: '#CBD5E1', fontSize: '13px' }}>
+                                                        <span style={{ color: '#94A3B8' }}>🎯 Grid:</span> <strong>{String(lance.grid || 'N/A').toUpperCase()}</strong>
+                                                    </div>
+                                                    <div style={{ color: '#CBD5E1', fontSize: '13px' }}>
+                                                        <span style={{ color: '#94A3B8' }}>📅 Data:</span> {(() => {
+                                                            if (!lance.date) return 'N/A';
+                                                            // Se já está em formato dd/mm/yyyy ou dd/mm/yy, usar direto
+                                                            if (typeof lance.date === 'string' && lance.date.includes('/')) {
+                                                                return lance.date;
+                                                            }
+                                                            // Tentar parsear como Date
+                                                            const d = new Date(lance.date);
+                                                            if (isNaN(d.getTime())) return lance.date || 'N/A';
+                                                            return d.toLocaleDateString('pt-BR');
+                                                        })()}
+                                                    </div>
+                                                    <div style={{ color: '#CBD5E1', fontSize: '13px' }}>
+                                                        <span style={{ color: '#94A3B8' }}>👤 Acusador:</span> <strong>{String(lance.acusador || 'N/A')}</strong>
+                                                    </div>
+                                                    <div style={{ color: '#CBD5E1', fontSize: '13px' }}>
+                                                        <span style={{ color: '#94A3B8' }}>🎯 Acusado:</span> <strong style={{ color: '#F59E0B' }}>{String(lance.acusado || 'N/A')}</strong>
+                                                    </div>
+                                                    <div style={{ color: '#CBD5E1', fontSize: '13px' }}>
+                                                        <span style={{ color: '#94A3B8' }}>📹 Vídeo Defesa:</span> 
+                                                        {lance.enviouVideoDefesa ? (
+                                                            <strong style={{ color: '#22C55E' }}> ✅ Enviado</strong>
+                                                        ) : (
+                                                            <strong style={{ color: '#EF4444' }}> ❌ Não enviado</strong>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Botões de Ação */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <button
+                                                    onClick={() => setEditandoVeredito(lance)}
+                                                    style={{
+                                                        padding: '8px 16px',
+                                                        background: '#3B82F6',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 'bold',
+                                                        fontSize: '12px'
+                                                    }}
+                                                >
+                                                    ✏️ Editar
+                                                </button>
+                                                {lance.temProblema && (
+                                                    <button
+                                                        onClick={() => recalcularPontosLance(lance)}
+                                                        disabled={revisandoLance === lance.id}
+                                                        style={{
+                                                            padding: '8px 16px',
+                                                            background: revisandoLance === lance.id ? '#475569' : '#F59E0B',
+                                                            color: revisandoLance === lance.id ? '#94A3B8' : '#0F172A',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: revisandoLance === lance.id ? 'not-allowed' : 'pointer',
+                                                            fontWeight: 'bold',
+                                                            fontSize: '12px'
+                                                        }}
+                                                    >
+                                                        {revisandoLance === lance.id ? '⏳...' : '🔧 Auto-corrigir'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Detalhes dos Pontos */}
+                                        <div style={{
+                                            background: '#0F172A',
+                                            padding: '15px',
+                                            borderRadius: '8px',
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                                            gap: '15px'
+                                        }}>
+                                            <div>
+                                                <div style={{ color: '#94A3B8', fontSize: '11px', marginBottom: '3px' }}>Decisão</div>
+                                                <div style={{ 
+                                                    color: lance.veredito.culpado ? '#EF4444' : '#22C55E', 
+                                                    fontWeight: 'bold',
+                                                    fontSize: '14px'
+                                                }}>
+                                                    {lance.veredito.culpado ? '❌ CULPADO' : '✅ INOCENTE'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style={{ color: '#94A3B8', fontSize: '11px', marginBottom: '3px' }}>Punição</div>
+                                                <div style={{ color: '#F8FAFC', fontSize: '14px' }}>
+                                                    {lance.punicaoLabel || 'N/A'} ({lance.pontosBase}pts)
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style={{ color: '#94A3B8', fontSize: '11px', marginBottom: '3px' }}>Agravante</div>
+                                                <div style={{ color: lance.veredito.agravante ? '#F59E0B' : '#64748B', fontSize: '14px' }}>
+                                                    {lance.veredito.agravante ? `✅ Sim (+${lance.pontosAgravante}pts)` : '❌ Não'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style={{ color: '#94A3B8', fontSize: '11px', marginBottom: '3px' }}>Sem Vídeo</div>
+                                                <div style={{ color: lance.veredito.semVideo ? '#F59E0B' : '#64748B', fontSize: '14px' }}>
+                                                    {lance.veredito.semVideo ? `✅ Sim (+${lance.pontosSemVideo}pts)` : '❌ Não'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style={{ color: '#94A3B8', fontSize: '11px', marginBottom: '3px' }}>Pontos Atuais</div>
+                                                <div style={{ 
+                                                    color: lance.temProblema ? '#EF4444' : '#F8FAFC', 
+                                                    fontWeight: 'bold',
+                                                    fontSize: '18px'
+                                                }}>
+                                                    {lance.pontosAtuais}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style={{ color: '#94A3B8', fontSize: '11px', marginBottom: '3px' }}>Pontos Corretos</div>
+                                                <div style={{ 
+                                                    color: '#22C55E', 
+                                                    fontWeight: 'bold',
+                                                    fontSize: '18px'
+                                                }}>
+                                                    {lance.pontosCorretos}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Cálculo detalhado se houver problema */}
+                                        {lance.temProblema && (
+                                            <div style={{
+                                                marginTop: '10px',
+                                                padding: '10px 15px',
+                                                background: 'rgba(239, 68, 68, 0.2)',
+                                                borderRadius: '6px',
+                                                fontSize: '13px',
+                                                color: '#FCA5A5'
+                                            }}>
+                                                <strong>📊 Cálculo:</strong> {lance.pontosBase} (punição) + {lance.pontosAgravante} (agravante) + {lance.pontosSemVideo} (sem vídeo) = <strong>{lance.pontosCorretos}</strong> pts
+                                                <br/>
+                                                <strong>⚠️ Diferença:</strong> {Math.abs(lance.pontosCorretos - lance.pontosAtuais)} ponto(s) {lance.pontosCorretos > lance.pontosAtuais ? 'a menos' : 'a mais'} registrado(s)
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ===== MODAL DE EDIÇÃO DE VEREDITO ===== */}
+                {editandoVeredito && (
+                    <div
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0, 0, 0, 0.8)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 10000,
+                            padding: '20px'
+                        }}
+                        onClick={() => setEditandoVeredito(null)}
+                    >
+                        <div
+                            style={{
+                                background: 'linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%)',
+                                borderRadius: '12px',
+                                padding: '30px',
+                                maxWidth: '700px',
+                                width: '100%',
+                                maxHeight: '90vh',
+                                overflowY: 'auto',
+                                border: '2px solid #F59E0B'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h3 style={{ color: '#F59E0B', margin: 0 }}>
+                                    ✏️ Editar Veredito - {editandoVeredito.codigo}
+                                </h3>
+                                <button
+                                    onClick={() => setEditandoVeredito(null)}
+                                    style={{ background: '#EF4444', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 16px', cursor: 'pointer', fontWeight: 'bold' }}
+                                >
+                                    ✕ Fechar
+                                </button>
+                            </div>
+
+                            {/* Info do Lance */}
+                            <div style={{ background: '#0F172A', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '13px' }}>
+                                    <div><span style={{ color: '#94A3B8' }}>Acusador:</span> <span style={{ color: '#F8FAFC' }}>{String(editandoVeredito.acusador || 'N/A')}</span></div>
+                                    <div><span style={{ color: '#94A3B8' }}>Acusado:</span> <span style={{ color: '#F59E0B', fontWeight: 'bold' }}>{String(editandoVeredito.acusado || 'N/A')}</span></div>
+                                    <div><span style={{ color: '#94A3B8' }}>Etapa:</span> <span style={{ color: '#F8FAFC' }}>T{String(editandoVeredito.temporada || '')} R{String(editandoVeredito.round || '')} - {String(editandoVeredito.circuit || '')}</span></div>
+                                    <div><span style={{ color: '#94A3B8' }}>Grid:</span> <span style={{ color: '#F8FAFC' }}>{editandoVeredito.grid?.toUpperCase()}</span></div>
+                                </div>
+                            </div>
+
+                            {/* Formulário de Edição */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                {/* Decisão */}
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Decisão</label>
+                                    <select
+                                        value={editandoVeredito.veredito.culpado ? 'culpado' : 'inocente'}
+                                        onChange={(e) => setEditandoVeredito({
+                                            ...editandoVeredito,
+                                            veredito: { ...editandoVeredito.veredito, culpado: e.target.value === 'culpado' }
+                                        })}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC', fontSize: '14px' }}
+                                    >
+                                        <option value="culpado">❌ CULPADO</option>
+                                        <option value="inocente">✅ INOCENTE</option>
+                                    </select>
+                                </div>
+
+                                {/* Punição */}
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Punição</label>
+                                    <select
+                                        value={editandoVeredito.veredito.punicao || ''}
+                                        onChange={(e) => setEditandoVeredito({
+                                            ...editandoVeredito,
+                                            veredito: { ...editandoVeredito.veredito, punicao: e.target.value }
+                                        })}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC', fontSize: '14px' }}
+                                    >
+                                        <option value="">Nenhuma</option>
+                                        <option value="advertencia">⚠️ Advertência (0 pts)</option>
+                                        <option value="leve">🟡 Leve (5 pts)</option>
+                                        <option value="media">🟠 Média (10 pts)</option>
+                                        <option value="grave">🔴 Grave (15 pts)</option>
+                                        <option value="gravissima">⛔ Gravíssima (20 pts)</option>
+                                    </select>
+                                </div>
+
+                                {/* Checkboxes */}
+                                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#CBD5E1' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={editandoVeredito.veredito.agravante || false}
+                                            onChange={(e) => setEditandoVeredito({
+                                                ...editandoVeredito,
+                                                veredito: { ...editandoVeredito.veredito, agravante: e.target.checked }
+                                            })}
+                                            style={{ width: '18px', height: '18px' }}
+                                        />
+                                        ➕ Agravante (+5 pts)
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#CBD5E1' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={editandoVeredito.veredito.semVideo || false}
+                                            onChange={(e) => setEditandoVeredito({
+                                                ...editandoVeredito,
+                                                veredito: { ...editandoVeredito.veredito, semVideo: e.target.checked }
+                                            })}
+                                            style={{ width: '18px', height: '18px' }}
+                                        />
+                                        📹 Sem Vídeo (+5 pts)
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#CBD5E1' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={editandoVeredito.veredito.raceBan || false}
+                                            onChange={(e) => setEditandoVeredito({
+                                                ...editandoVeredito,
+                                                veredito: { ...editandoVeredito.veredito, raceBan: e.target.checked }
+                                            })}
+                                            style={{ width: '18px', height: '18px' }}
+                                        />
+                                        ⛔ Race BAN
+                                    </label>
+                                </div>
+
+                                {/* Pontos Perdidos (manual) */}
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        Pontos Perdidos (total)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={editandoVeredito.veredito.pontosPerdidos || 0}
+                                        onChange={(e) => setEditandoVeredito({
+                                            ...editandoVeredito,
+                                            veredito: { ...editandoVeredito.veredito, pontosPerdidos: parseInt(e.target.value) || 0 }
+                                        })}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC', fontSize: '14px' }}
+                                    />
+                                    <p style={{ color: '#64748B', fontSize: '11px', marginTop: '5px' }}>
+                                        Cálculo automático: {(() => {
+                                            const pts = { advertencia: 0, leve: 5, media: 10, grave: 15, gravissima: 20 };
+                                            const base = pts[editandoVeredito.veredito.punicao] || 0;
+                                            const agr = editandoVeredito.veredito.agravante ? 5 : 0;
+                                            const sv = editandoVeredito.veredito.semVideo ? 5 : 0;
+                                            return `${base} + ${agr} + ${sv} = ${base + agr + sv} pts`;
+                                        })()}
+                                    </p>
+                                </div>
+
+                                {/* Botão Auto-Calcular */}
+                                <button
+                                    onClick={() => {
+                                        const pts = { advertencia: 0, leve: 5, media: 10, grave: 15, gravissima: 20 };
+                                        const base = pts[editandoVeredito.veredito.punicao] || 0;
+                                        const agr = editandoVeredito.veredito.agravante ? 5 : 0;
+                                        const sv = editandoVeredito.veredito.semVideo ? 5 : 0;
+                                        setEditandoVeredito({
+                                            ...editandoVeredito,
+                                            veredito: { ...editandoVeredito.veredito, pontosPerdidos: base + agr + sv }
+                                        });
+                                    }}
+                                    style={{ padding: '10px', background: '#6366F1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                                >
+                                    🔄 Auto-Calcular Pontos
+                                </button>
+
+                                {/* Botão Salvar */}
+                                <button
+                                    onClick={async () => {
+                                        if (!window.confirm('Confirmar alterações no veredito?')) return;
+                                        
+                                        try {
+                                            const { error } = await supabase
+                                                .from('notificacoes_admin')
+                                                .update({
+                                                    dados: {
+                                                        ...editandoVeredito.dadosCompletos,
+                                                        veredito: editandoVeredito.veredito
+                                                    }
+                                                })
+                                                .eq('id', editandoVeredito.id);
+
+                                            if (error) throw error;
+
+                                            alert('✅ Veredito atualizado com sucesso!');
+                                            setEditandoVeredito(null);
+                                            fetchLancesRevisao();
+                                        } catch (error) {
+                                            console.error('Erro ao salvar:', error);
+                                            alert('❌ Erro ao salvar: ' + error.message);
+                                        }
+                                    }}
+                                    style={{ padding: '12px', background: '#22C55E', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}
+                                >
+                                    💾 Salvar Alterações
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ===== MODAL DE EDIÇÃO DE USUÁRIO ===== */}
                 {editingUser && (
                     <div style={{
@@ -4804,7 +5563,16 @@ function Admin() {
                                             </div>
                                             {lanceVotosModal.veredito.punicao && (
                                                 <div style={{ color: '#F59E0B', fontSize: '14px', marginTop: '5px' }}>
-                                                    Punição: {lanceVotosModal.veredito.labelPunicao || lanceVotosModal.veredito.punicao}
+                                                    Punição: {(() => {
+                                                        const labelsPunicao = {
+                                                            'advertencia': '⚠️ Advertência (Alerta Disciplinar!)',
+                                                            'leve': '🟡 Leve - 5 pontos',
+                                                            'media': '🟠 Média - 10 pontos',
+                                                            'grave': '🔴 Grave - 15 pontos',
+                                                            'gravissima': '⛔ Gravíssima - 20 pontos'
+                                                        };
+                                                        return labelsPunicao[lanceVotosModal.veredito.punicao] || lanceVotosModal.veredito.labelPunicao || lanceVotosModal.veredito.punicao;
+                                                    })()}
                                                     {lanceVotosModal.veredito.agravante && ' + Agravante (+5pts)'}
                                                     {lanceVotosModal.veredito.semVideo && ' + Sem Vídeo (+5pts)'}
                                                 </div>

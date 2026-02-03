@@ -2457,8 +2457,22 @@ export default function AdminPowerRanking() {
                     racecraft: finalRace,
                     overall: finalOver,
                     historico: finalHist,
-                    power_ranking: prFinal
+                    power_ranking: prFinal,
+                    prAntesFaltas: prCalculado,
+                    faltas
                 };
+
+                // Log detalhado do cálculo para pilotos solicitados
+                const pilotosDetalhe = ['Yuri Rodrigues', 'Pedro Folha', 'Ricardo Wielewski', 'Iuri Luchyan', 'Julio Melo'];
+                if (pilotosDetalhe.some(n => nome.toLowerCase().includes(n.toLowerCase()))) {
+                    const contrib = (finalPerf * 0.30) + (finalRace * 0.25) + (finalOver * 0.20) + (finalCond * 0.15) + (finalHist * 0.10);
+                    console.log(`📊 Power Ranking – ${nome}`, {
+                        performance: finalPerf, racecraft: finalRace, overall: finalOver, conduta: finalCond, historico: finalHist,
+                        formula: `(${finalPerf}×0,30 + ${finalRace}×0,25 + ${finalOver}×0,20 + ${finalCond}×0,15 + ${finalHist}×0,10)`,
+                        prAntesFaltas: prCalculado, contribuicaoBruta: contrib.toFixed(2),
+                        faltas, prFinal
+                    });
+                }
             });
 
             // Garantir entrada para todos
@@ -2474,6 +2488,8 @@ export default function AdminPowerRanking() {
                     );
                     const faltas = calcularFaltasPorResultados(p);
                     defaultP.power_ranking = Math.max(0, prBase - faltas);
+                    defaultP.prAntesFaltas = prBase;
+                    defaultP.faltas = faltas;
                     updated[p.nome] = defaultP;
                 }
             });
@@ -3524,6 +3540,18 @@ export default function AdminPowerRanking() {
                                                                     );
                                                                 })}
                                                             </div>
+                                                        ) : col.key === 'power_ranking' && (pilares.prAntesFaltas !== undefined || pilares.faltas !== undefined) ? (
+                                                            (() => {
+                                                                const P = pilares.performance ?? 0, R = pilares.racecraft ?? 0, O = pilares.overall ?? 0, C = pilares.conduta ?? 0, H = pilares.historico ?? 0;
+                                                                const faltas = pilares.faltas ?? 0;
+                                                                const antes = pilares.prAntesFaltas ?? Math.ceil((P * 0.30) + (R * 0.25) + (O * 0.20) + (C * 0.15) + (H * 0.10));
+                                                                const formula = `(${P}×0,30 + ${R}×0,25 + ${O}×0,20 + ${C}×0,15 + ${H}×0,10) = ${antes}${faltas > 0 ? ` − ${faltas} falta(s) = ${pilares.power_ranking ?? (antes - faltas)}` : ''}`;
+                                                                return (
+                                                                    <span title={formula} style={{ cursor: 'help', borderBottom: '1px dotted rgba(255,215,0,0.6)' }}>
+                                                                        {value}
+                                                                    </span>
+                                                                );
+                                                            })()
                                                         ) : (
                                                             value
                                                         )}

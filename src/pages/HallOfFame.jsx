@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLeagueData } from '../hooks/useLeagueData';
+import { usePowerRankingCache, usePowerRankingLightCache } from '../hooks/useSupabaseCache';
 import '../index.css'; 
 
 // --- ÍCONES ---
@@ -71,7 +72,9 @@ function HallOfFame() {
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, []);
 
-    const { rawCarreira, rawLight, rawPR, tracks, datesCarreira, datesLight, loading } = useLeagueData();
+    const { rawCarreira, rawLight, tracks, datesCarreira, datesLight, loading } = useLeagueData();
+    const { data: rawPRCarreira, loading: loadingPRCarreira } = usePowerRankingCache(20);
+    const { data: rawPRLight, loading: loadingPRLight } = usePowerRankingLightCache(20);
     const [gridType, setGridType] = useState('carreira'); 
     const [activeTab, setActiveTab] = useState('stats'); 
     
@@ -299,12 +302,15 @@ function HallOfFame() {
             : null;
 
         // Calcular Power Ranking total por piloto (somando todas as temporadas)
+        // Usar dados de PR específicos do grid selecionado
         const prByDriver = {};
+        const rawPR = gridType === 'carreira' ? rawPRCarreira : rawPRLight;
+        
         if (rawPR && rawPR.length > 0) {
             rawPR.forEach(row => {
-                const driverName = row[0];
-                const totalPR = parseFloat((row[8] || '0').replace(',', '.')) || 0;
-                if (driverName && driverName !== '-') {
+                const driverName = (row[0] || '').toString().trim();
+                const totalPR = parseFloat((row[8] || '0').toString().replace(',', '.')) || 0;
+                if (driverName && driverName !== '-' && driverName !== 'PILOTO' && driverName !== 'Driver') {
                     if (!prByDriver[driverName]) {
                         prByDriver[driverName] = { name: driverName, totalPR: 0 };
                     }
@@ -312,6 +318,7 @@ function HallOfFame() {
                 }
             });
         }
+        console.log('📊 [HallOfFame] Power Ranking:', { grid: gridType, totalPilotos: Object.keys(prByDriver).length, top3: Object.values(prByDriver).slice(0, 3) });
         const mostPR = Object.values(prByDriver).filter(d => d.totalPR > 0).sort((a, b) => b.totalPR - a.totalPR);
 
         setStats({
@@ -338,11 +345,12 @@ function HallOfFame() {
             return obj;
         }, {}));
 
-    }, [gridType, rawCarreira, rawLight, rawPR, datesCarreira, datesLight]);
+    }, [gridType, rawCarreira, rawLight, rawPRCarreira, rawPRLight, datesCarreira, datesLight]);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 
-    if (loading) return <div style={{padding:'100px', textAlign:'center', color:'white'}}>Carregando Lendas...</div>;
+    const isLoading = loading || (gridType === 'carreira' ? loadingPRCarreira : loadingPRLight);
+    if (isLoading) return <div style={{padding:'100px', textAlign:'center', color:'white'}}>Carregando Lendas...</div>;
 
     return (
         <div className="page-wrapper">
