@@ -70,17 +70,16 @@ const fetchWithProxy = async (url) => {
         }
         return text;
     } catch (error) {
-        console.error('❌ Erro ao buscar planilha via proxy:', error);
-        // Tentar buscar direto (pode funcionar se não houver CORS)
+        console.warn('⚠️ Planilha via proxy indisponível (ex.: 403). Usando apenas dados do Supabase.', error?.message || error);
+        // Tentar buscar direto (pode funcionar em alguns ambientes sem CORS)
         try {
             const directResponse = await fetch(url);
             if (directResponse.ok) {
-                return await directResponse.text();
+                const text = await directResponse.text();
+                if (text?.trim() && !text.trim().startsWith("<!DOCTYPE") && !text.trim().startsWith("<html")) return text;
             }
-        } catch (directError) {
-            console.error('❌ Erro ao buscar planilha direto:', directError);
-        }
-        throw error;
+        } catch (_) { /* ignorar */ }
+        return null; // Permite que o chamador use apenas dados do Supabase
     }
 };
 
@@ -1241,10 +1240,16 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                 codIdmlEncontrado = true;
             }
             
-            // 2. Buscar na planilha (sempre buscar status, e COD IDML se não encontrou no Supabase)
+            // 2. Buscar na planilha (status e COD IDML se não veio do Supabase). Se proxy retornar 403, continuamos só com Supabase.
             console.log('🔍 Buscando na planilha Pilotos PR (Status sempre da planilha)...');
             const csvText = await fetchWithProxy(LINK_PILOTOS_PR);
-            
+            if (!csvText) {
+                console.warn('⚠️ Planilha Pilotos PR indisponível (ex.: 403). Mantendo COD IDML e status padrão do Supabase.');
+                if (!codIdmlEncontrado) setCodIdml(null);
+                setStatusPiloto('ATIVO');
+                return;
+            }
+
             Papa.parse(csvText, {
                 header: false,
                 skipEmptyLines: true,
@@ -2044,7 +2049,60 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             processedRef.current = false;
         }
     }, [profile?.nome]);
-    
+
+    // Fallback: quando dados de classificação não carregaram (ex.: 403 no proxy), definir dashData mínimo para o Motorhome não travar em "Carregando estatísticas..."
+    const emptyStats = () => ({
+        races: 0,
+        wins: 0,
+        poles: 0,
+        podiums: 0,
+        best: 999,
+        seasons: new Set(),
+        currentPoints: 0,
+        racesList: []
+    });
+    // Em produção (ex.: Netlify) o proxy pode retornar 403 e os dados ficam vazios. Definir dashData mínimo
+    // assim que tiver profile e loadingData false, para o Motorhome sempre carregar (evita "Aguardando dashData..." infinito).
+    useEffect(() => {
+        if (!profile?.nome || loadingData || dashData) return;
+        const grid = (profile?.grid || 'carreira').toLowerCase();
+        const season = (Array.isArray(seasons) && seasons.length > 0) ? seasons[0] : 20;
+        const hasNoData = !rawCarreira?.length || !rawLight?.length;
+        if (hasNoData) {
+            console.warn('⚠️ Dados de classificação vazios – exibindo Motorhome com estatísticas zeradas');
+        }
+        setDashData({
+            currentGrid: grid,
+            currentSeason: season,
+            currentTeam: 'Sem Equipe',
+            statsCarreira: emptyStats(),
+            statsLight: emptyStats(),
+            chartData: []
+        });
+    }, [profile?.nome, profile?.grid, loadingData, rawCarreira?.length, rawLight?.length, seasons?.length, dashData]);
+
+    // Fallback por tempo: se após 2s ainda temos profile mas sem dashData (ex.: Netlify com loading lento), exibir Motorhome com estatísticas zeradas
+    useEffect(() => {
+        if (!profile?.nome || dashData) return;
+        const t = setTimeout(() => {
+            setDashData((prev) => {
+                if (prev) return prev;
+                const grid = (profile?.grid || 'carreira').toLowerCase();
+                const season = (Array.isArray(seasons) && seasons.length > 0) ? seasons[0] : 20;
+                console.warn('⚠️ Fallback por tempo: exibindo Motorhome com estatísticas zeradas');
+                return {
+                    currentGrid: grid,
+                    currentSeason: season,
+                    currentTeam: 'Sem Equipe',
+                    statsCarreira: emptyStats(),
+                    statsLight: emptyStats(),
+                    chartData: []
+                };
+            });
+        }, 2000);
+        return () => clearTimeout(t);
+    }, [profile?.nome, profile?.grid, seasons?.length, dashData]);
+
     useEffect(() => {
         // Só processar se tiver todos os dados necessários
         if (!profile?.nome || loadingData || !rawCarreira || !rawLight || rawCarreira.length === 0 || rawLight.length === 0) {

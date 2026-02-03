@@ -49,13 +49,17 @@ const fetchWithTimeout = async (url, timeout = FETCH_TIMEOUT) => {
     }
 };
 
-// Função segura para fetch que retorna array vazio em caso de erro
+// Função segura para fetch: em erro de rede/timeout ou resposta !ok (ex.: 403), retorna objeto que devolve texto vazio
 const safeFetch = async (url, timeout = FETCH_TIMEOUT) => {
     try {
         const response = await fetchWithTimeout(url, timeout);
+        if (!response.ok) {
+            console.warn(`⚠️ Resposta ${response.status} ao buscar planilha (ex.: proxy 403). Usando dados em cache/Supabase.`);
+            return { ok: false, text: async () => '' };
+        }
         return response;
     } catch {
-        return { text: async () => '' };
+        return { ok: false, text: async () => '' };
     }
 };
 
@@ -341,7 +345,19 @@ export const useLeagueData = () => {
             }
         };
 
-        fetchAll();
+        // Timeout global: evita Motorhome/Dashboard travado em "Carregando..." (ex.: Netlify com proxy 403 ou rede lenta)
+        const LOADING_TIMEOUT_MS = 8000;
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('league_data_timeout')), LOADING_TIMEOUT_MS);
+        });
+        Promise.race([fetchAll(), timeoutPromise]).catch((err) => {
+            if (err?.message === 'league_data_timeout') {
+                console.warn('⏱️ useLeagueData: timeout – liberando loading para não travar Motorhome');
+            }
+            if (isMounted.current) {
+                setData(prev => ({ ...prev, loading: false }));
+            }
+        });
     }, []);
 
     return data;
