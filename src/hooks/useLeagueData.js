@@ -158,18 +158,26 @@ export const useLeagueData = () => {
                 let rowsG20 = [], rowsDC = [], rowsDL = [];
 
                 // PASSO 1: Buscar dados ESSENCIAIS do Supabase (prioridade máxima)
+                // Usar try/await em cada query: o cliente Supabase pode não expor .catch() na cadeia
+                const safeQuery = async (fn) => {
+                    try {
+                        return await fn();
+                    } catch (e) {
+                        return { data: null, error: e };
+                    }
+                };
                 try {
                     const [carreiraResult, lightResult, tracksResult, prResult] = await Promise.all([
-                        supabase.from('classificacao_cache').select('*').eq('grid', 'carreira').order('season', { ascending: false }).limit(1).single().catch(() => ({ data: null })),
-                        supabase.from('classificacao_cache').select('*').eq('grid', 'light').order('season', { ascending: false }).limit(1).single().catch(() => ({ data: null })),
-                        supabase.from('tracks_cache').select('*').order('last_synced_at', { ascending: false }).limit(1).catch(() => ({ data: null })),
-                        supabase.from('power_ranking_cache').select('*').order('last_synced_at', { ascending: false }).limit(1).catch(() => ({ data: null }))
+                        safeQuery(() => supabase.from('classificacao_cache').select('*').eq('grid', 'carreira').order('season', { ascending: false }).limit(1).single()),
+                        safeQuery(() => supabase.from('classificacao_cache').select('*').eq('grid', 'light').order('season', { ascending: false }).limit(1).single()),
+                        safeQuery(() => supabase.from('tracks_cache').select('*').order('last_synced_at', { ascending: false }).limit(1)),
+                        safeQuery(() => supabase.from('power_ranking_cache').select('*').order('last_synced_at', { ascending: false }).limit(1))
                     ]);
 
                     const carreiraData = carreiraResult?.data;
                     const lightData = lightResult?.data;
-                    const tracksData = tracksResult?.data?.[0];
-                    const prData = prResult?.data?.[0];
+                    const tracksData = Array.isArray(tracksResult?.data) ? tracksResult.data[0] : tracksResult?.data?.[0];
+                    const prData = Array.isArray(prResult?.data) ? prResult.data[0] : prResult?.data?.[0];
 
                     // Usar dados do Supabase se disponíveis
                     if (carreiraData?.data?.rows) rowsC = carreiraData.data.rows;
@@ -177,7 +185,7 @@ export const useLeagueData = () => {
                     if (tracksData?.data?.rows) rowsT = tracksData.data.rows;
                     if (prData?.data?.rows) rowsPR = prData.data.rows;
                 } catch (supabaseError) {
-                    console.warn('⚠️ Erro ao buscar do Supabase:', supabaseError.message);
+                    console.warn('⚠️ Erro ao buscar do Supabase:', supabaseError?.message || supabaseError);
                 }
 
                 // PASSO 2: Fallback para Google Sheets APENAS para dados faltantes (com timeout)

@@ -17,6 +17,19 @@ const COLORS = {
     HISTORICO: '#475569' // Cinza escuro
 };
 
+// Fórmula oficial do Power Ranking: sempre usar ao persistir no banco (evita gravar 0 quando pilares estão preenchidos)
+function calcularPowerRankingParaPersistencia(stats, faltas = 0) {
+    const perf = Number(stats?.performance) || 60;
+    const race = Number(stats?.racecraft) || 60;
+    const over = Number(stats?.overall) || 60;
+    const cond = Number(stats?.conduta) ?? 100;
+    const hist = Number(stats?.historico) || 60;
+    const prBase = Math.ceil(
+        (perf * 0.30) + (race * 0.25) + (over * 0.20) + (cond * 0.15) + (hist * 0.10)
+    );
+    return Math.max(0, prBase - (faltas || 0));
+}
+
 const PROXY_URL = 'https://corsproxy.io/?';
 const DRAFT_URLS = {
     carreira: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=914372939&single=true&output=csv',
@@ -2583,6 +2596,7 @@ export default function AdminPowerRanking() {
     };
 
     // Função para publicar resultados no Motorhome (Silenciosa para Auto-save)
+    // Sempre calcula power_ranking a partir dos pilares ao persistir (causa raiz: evita gravar 0 quando um efeito atualizou pilares sem setar power_ranking)
     const publicarSilencioso = useCallback(async (dadosPilares) => {
         if (!pilotos.length || Object.keys(dadosPilares).length === 0) return;
         
@@ -2590,16 +2604,18 @@ export default function AdminPowerRanking() {
             const statsToUpsert = pilotos.map(p => {
                 const stats = dadosPilares[p.nome];
                 if (!stats) return null;
+                const faltas = stats.faltas !== undefined ? stats.faltas : calcularFaltasPorResultados(p);
+                const powerRanking = calcularPowerRankingParaPersistencia(stats, faltas);
                 
                 return {
                     piloto_id: p.id,
                     season: selectedSeason,
-                    performance: stats.performance || 0,
-                    racecraft: stats.racecraft || 0,
-                    conduta: stats.conduta || 0,
-                    overall: stats.overall || 0,
-                    historico: stats.historico || 0,
-                    power_ranking: stats.power_ranking || 0,
+                    performance: stats.performance ?? 0,
+                    racecraft: stats.racecraft ?? 0,
+                    conduta: stats.conduta ?? 0,
+                    overall: stats.overall ?? 0,
+                    historico: stats.historico ?? 0,
+                    power_ranking: powerRanking,
                     updated_at: new Date().toISOString()
                 };
             }).filter(Boolean);
@@ -2613,7 +2629,7 @@ export default function AdminPowerRanking() {
         } catch (err) {
             console.warn('Erro na sincronização automática:', err);
         }
-    }, [pilotos, selectedSeason]);
+    }, [pilotos, selectedSeason, calcularFaltasPorResultados]);
 
     // Auto-save: sempre que pilaresData mudar, sincronizar com o banco após 2 segundos de inatividade
     useEffect(() => {
@@ -2627,6 +2643,7 @@ export default function AdminPowerRanking() {
     }, [pilaresData, publicarSilencioso]);
 
     // Função para publicar resultados no Motorhome
+    // Sempre calcula power_ranking a partir dos pilares ao persistir (mesma causa raiz que publicarSilencioso)
     const handlePublicarMotorhome = async () => {
         if (!window.confirm('Deseja publicar as pontuações atuais para visualização no Motorhome dos pilotos?')) return;
         
@@ -2635,16 +2652,18 @@ export default function AdminPowerRanking() {
             const statsToUpsert = pilotos.map(p => {
                 const stats = pilaresData[p.nome];
                 if (!stats) return null;
+                const faltas = stats.faltas !== undefined ? stats.faltas : calcularFaltasPorResultados(p);
+                const powerRanking = calcularPowerRankingParaPersistencia(stats, faltas);
                 
                 return {
                     piloto_id: p.id,
                     season: selectedSeason,
-                    performance: stats.performance || 0,
-                    racecraft: stats.racecraft || 0,
-                    conduta: stats.conduta || 0,
-                    overall: stats.overall || 0,
-                    historico: stats.historico || 0,
-                    power_ranking: stats.power_ranking || 0,
+                    performance: stats.performance ?? 0,
+                    racecraft: stats.racecraft ?? 0,
+                    conduta: stats.conduta ?? 0,
+                    overall: stats.overall ?? 0,
+                    historico: stats.historico ?? 0,
+                    power_ranking: powerRanking,
                     updated_at: new Date().toISOString()
                 };
             }).filter(Boolean);

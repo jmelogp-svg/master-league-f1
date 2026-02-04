@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import VideoEmbed from '../components/VideoEmbed';
@@ -40,10 +40,12 @@ function Admin() {
     const [notificacoes, setNotificacoes] = useState([]);
     const [loadingNotificacoes, setLoadingNotificacoes] = useState(false);
     const [filtroNotificacao, setFiltroNotificacao] = useState('todas'); // 'todas', 'nao_lidas', 'lidas'
-    const [filtroStatus, setFiltroStatus] = useState('todos'); // 'todos', 'aguardando_defesa', 'aguardando_analise', 'analise_realizada'
+    const [filtroStatus, setFiltroStatus] = useState('todos'); // 'todos', 'aguardando_defesa', 'aguardando_analise', 'analise_realizada', 'solicitacao_anulada'
     const [expandedLances, setExpandedLances] = useState({}); // { notifId: true/false }
     const [selectedNotificacoes, setSelectedNotificacoes] = useState(new Set()); // IDs das notificações selecionadas
     const [lanceVotosModal, setLanceVotosModal] = useState(null); // { lanceId, codigoLance, dados } ou null
+    const [anulacaoModal, setAnulacaoModal] = useState(null); // { notifId, dados } para anular solicitação (link com problema)
+    const [motivoAnulacaoInput, setMotivoAnulacaoInput] = useState('');
     const [loadingVotos, setLoadingVotos] = useState(false);
 
     // Estados para Jurados
@@ -412,9 +414,40 @@ function Admin() {
 
     // Resetar gavetas ao mudar de aba
     useEffect(() => {
-        // O DisableAutoScroll cuida de preservar o scroll
         setExpandedLances({});
     }, [activeTab]);
+
+    // Manter posição do scroll ao trocar de aba: salvar no clique e restaurar após render (evita tela subir ao abrir Stewards).
+    const savedScrollRef = useRef(0);
+    const setActiveTabAndKeepScroll = (tab) => {
+        savedScrollRef.current = window.scrollY || document.documentElement.scrollTop;
+        setActiveTab(tab);
+    };
+    useLayoutEffect(() => {
+        const saved = savedScrollRef.current;
+        if (saved <= 0) return;
+        const restore = () => {
+            const cur = window.scrollY || document.documentElement.scrollTop;
+            if (cur === 0 && saved > 0) window.scrollTo(0, saved);
+        };
+        restore();
+        requestAnimationFrame(() => requestAnimationFrame(restore));
+        const t = setTimeout(restore, 100);
+        return () => clearTimeout(t);
+    }, [activeTab]);
+
+    // Scroll a restaurar após o auto-refresh das notificações (a cada 10s) – evita tela subir quando setNotificacoes re-renderiza.
+    const scrollAfterNotifRefreshRef = useRef(null);
+    useLayoutEffect(() => {
+        const toRestore = scrollAfterNotifRefreshRef.current;
+        if (toRestore == null || activeTab !== 'stewards') return;
+        scrollAfterNotifRefreshRef.current = null;
+        const y = window.scrollY || document.documentElement.scrollTop;
+        if (y !== toRestore) {
+            window.scrollTo(0, toRestore);
+            requestAnimationFrame(() => window.scrollTo(0, toRestore));
+        }
+    }, [notificacoes, activeTab]);
 
     // 1. INICIALIZAÇÃO E VERIFICAÇÃO DE LOGIN SALVO
     useEffect(() => {
@@ -1147,9 +1180,13 @@ function Admin() {
 
             if (error) {
                 console.error('Erro ao buscar notificações:', error);
-                } else {
-                setNotificacoes(data || []);
+            } else {
+                // Qualquer atualização da lista na aba Stewards (manual ou auto 10s) pode re-renderizar e fazer a tela subir: guardar scroll para restaurar
+                if (activeTab === 'stewards') {
+                    scrollAfterNotifRefreshRef.current = window.scrollY || document.documentElement.scrollTop;
                 }
+                setNotificacoes(data || []);
+            }
         } catch (err) {
             console.error('Erro:', err);
             } finally {
@@ -1335,6 +1372,36 @@ function Admin() {
         }
     };
 
+    // ===== ANULAR SOLICITAÇÃO (link incorreto, sem visibilidade ou outro problema) =====
+    const anularSolicitacao = async (notifId, dados, motivoAnulacao) => {
+        if (!motivoAnulacao || !motivoAnulacao.trim()) {
+            alert('⚠️ Informe o motivo da anulação.');
+            return;
+        }
+        try {
+            const dadosAtualizados = {
+                ...dados,
+                status: 'solicitacao_anulada',
+                motivoAnulacao: motivoAnulacao.trim(),
+                dataAnulacao: new Date().toISOString()
+            };
+            const { error } = await supabase
+                .from('notificacoes_admin')
+                .update({ dados: dadosAtualizados })
+                .eq('id', notifId);
+            if (error) throw error;
+            setNotificacoes(prev => prev.map(n =>
+                n.id === notifId ? { ...n, dados: dadosAtualizados } : n
+            ));
+            setAnulacaoModal(null);
+            setMotivoAnulacaoInput('');
+            alert(`✅ Solicitação ${dados.codigoLance || ''} anulada.`);
+        } catch (err) {
+            console.error('Erro ao anular solicitação:', err);
+            alert('❌ Erro ao anular: ' + err.message);
+        }
+    };
+
     // Filtra notificações baseado nos filtros selecionados
     const notificacoesFiltradas = notificacoes.filter(n => {
         // Filtro de leitura
@@ -1390,6 +1457,7 @@ function Admin() {
         aguardando_defesa: notificacoes.filter(n => (n.dados?.status || 'aguardando_defesa') === 'aguardando_defesa').length,
         aguardando_analise: notificacoes.filter(n => n.dados?.status === 'aguardando_analise').length,
         analise_realizada: notificacoes.filter(n => n.dados?.status === 'analise_realizada').length,
+        solicitacao_anulada: notificacoes.filter(n => n.dados?.status === 'solicitacao_anulada').length,
     };
 
     const handleApprove = async (userId, nome) => {
@@ -2251,8 +2319,8 @@ function Admin() {
                     overflowX: isMobile ? 'visible' : 'auto',
                     flexWrap: isMobile ? 'wrap' : 'nowrap'
                 }}>
-                    <button className={`adm-tab-btn ${activeTab === 'drivers' ? 'active' : ''}`} onClick={() => setActiveTab('drivers')}>DRIVERS</button>
-                    <button className={`adm-tab-btn ${activeTab === 'stewards' ? 'active' : ''}`} onClick={() => setActiveTab('stewards')}>
+                    <button className={`adm-tab-btn ${activeTab === 'drivers' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('drivers')}>DRIVERS</button>
+                    <button className={`adm-tab-btn ${activeTab === 'stewards' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('stewards')}>
                         STEWARDS
                         {countNaoLidas > 0 && (
                             <span style={{
@@ -2268,19 +2336,19 @@ function Admin() {
                             </span>
                         )}
                     </button>
-                    <button className={`adm-tab-btn ${activeTab === 'jurados' ? 'active' : ''}`} onClick={() => setActiveTab('jurados')}>
+                    <button className={`adm-tab-btn ${activeTab === 'jurados' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('jurados')}>
                         👨‍⚖️ JÚRI
                     </button>
-                    <button className={`adm-tab-btn ${activeTab === 'narradores' ? 'active' : ''}`} onClick={() => setActiveTab('narradores')}>
+                    <button className={`adm-tab-btn ${activeTab === 'narradores' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('narradores')}>
                         🎙️ NARRADORES
                     </button>
-                    <button className={`adm-tab-btn ${activeTab === 'noticias' ? 'active' : ''}`} onClick={() => setActiveTab('noticias')}>
+                    <button className={`adm-tab-btn ${activeTab === 'noticias' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('noticias')}>
                         📰 NOTÍCIAS
                     </button>
-                    <button className={`adm-tab-btn ${activeTab === 'power-ranking' ? 'active' : ''}`} onClick={() => setActiveTab('power-ranking')}>
+                    <button className={`adm-tab-btn ${activeTab === 'power-ranking' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('power-ranking')}>
                         📊 POWER RANKING
                     </button>
-                    <button className={`adm-tab-btn ${activeTab === 'revisao-vereditos' ? 'active' : ''}`} onClick={() => setActiveTab('revisao-vereditos')}>
+                    <button className={`adm-tab-btn ${activeTab === 'revisao-vereditos' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('revisao-vereditos')}>
                         🔧 REVISÃO
                     </button>
                     <button 
@@ -2548,6 +2616,7 @@ function Admin() {
                                     <option value="aguardando_defesa">⏳ Aguardando Defesa ({countPorStatus.aguardando_defesa})</option>
                                     <option value="aguardando_analise">🔍 Aguardando Análise ({countPorStatus.aguardando_analise})</option>
                                     <option value="analise_realizada">✅ Análise Realizada ({countPorStatus.analise_realizada})</option>
+                                    <option value="solicitacao_anulada">🚫 Solicitação Anulada ({countPorStatus.solicitacao_anulada})</option>
                                 </select>
                                 
                                 {/* Filtro de Leitura */}
@@ -2716,6 +2785,7 @@ function Admin() {
                                     
                                     // Determinar cor e texto baseado no status
                                     const getStatusInfo = () => {
+                                        if (status === 'solicitacao_anulada') return { color: '#6B7280', text: 'SOLICITAÇÃO ANULADA', icon: '🚫' };
                                         if (status === 'aguardando_analise') return { color: '#8B5CF6', text: 'AGUARDANDO ANÁLISE', icon: '⏳' };
                                         if (status === 'analise_realizada') return { color: '#22C55E', text: 'ANÁLISE REALIZADA', icon: '✅' };
                                         return { color: '#F59E0B', text: 'AGUARDANDO DEFESA', icon: '⚖️' };
@@ -3127,6 +3197,55 @@ function Admin() {
                                                             fontWeight: 'bold'
                                                         }}>
                                                             ⏳ Aguardando análise do Júri...
+                                                        </div>
+                                                    )}
+
+                                                    {/* Anular solicitação (link incorreto, sem visibilidade, etc.) */}
+                                                    {(status === 'aguardando_defesa' || status === 'aguardando_analise') && (
+                                                        <div style={{ marginTop: '20px', textAlign: 'right' }}>
+                                                            <button
+                                                                type="button"
+                                                                style={{
+                                                                    padding: '10px 18px',
+                                                                    background: '#374151',
+                                                                    color: '#E5E7EB',
+                                                                    border: '1px solid #4B5563',
+                                                                    borderRadius: '8px',
+                                                                    fontWeight: '600',
+                                                                    fontSize: '12px',
+                                                                    cursor: 'pointer',
+                                                                }}
+                                                                onClick={() => {
+                                                                    setAnulacaoModal({ notifId: notif.id, dados });
+                                                                    setMotivoAnulacaoInput('');
+                                                                }}
+                                                            >
+                                                                🚫 Anular solicitação
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Exibir motivo quando solicitação foi anulada */}
+                                                    {status === 'solicitacao_anulada' && dados.motivoAnulacao && (
+                                                        <div style={{
+                                                            marginTop: '20px',
+                                                            padding: '14px',
+                                                            background: 'rgba(107, 114, 128, 0.2)',
+                                                            border: '1px solid #6B7280',
+                                                            borderRadius: '8px',
+                                                            borderLeft: '4px solid #6B7280',
+                                                        }}>
+                                                            <div style={{ color: '#9CA3AF', fontSize: '11px', marginBottom: '6px', fontWeight: 'bold' }}>
+                                                                🚫 SOLICITAÇÃO ANULADA – Motivo
+                                                            </div>
+                                                            <div style={{ color: '#E5E7EB', fontSize: '13px', lineHeight: '1.5' }}>
+                                                                {dados.motivoAnulacao}
+                                                            </div>
+                                                            {dados.dataAnulacao && (
+                                                                <div style={{ color: '#6B7280', fontSize: '11px', marginTop: '8px' }}>
+                                                                    Em {new Date(dados.dataAnulacao).toLocaleString('pt-BR')}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -5526,11 +5645,11 @@ function Admin() {
                                     <div>
                                         <span style={{ color: '#94A3B8', fontSize: '12px' }}>Status:</span>
                                         <span style={{ 
-                                            color: lanceVotosModal.status === 'analise_realizada' ? '#22C55E' : '#F59E0B',
+                                            color: lanceVotosModal.status === 'solicitacao_anulada' ? '#6B7280' : lanceVotosModal.status === 'analise_realizada' ? '#22C55E' : '#F59E0B',
                                             marginLeft: '8px',
                                             fontWeight: 'bold'
                                         }}>
-                                            {lanceVotosModal.status === 'analise_realizada' ? '✅ ANÁLISE REALIZADA' : '⏳ AGUARDANDO ANÁLISE'}
+                                            {lanceVotosModal.status === 'solicitacao_anulada' ? '🚫 SOLICITAÇÃO ANULADA' : lanceVotosModal.status === 'analise_realizada' ? '✅ ANÁLISE REALIZADA' : '⏳ AGUARDANDO ANÁLISE'}
                                         </span>
                                     </div>
                                     <div>
@@ -5686,6 +5805,103 @@ function Admin() {
                 </div>
             </div>
             )}
+
+        {/* Modal Anular Solicitação (link com problema, sem visibilidade, etc.) */}
+        {anulacaoModal && (
+            <div
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10001,
+                    padding: isMobile ? '16px' : '24px',
+                }}
+                onClick={() => { setAnulacaoModal(null); setMotivoAnulacaoInput(''); }}
+            >
+                <div
+                    style={{
+                        background: 'linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%)',
+                        borderRadius: '12px',
+                        padding: isMobile ? '20px' : '28px',
+                        maxWidth: '480px',
+                        width: '100%',
+                        border: '1px solid #475569',
+                        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div style={{ marginBottom: '16px' }}>
+                        <h3 style={{ color: '#F8FAFC', margin: '0 0 6px 0', fontSize: '18px' }}>
+                            🚫 Anular solicitação
+                        </h3>
+                        <p style={{ color: '#94A3B8', margin: 0, fontSize: '13px' }}>
+                            Lance {anulacaoModal.dados?.codigoLance || 'N/A'} – use quando o link estiver incorreto, sem visibilidade ou com outro problema.
+                        </p>
+                    </div>
+                    <label style={{ display: 'block', color: '#94A3B8', fontSize: '12px', marginBottom: '6px', fontWeight: '600' }}>
+                        Justifique o motivo da anulação *
+                    </label>
+                    <textarea
+                        value={motivoAnulacaoInput}
+                        onChange={(e) => setMotivoAnulacaoInput(e.target.value)}
+                        placeholder="Ex.: Link do vídeo incorreto / Vídeo privado ou sem visibilidade / Outro problema técnico..."
+                        rows={4}
+                        style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: '1px solid #475569',
+                            background: '#0F172A',
+                            color: '#E2E8F0',
+                            fontSize: '14px',
+                            resize: 'vertical',
+                            minHeight: '90px',
+                        }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                        <button
+                            type="button"
+                            onClick={() => { setAnulacaoModal(null); setMotivoAnulacaoInput(''); }}
+                            style={{
+                                padding: '10px 18px',
+                                background: '#475569',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                fontSize: '13px',
+                            }}
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => anularSolicitacao(anulacaoModal.notifId, anulacaoModal.dados, motivoAnulacaoInput)}
+                            style={{
+                                padding: '10px 18px',
+                                background: '#6B7280',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                fontSize: '13px',
+                            }}
+                        >
+                            🚫 Anular solicitação
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     );
 }
