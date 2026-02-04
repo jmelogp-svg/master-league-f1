@@ -313,7 +313,7 @@ function PainelVeredito() {
 
     // Registrar voto do jurado
     const registrarVoto = async (lance, voto) => {
-        // voto = { culpado: boolean, punicao: string (se culpado), agravante: boolean, justificativa: string }
+        // voto = { culpado: boolean, anulada: boolean, punicao: string (se culpado), agravante: boolean, justificativa: string }
         
         // Verificar se é retirada de bug
         const isRetiradaBug = lance.dados?.tipoSolicitacao === 'retirada_bug' || 
@@ -322,13 +322,51 @@ function PainelVeredito() {
         // Preservar posição do scroll antes de qualquer operação
         const currentScroll = window.scrollY || document.documentElement.scrollTop;
         
+        if (!voto.justificativa || voto.justificativa.trim().length < 10) {
+            await showAlert('Escreva uma justificativa (mínimo 10 caracteres)', 'Aviso');
+            return;
+        }
+
+        // ===== OPÇÃO: ANULAR SOLICITAÇÃO (link com problema, sem visibilidade, etc.) =====
+        if (voto.anulada === true) {
+            try {
+                const { data: lanceFresh, error: fetchError } = await supabase
+                    .from('notificacoes_admin')
+                    .select('id, dados')
+                    .eq('id', lance.id)
+                    .single();
+                if (fetchError) throw fetchError;
+                const dadosAtualizados = {
+                    ...(lanceFresh?.dados || {}),
+                    status: 'solicitacao_anulada',
+                    motivoAnulacao: voto.justificativa.trim(),
+                    dataAnulacao: new Date().toISOString(),
+                    anuladaPorJurado: {
+                        nome: nomeJurado || localStorage.getItem('ml_juri_nome') || '',
+                        email: (userEmail || localStorage.getItem('ml_juri_email') || '').toLowerCase().trim()
+                    }
+                };
+                const { error: updateError } = await supabase
+                    .from('notificacoes_admin')
+                    .update({ dados: dadosAtualizados })
+                    .eq('id', lance.id);
+                if (updateError) throw updateError;
+                await showAlert('Solicitação anulada. O lance foi marcado como anulado (link com problema / sem visibilidade).', 'Sucesso');
+                setVotosEmEdicao(prev => { const n = { ...prev }; delete n[lance.id]; return n; });
+                setExpandedLances(prev => ({ ...prev, [lance.id]: false }));
+                fetchLances(true);
+                requestAnimationFrame(() => { window.scrollTo(0, currentScroll); });
+            } catch (err) {
+                console.error('Erro ao anular solicitação:', err);
+                await showAlert('Erro ao anular solicitação: ' + err.message, 'Erro');
+                requestAnimationFrame(() => { window.scrollTo(0, currentScroll); });
+            }
+            return;
+        }
+
         // Validar punição apenas se for acusação normal (não retirada de bug)
         if (voto.culpado && !voto.punicao && !isRetiradaBug) {
             await showAlert('Selecione a punição!', 'Aviso');
-            return;
-        }
-        if (!voto.justificativa || voto.justificativa.trim().length < 10) {
-            await showAlert('Escreva uma justificativa (mínimo 10 caracteres)', 'Aviso');
             return;
         }
 
@@ -811,7 +849,7 @@ function PainelVeredito() {
     const VotacaoJurado = ({ lance }) => {
         const lanceId = lance.id;
         // Usar estado do componente pai para preservar durante re-renders
-        const voto = votosEmEdicao[lanceId] || { culpado: null, punicao: '', agravante: false, semVideo: false, justificativa: '' };
+        const voto = votosEmEdicao[lanceId] || { culpado: null, punicao: '', agravante: false, semVideo: false, anulada: false, justificativa: '' };
         // Detectar mobile dentro do componente
         const [isMobileLocal] = useState(isMobileDevice());
         
@@ -868,21 +906,19 @@ function PainelVeredito() {
                 {/* Decisão */}
                 <div style={{ marginBottom: '20px' }}>
                     <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '10px' }}>DECISÃO *</label>
-                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '10px' : '15px' }}>
+                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '10px' : '15px', flexWrap: 'wrap' }}>
                         <button
                             type="button"
                             onClick={(e) => { 
                                 e.preventDefault(); 
                                 e.stopPropagation(); 
                                 const currentScroll = window.scrollY || document.documentElement.scrollTop;
-                                setVoto({ ...voto, culpado: true });
-                                // Preservar scroll após re-render
-                                requestAnimationFrame(() => {
-                                    window.scrollTo(0, currentScroll);
-                                });
+                                setVoto({ ...voto, culpado: true, anulada: false });
+                                requestAnimationFrame(() => { window.scrollTo(0, currentScroll); });
                             }}
                             style={{ 
                                 flex: 1, 
+                                minWidth: isMobile ? '100%' : '100px',
                                 padding: isMobile ? '12px' : '15px', 
                                 borderRadius: '8px', 
                                 border: voto.culpado === true ? '3px solid #EF4444' : '2px solid #475569', 
@@ -901,14 +937,12 @@ function PainelVeredito() {
                                 e.preventDefault(); 
                                 e.stopPropagation(); 
                                 const currentScroll = window.scrollY || document.documentElement.scrollTop;
-                                setVoto({ ...voto, culpado: false, punicao: '', agravante: false });
-                                // Preservar scroll após re-render
-                                requestAnimationFrame(() => {
-                                    window.scrollTo(0, currentScroll);
-                                });
+                                setVoto({ ...voto, culpado: false, punicao: '', agravante: false, anulada: false });
+                                requestAnimationFrame(() => { window.scrollTo(0, currentScroll); });
                             }}
                             style={{ 
                                 flex: 1, 
+                                minWidth: isMobile ? '100%' : '100px',
                                 padding: isMobile ? '12px' : '15px', 
                                 borderRadius: '8px', 
                                 border: voto.culpado === false ? '3px solid #22C55E' : '2px solid #475569', 
@@ -921,11 +955,40 @@ function PainelVeredito() {
                         >
                             {isRetiradaBug ? '✅ MANTER PUNIÇÃO' : '✅ INOCENTE'}
                         </button>
+                        <button
+                            type="button"
+                            onClick={(e) => { 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                                const currentScroll = window.scrollY || document.documentElement.scrollTop;
+                                setVoto({ ...voto, culpado: null, punicao: '', agravante: false, semVideo: false, anulada: true });
+                                requestAnimationFrame(() => { window.scrollTo(0, currentScroll); });
+                            }}
+                            style={{ 
+                                flex: 1, 
+                                minWidth: isMobile ? '100%' : '100px',
+                                padding: isMobile ? '12px' : '15px', 
+                                borderRadius: '8px', 
+                                border: voto.anulada === true ? '3px solid #6B7280' : '2px solid #475569', 
+                                background: voto.anulada === true ? 'rgba(107, 114, 128, 0.25)' : 'transparent', 
+                                color: voto.anulada === true ? '#E5E7EB' : '#94A3B8', 
+                                fontSize: isMobile ? '0.85rem' : '14px', 
+                                fontWeight: 'bold', 
+                                cursor: 'pointer' 
+                            }}
+                        >
+                            🚫 ANULAR SOLICITAÇÃO
+                        </button>
                     </div>
+                    {voto.anulada === true && (
+                        <p style={{ color: '#9CA3AF', fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>
+                            Use quando o link do vídeo estiver incorreto, sem visibilidade ou com outro problema que impeça a análise.
+                        </p>
+                    )}
                 </div>
 
-                {/* Punição por Sem Envio de Vídeo (desabilitada para retirada de bug) */}
-                {!isRetiradaBug && (
+                {/* Punição por Sem Envio de Vídeo (desabilitada para retirada de bug e quando anular solicitação) */}
+                {!isRetiradaBug && !voto.anulada && (
                     <div style={{ marginBottom: '15px' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px 15px', background: voto.semVideo ? 'rgba(245, 158, 11, 0.2)' : 'transparent', border: voto.semVideo ? '2px solid #F59E0B' : '1px solid #475569', borderRadius: '8px' }}>
                             <input
@@ -948,9 +1011,9 @@ function PainelVeredito() {
                     </div>
                 )}
 
-                {/* Punição (se culpado e não for retirada de bug) - altura fixa para evitar scroll */}
-                <div style={{ minHeight: voto.culpado === true && !isRetiradaBug ? 'auto' : '0', overflow: 'hidden' }}>
-                {voto.culpado === true && !isRetiradaBug && (
+                {/* Punição (se culpado e não for retirada de bug e não for anular) - altura fixa para evitar scroll */}
+                <div style={{ minHeight: voto.culpado === true && !isRetiradaBug && !voto.anulada ? 'auto' : '0', overflow: 'hidden' }}>
+                {voto.culpado === true && !isRetiradaBug && !voto.anulada && (
                     <>
                         <div style={{ marginBottom: '15px' }}>
                             <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '10px' }}>PUNIÇÃO *</label>
@@ -1044,21 +1107,21 @@ function PainelVeredito() {
                         e.stopPropagation();
                         registrarVoto(lance, { ...voto, justificativa: getJustificativa() });
                     }}
-                    disabled={voto.culpado === null}
+                    disabled={voto.culpado === null && !voto.anulada}
                     style={{
                         width: '100%',
                         padding: '15px',
-                        background: voto.culpado !== null ? 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)' : '#475569',
+                        background: (voto.culpado !== null || voto.anulada) ? 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)' : '#475569',
                         color: 'white',
                         border: 'none',
                         borderRadius: '8px',
                         fontSize: '15px',
                         fontWeight: 'bold',
-                        cursor: voto.culpado !== null ? 'pointer' : 'not-allowed',
-                        opacity: voto.culpado !== null ? 1 : 0.5
+                        cursor: (voto.culpado !== null || voto.anulada) ? 'pointer' : 'not-allowed',
+                        opacity: (voto.culpado !== null || voto.anulada) ? 1 : 0.5
                     }}
                 >
-                    🗳️ Registrar Meu Voto
+                    {voto.anulada ? '🚫 Anular solicitação' : '🗳️ Registrar Meu Voto'}
                 </button>
             </div>
         );
