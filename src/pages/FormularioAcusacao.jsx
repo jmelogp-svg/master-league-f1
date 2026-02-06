@@ -217,19 +217,24 @@ function FormularioAcusacao() {
         setPilotosGrid(pilotosDoGrid);
     }, [pilotoLogado, pilotosInscritos, loadingPilotos, selectedGrid]);
 
-    const gridsDisponiveis = pilotoLogado ? Array.from(new Set(
+    // Grids em que o piloto aparece na base (pode ter 1 ou 2)
+    const gridsDoPiloto = pilotoLogado ? Array.from(new Set(
         pilotosInscritos
             .filter(p => normalizeName(p.nome) === normalizeName(pilotoLogado.nome))
-            .map(p => p.grid || pilotoLogado.grid)
-    )) : [];
+            .map(p => (p.grid || pilotoLogado.grid).toLowerCase())
+    )).filter(Boolean) : [];
+    // Sempre oferecer os dois grids para alternar (para piloto nos dois grids ou para escolher o grid da acusação)
+    const gridsDisponiveis = ['carreira', 'light'];
 
     const handleGridChange = async (e) => {
         const novoGrid = e.target.value;
-        if (novoGrid === selectedGrid) return;
-        if (defaultGrid && novoGrid !== defaultGrid) {
+        const gridAtual = selectedGrid || defaultGrid || 'carreira';
+        if (novoGrid === gridAtual) return;
+        // Avisar só se o piloto está em um grid só no perfil e escolheu o outro
+        if (gridsDoPiloto.length === 1 && defaultGrid && novoGrid !== defaultGrid) {
             const confirmado = await showConfirm(
-                'Você está selecionando um grid no qual não é titular. Deseja continuar?',
-                'Confirmar mudança de grid'
+                'Você está selecionando o outro grid para esta acusação. Deseja continuar?',
+                'Alternar grid'
             );
             if (!confirmado) return;
         }
@@ -802,7 +807,8 @@ Aguarde análise dos Stewards.`
                                 📝 Dados da Acusação
                             </h2>
 
-                            {gridsDisponiveis.length > 1 && (
+                            {/* Chave para alternar o grid (quando o piloto está nos dois grids ou para escolher o grid da acusação) */}
+                            {pilotoLogado && (
                                 <div style={{ marginBottom: '20px' }}>
                                     <label style={{ 
                                         display: 'block', 
@@ -812,10 +818,10 @@ Aguarde análise dos Stewards.`
                                         marginBottom: '8px', 
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.5px'
-                                    }}>Grid selecionado</label>
+                                    }}>Grid da acusação</label>
                                     <select
                                         className="form-steward-select"
-                                        value={selectedGrid}
+                                        value={selectedGrid || defaultGrid || 'carreira'}
                                         onChange={handleGridChange}
                                         style={{
                                             width: '100%',
@@ -830,18 +836,17 @@ Aguarde análise dos Stewards.`
                                             outline: 'none'
                                         }}
                                     >
-                                        {gridsDisponiveis.map(grid => (
-                                            <option key={grid} value={grid} style={{ background: '#374151' }}>
-                                                {grid.toUpperCase()}
-                                            </option>
-                                        ))}
+                                        <option value="carreira" style={{ background: '#374151' }}>CARREIRA</option>
+                                        <option value="light" style={{ background: '#374151' }}>LIGHT</option>
                                     </select>
                                     <p style={{
                                         marginTop: '8px',
                                         fontSize: '0.75rem',
                                         color: '#6B7280'
                                     }}>
-                                        Padrão: {defaultGrid ? defaultGrid.toUpperCase() : '-'} (grid titular)
+                                        {gridsDoPiloto.length > 1
+                                            ? 'Você está nos dois grids. Escolha em qual grid esta acusação se refere.'
+                                            : `Padrão: ${(defaultGrid || 'carreira').toUpperCase()} (grid do seu perfil)`}
                                     </p>
                                 </div>
                             )}
