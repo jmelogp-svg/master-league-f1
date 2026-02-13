@@ -115,7 +115,11 @@ function PowerRanking() {
 
                 setPilotos(pilotosOrdenados);
 
-                const ids = pilotosOrdenados.map(p => p.id).filter(id => id && String(id).length > 0);
+                // power_ranking_stats.piloto_id é UUID; pilotos não encontrados na tabela pilotos têm id = nome normalizado
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                const ids = pilotosOrdenados
+                    .map(p => p.id)
+                    .filter(id => id && String(id).length > 0 && uuidRegex.test(String(id)));
                 if (!ids.length) {
                     setStatsMap({});
                     return;
