@@ -1,19 +1,9 @@
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Rolldown no Netlify às vezes não resolve o entry "exports" do lucide-react; força o bundle ESM.
-  resolve: {
-    alias: {
-      'lucide-react': path.resolve(__dirname, 'node_modules/lucide-react/dist/esm/lucide-react.mjs'),
-    },
-  },
   server: {
     host: true, // Permite acesso de qualquer IP na rede
     port: 5173, // Porta padrão do Vite
