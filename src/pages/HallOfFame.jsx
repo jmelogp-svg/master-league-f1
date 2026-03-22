@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { usePowerRankingCache, usePowerRankingLightCache } from '../hooks/useSupabaseCache';
+import { supabase } from '../supabaseClient';
 import '../index.css'; 
 
 // --- ÍCONES ---
@@ -11,12 +12,71 @@ const TrophyIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#
 const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
 
+/**
+ * Temporadas já encerradas no Hall da Fama: com 8+ etapas nos dados, o Muro dos Campeões
+ * ignora datas futuras na planilha (evita bloquear T20 se o calendário no Sheets atrasar).
+ * Ao fechar a T21, inclua 21 em carreira e light.
+ */
+const HALL_OF_FAME_SEASON_CLOSED = {
+    carreira: [20],
+    light: [20],
+};
+
+/** Pontos de uma linha da planilha — mesma regra que `Standings.jsx` (drivers / classificação). */
+function pontosPorLinhaClassificacao(season, row) {
+    const racePos = parseInt(row[8], 10);
+    const sprintPos = parseInt(row[7], 10);
+    let p = 0;
+    if (season >= 20) {
+        let col = 0;
+        if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
+            col = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, ''));
+            if (isNaN(col)) col = 0;
+        }
+        p = col;
+        if (p === 0 && racePos >= 1 && racePos <= 10) p = POINTS_RACE[racePos - 1];
+        if (sprintPos >= 1 && sprintPos <= 8) p += POINTS_SPRINT[sprintPos - 1];
+    } else {
+        if (racePos >= 1 && racePos <= 10) p += POINTS_RACE[racePos - 1];
+        if (sprintPos >= 1 && sprintPos <= 8) p += POINTS_SPRINT[sprintPos - 1];
+    }
+    return p;
+}
+
+function normalizeNomePilotoPunicao(nome) {
+    if (!nome) return '';
+    return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/** Mapa nome normalizado → pontos perdidos (igual processamento em Standings). */
+function buildPunicoesMapPorTemporadaGrid(rawList, season, gridType) {
+    const punicoesMap = {};
+    (rawList || []).forEach((item) => {
+        const veredito = item.dados?.veredito;
+        const acusado = item.dados?.acusado;
+        const etapa = item.dados?.etapa || {};
+        const temporadaLance = etapa?.season || etapa?.temporada || item.dados?.season || item.dados?.temporada || null;
+        const gridLance = etapa?.grid || item.dados?.grid || null;
+        const temporadaCompativel = temporadaLance ? parseInt(temporadaLance, 10) === parseInt(String(season), 10) : true;
+        const gridCompativel = gridLance ? gridLance === gridType : true;
+        const aplicarPunicao = veredito && temporadaCompativel && gridCompativel;
+        if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && aplicarPunicao) {
+            const nomeNorm = normalizeNomePilotoPunicao(acusado.nome);
+            const pontosPerdidos = parseInt(veredito.pontosPerdidos, 10) || 0;
+            if (pontosPerdidos > 0 && nomeNorm) {
+                punicoesMap[nomeNorm] = (punicoesMap[nomeNorm] || 0) + pontosPerdidos;
+            }
+        }
+    });
+    return punicoesMap;
+}
+
 // --- HELPERS ---
 // ALTERAÇÃO 1: Adicionado a prop 'style' aqui para permitir customização
 const DriverImage = ({ name, gridType, season, className, style }) => {
     const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
-    // Se não passar season, usa '19' (Atual) como fallback para fotos recentes
-    const safeSeason = season || '19';
+    // Se não passar season, usa temporada recente como fallback para fotos
+    const safeSeason = season || '20';
     // Prioriza SML primeiro, depois temporada
     const smlSrc = `/pilotos/SML/${cleanName}.png`;
     const seasonSrc = `/pilotos/${gridType}/s${safeSeason}/${cleanName}.png`;
@@ -82,6 +142,24 @@ function HallOfFame() {
     const [championsList, setChampionsList] = useState([]);
     const [trackRecords, setTrackRecords] = useState({});
     const [powerDriveStats, setPowerDriveStats] = useState([]);
+    /** Vereditos com punição (mesma fonte que Standings) — campeão = líder da classificação após punições. */
+    const [punicoesRaw, setPunicoesRaw] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('notificacoes_admin')
+                    .select('dados')
+                    .eq('dados->>status', 'analise_realizada');
+                if (!cancelled && !error && data) setPunicoesRaw(data);
+            } catch (e) {
+                console.error('❌ [HallOfFame] Erro ao buscar punições:', e);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const extrairNumero = (val) => {
         if (val === null || val === undefined) return 0;
@@ -123,6 +201,7 @@ function HallOfFame() {
     useMemo(() => {
         // Função para verificar se uma temporada está completa
         // Uma temporada completa deve ter 8 etapas e todas devem estar no passado (nenhuma etapa futura)
+        // Campeões do Muro = líder da classificação daquele grid (mesma soma de pontos + punições que Standings).
         const isSeasonComplete = (grid, season) => {
             const dataForGrid = grid === 'carreira' ? rawCarreira : rawLight;
             const dateMap = grid === 'carreira' ? (datesCarreira || {}) : (datesLight || {});
@@ -144,6 +223,11 @@ function HallOfFame() {
             // Uma temporada completa deve ter 8 etapas
             if (roundsInSeason.size < 8) {
                 return false; // Menos de 8 etapas = temporada não completa
+            }
+
+            // Temporada marcada como encerrada: confia nos dados (8 etapas) mesmo com datas futuras na planilha
+            if (HALL_OF_FAME_SEASON_CLOSED[grid]?.includes(season)) {
+                return true;
             }
             
             // Verificar se não há etapas futuras usando o dateMap
@@ -178,7 +262,6 @@ function HallOfFame() {
             const team = row[10];
             const racePos = parseInt(row[8]);
             const sprintPos = parseInt(row[7]);
-            let points = parseFloat((row[15] || '0').toString().replace(',', '.'));
             const fastestLap = row[11]; // Coluna L - Volta mais rápida
 
             // FILTRO: Remove pilotos inválidos ou headers
@@ -215,17 +298,26 @@ function HallOfFame() {
                 }
             }
 
-            // 2. Pontos por Temporada (para Campeões)
+            // 2. Pontos por Temporada (para Campeões) — alinhado à classificação (Standings)
             if (!seasonPoints[season]) seasonPoints[season] = {};
-            if (!seasonPoints[season][name]) seasonPoints[season][name] = { points: 0, team: team };
-
-            // Lógica de pontos igual ao Standings: temporadas < 20 usam posições; >=20 usa planilha
-            if (season >= 20) {
-                if (!isNaN(points)) seasonPoints[season][name].points += points;
-            } else {
-                if (racePos >= 1 && racePos <= 10) seasonPoints[season][name].points += POINTS_RACE[racePos - 1];
-                if (sprintPos >= 1 && sprintPos <= 8) seasonPoints[season][name].points += POINTS_SPRINT[sprintPos - 1];
+            if (!seasonPoints[season][name]) {
+                seasonPoints[season][name] = { points: 0, team, bestPosition: Infinity };
             }
+            const spEntry = seasonPoints[season][name];
+            spEntry.points += pontosPorLinhaClassificacao(season, row);
+            spEntry.team = team;
+            if (racePos >= 1 && racePos < spEntry.bestPosition) spEntry.bestPosition = racePos;
+            if (sprintPos >= 1 && sprintPos < spEntry.bestPosition) spEntry.bestPosition = sprintPos;
+        });
+
+        // Subtrair punições por temporada/grid (igual Standings)
+        Object.keys(seasonPoints).forEach((seasonKey) => {
+            const seasonNum = Number(seasonKey);
+            const pMap = buildPunicoesMapPorTemporadaGrid(punicoesRaw, seasonNum, gridType);
+            Object.entries(seasonPoints[seasonKey]).forEach(([nomePiloto, data]) => {
+                const perdidos = pMap[normalizeNomePilotoPunicao(nomePiloto)] || 0;
+                if (perdidos > 0) data.points -= perdidos;
+            });
         });
         
         // Conta quantas voltas rápidas cada piloto fez (quem teve o melhor tempo em cada corrida)
@@ -235,10 +327,22 @@ function HallOfFame() {
             }
         });
 
-        // Define Campeões
+        // Define Campeões = 1º na classificação da temporada (pontos, desempate melhor posição, nome)
         const champs = Object.keys(seasonPoints).map(season => {
             const drivers = Object.entries(seasonPoints[season]);
-            drivers.sort((a, b) => b[1].points - a[1].points);
+            drivers.sort((a, b) => {
+                const pontosA = Number(a[1].points) || 0;
+                const pontosB = Number(b[1].points) || 0;
+                if (pontosB !== pontosA) return pontosB - pontosA;
+                const bpA = a[1].bestPosition;
+                const bpB = b[1].bestPosition;
+                if (bpA !== bpB) {
+                    if (bpA === Infinity) return 1;
+                    if (bpB === Infinity) return -1;
+                    return bpA - bpB;
+                }
+                return a[0].localeCompare(b[0], 'pt-BR');
+            });
             if (drivers.length > 0) {
                 const winner = { season: Number(season), name: drivers[0][0], points: drivers[0][1].points, team: drivers[0][1].team };
                 if (!firstTitleSeason[winner.name] || Number(season) < firstTitleSeason[winner.name]) {
@@ -269,10 +373,6 @@ function HallOfFame() {
         data.forEach(row => {
             const season = extrairNumero(row[3]);
             const name = row[9];
-            const racePos = parseInt(row[8]);
-            const sprintPos = parseInt(row[7]);
-            let points = parseFloat((row[15] || '0').toString().replace(',', '.'));
-            
             if (!name || name === '-' || name === 'Driver' || name === 'Name' || name === 'Pilot' || name === 'PILOTO') return;
             if (!season || isNaN(season)) return;
             
@@ -280,12 +380,7 @@ function HallOfFame() {
                 totalPointsByDriver[name] = { name, totalPoints: 0 };
             }
 
-            if (season >= 20) {
-                if (!isNaN(points)) totalPointsByDriver[name].totalPoints += points;
-            } else {
-                if (racePos >= 1 && racePos <= 10) totalPointsByDriver[name].totalPoints += POINTS_RACE[racePos - 1];
-                if (sprintPos >= 1 && sprintPos <= 8) totalPointsByDriver[name].totalPoints += POINTS_SPRINT[sprintPos - 1];
-            }
+            totalPointsByDriver[name].totalPoints += pontosPorLinhaClassificacao(season, row);
         });
         
         const topWinnerName = Object.keys(titleCounts).length > 0 
@@ -345,7 +440,7 @@ function HallOfFame() {
             return obj;
         }, {}));
 
-    }, [gridType, rawCarreira, rawLight, rawPRCarreira, rawPRLight, datesCarreira, datesLight]);
+    }, [gridType, rawCarreira, rawLight, rawPRCarreira, rawPRLight, datesCarreira, datesLight, punicoesRaw]);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 
