@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS season_registrations (
     data_inscricao TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     nome_piloto_transmissao TEXT NOT NULL,
     numero_carro TEXT NOT NULL,
-    forma_pagamento TEXT NOT NULL DEFAULT 'pix_agora' CHECK (forma_pagamento IN ('pix_agora', 'pagar_depois', 'adm', 'premiacao_equipe')),
+    forma_pagamento TEXT NOT NULL DEFAULT 'pix_agora' CHECK (forma_pagamento IN ('ja_paguei', 'pix_agora', 'pagar_depois', 'adm', 'premiacao_equipe')),
     data_pagamento_prevista DATE,
     status_inscricao TEXT NOT NULL DEFAULT 'pendente' CHECK (status_inscricao IN ('pendente', 'aprovado', 'reserva', 'recusado')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -532,6 +532,7 @@ function AdminInscricoesPanel() {
                                             onChange={(e) => updateField(item.id, { forma_pagamento: e.target.value })}
                                             style={cellInput}
                                         >
+                                            <option value="ja_paguei">Já paguei</option>
                                             <option value="pix_agora">PIX agora</option>
                                             <option value="pagar_depois">Depois</option>
                                             <option value="adm">ADM</option>
@@ -656,6 +657,7 @@ function AdminInscricoesPanel() {
                                 <div>
                                     <label style={modalLabel}>Forma de pagamento</label>
                                     <select value={formDraft.forma_pagamento} onChange={(e) => setDraft('forma_pagamento', e.target.value)} style={modalInput}>
+                                        <option value="ja_paguei">Já paguei</option>
                                         <option value="pix_agora">PIX agora</option>
                                         <option value="pagar_depois">Pagar depois</option>
                                         <option value="adm">ADM</option>

@@ -20,7 +20,7 @@ const initialForm = {
     emailLogin: '',
     nomePilotoTransmissao: '',
     numeroCarro: '',
-    formaPagamento: 'pix_agora',
+    formaPagamento: '',
     dataPagamento: '',
 };
 
@@ -118,6 +118,7 @@ function Inscricao() {
         if (!form.numeroCarro.trim()) return 'Informe o número do carro.';
         if (!form.plataforma) return 'Selecione a plataforma.';
         if (!form.grid) return 'Selecione o grid.';
+        if (!form.formaPagamento) return 'Selecione uma opção de pagamento.';
         if (form.formaPagamento === 'pagar_depois' && !form.dataPagamento) {
             return 'Informe a data para pagamento posterior.';
         }
@@ -309,7 +310,9 @@ function Inscricao() {
                             </p>
 
                             <label className="form-steward-section-title" style={{ display: 'block', marginBottom: '6px', color: '#92400E', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Opção alternativa</label>
-                            <select className="form-steward-select" value={form.formaPagamento} onChange={(e) => handleChange('formaPagamento', e.target.value)} style={{ width: '100%', padding: '12px 14px', background: '#374151', border: 'none', borderRadius: '8px', color: 'white' }}>
+                            <select className="form-steward-select" value={form.formaPagamento} onChange={(e) => handleChange('formaPagamento', e.target.value)} style={{ width: '100%', padding: '12px 14px', background: '#374151', border: 'none', borderRadius: '8px', color: 'white' }} required>
+                                <option value="">Selecione uma opção</option>
+                                <option value="ja_paguei">Já paguei</option>
                                 <option value="pix_agora">PIX agora</option>
                                 <option value="pagar_depois">Pagar depois</option>
                                 <option value="adm">ADM</option>
