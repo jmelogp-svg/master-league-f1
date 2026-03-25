@@ -29,7 +29,7 @@ const Footer = () => {
                 </Link>
             </div>
 
-            <p style={{color:'#94A3B8'}}>© 2025. Acelere para a glória.</p>
+            <p style={{color:'#94A3B8'}}>© 2026. Acelere para a glória.</p>
             <Link to="/admin" style={{fontSize: '0.7rem', color: '#334155', textDecoration: 'none', marginTop: '20px', display: 'block'}}>Área Administrativa</Link>
         </footer>
     );
