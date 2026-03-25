@@ -19,6 +19,7 @@ const ZAPI_CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN"); // Token de Seguran
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
 const TWILIO_WHATSAPP_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+const ADMIN_WHATSAPP_COPY = Deno.env.get("ADMIN_WHATSAPP_COPY"); // ex: 5551999999999
 
 console.log(`🔍 Secrets carregados:`);
 console.log(`   WHATSAPP_API_TYPE: ${WHATSAPP_API_TYPE || 'não configurado (auto-detectar)'}`);
@@ -28,6 +29,7 @@ console.log(`   ZAPI_CLIENT_TOKEN: ${ZAPI_CLIENT_TOKEN ? '✅ (opcional)' : '❌
 console.log(`   TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID ? '✅' : '❌'}`);
 console.log(`   TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN ? '✅' : '❌'}`);
 console.log(`   TWILIO_WHATSAPP_NUMBER: ${TWILIO_WHATSAPP_NUMBER ? '✅' : '❌'}`);
+console.log(`   ADMIN_WHATSAPP_COPY: ${ADMIN_WHATSAPP_COPY ? '✅' : '❌'}`);
 
 function generateCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -246,7 +248,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { email, whatsapp, nomePiloto, tipo, skipPilotoCheck, mensagemCustomizada, forceApi } = await req.json();
+    const { email, whatsapp, nomePiloto, tipo, skipPilotoCheck, mensagemCustomizada, forceApi, grid, plataforma, temporada } = await req.json();
 
     if (!email || !whatsapp) {
       return new Response(
@@ -264,6 +266,78 @@ serve(async (req) => {
       )
     );
     const useTwilio = (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER);
+
+    // Notificação de inscrição (boas-vindas) - NÃO gera código
+    if (tipo === 'notificacao_inscricao') {
+      const whatsappFormatted = formatPhoneNumber(whatsapp);
+      const nome = nomePiloto || 'Piloto';
+      const gridTxt = String(grid || '').trim();
+      const plataformaTxt = String(plataforma || '').trim();
+      const temporadaTxt = temporada ? `T${temporada}` : '';
+
+      const gridNice = gridTxt ? (gridTxt[0].toUpperCase() + gridTxt.slice(1).toLowerCase()) : '—';
+      const plataformaNice = plataformaTxt ? (plataformaTxt[0].toUpperCase() + plataformaTxt.slice(1).toLowerCase()) : '—';
+
+      const mensagemPadrao =
+        `🏁 *BEM-VINDO À MASTER LEAGUE F1!*\n\n` +
+        `Olá ${nome}!\n\n` +
+        `✅ Recebemos sua inscrição${temporadaTxt ? ` para a *${temporadaTxt}*` : ''}.\n\n` +
+        `📌 *Grid:* ${gridNice}\n` +
+        `🎮 *Plataforma:* ${plataformaNice}\n` +
+        `📧 *E-mail:* ${String(email || '').trim()}\n\n` +
+        `Em breve o ADM vai analisar e atualizar o status da sua inscrição.\n\n` +
+        `🏎️ Boa sorte e nos vemos na pista!`;
+
+      const mensagem = mensagemCustomizada || mensagemPadrao;
+
+      const sendOne = async (toWhats: string) => {
+        if (forceApi === 'twilio' && useTwilio) {
+          console.log(`📋 [forceApi] Usando Twilio para notificação de inscrição`);
+          return await sendViaTwilio(toWhats, mensagem, nome);
+        }
+        if (useZAPI) {
+          console.log(`📋 Usando Z-API para notificação de inscrição`);
+          return await sendViaZAPI(toWhats, mensagem, nome, true);
+        }
+        if (useTwilio) {
+          console.log(`📋 Usando Twilio para notificação de inscrição`);
+          return await sendViaTwilio(toWhats, mensagem, nome);
+        }
+        return { success: false, error: 'Configure Z-API ou Twilio nos secrets do Supabase' };
+      };
+
+      // Envia ao piloto
+      const pilotResult = await sendOne(whatsappFormatted);
+      if (!pilotResult.success) {
+        return new Response(
+          JSON.stringify({ success: false, error: pilotResult.error || "Erro ao enviar notificação" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+
+      // Cópia para o ADM (opcional)
+      const adminTargetRaw = ADMIN_WHATSAPP_COPY ? String(ADMIN_WHATSAPP_COPY).trim() : '';
+      if (adminTargetRaw) {
+        const adminTarget = formatPhoneNumber(adminTargetRaw);
+        const prefix = `📥 *CÓPIA ADM - NOVA INSCRIÇÃO*\n\n`;
+        const adminMsg = prefix + mensagem;
+        const adminSendOne = async (toWhats: string) => {
+          if (forceApi === 'twilio' && useTwilio) return await sendViaTwilio(toWhats, adminMsg, nome);
+          if (useZAPI) return await sendViaZAPI(toWhats, adminMsg, nome, true);
+          if (useTwilio) return await sendViaTwilio(toWhats, adminMsg, nome);
+          return { success: false, error: 'Configure Z-API ou Twilio nos secrets do Supabase' };
+        };
+        const adminResult = await adminSendOne(adminTarget);
+        if (!adminResult.success) {
+          console.warn('⚠️ Falha ao enviar cópia ao ADM:', adminResult.error);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Notificação de inscrição enviada com sucesso" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
 
     // Se for notificação de aprovação, enviar mensagem diferente
     if (tipo === 'notificacao_aprovacao') {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { ADMIN_WHATSAPP, sendWhatsappNotification } from '../utils/whatsappNotify';
 import Footer from '../components/Footer';
 import './FormularioAcusacaoDefesa.css';
 import './Inscricao.css';
@@ -168,6 +169,44 @@ function Inscricao() {
 
             const { error } = await supabase.from('season_registrations').insert(payload);
             if (error) throw error;
+
+            // Mensagem de boas-vindas + cópia ao ADM (reusa o mesmo mecanismo já usado em análises/propostas)
+            // Não bloqueia a inscrição se falhar.
+            const gridUpper = String(form.grid || '').trim().toUpperCase();
+            const plataformaUpper = String(form.plataforma || '').trim().toUpperCase();
+            const msgPiloto =
+                `🏁 *BEM-VINDO À MASTER LEAGUE F1!*\n\n` +
+                `Olá ${payload.nome}!\n\n` +
+                `✅ Recebemos sua inscrição para a *T${temporadaAtual}*.\n\n` +
+                `📌 *Grid:* ${gridUpper}\n` +
+                `🎮 *Plataforma:* ${plataformaUpper}\n\n` +
+                `Em breve o ADM vai analisar e atualizar o status da sua inscrição.\n\n` +
+                `🏎️ Boa sorte e nos vemos na pista!`;
+            const msgAdm =
+                `📥 *NOVA INSCRIÇÃO (CÓPIA ADM)*\n\n` +
+                `👤 Nome: ${payload.nome}\n` +
+                `🎮 Plataforma: ${plataformaUpper}\n` +
+                `🏁 Grid: ${gridUpper}\n` +
+                `📧 E-mail: ${payload.email_login}\n` +
+                `📱 WhatsApp: ${payload.whatsapp}\n` +
+                `🗓️ Temporada: T${temporadaAtual}\n` +
+                `${payload.foto_url ? `🖼️ Foto: ${payload.foto_url}\n` : ''}` +
+                `⏰ ${new Date(payload.data_inscricao).toLocaleString('pt-BR')}`;
+
+            Promise.allSettled([
+                sendWhatsappNotification({
+                    phone: payload.whatsapp,
+                    email: payload.email_login,
+                    nome: payload.nome,
+                    message: msgPiloto,
+                }),
+                sendWhatsappNotification({
+                    phone: ADMIN_WHATSAPP,
+                    email: 'admin@masterleaguef1.com',
+                    nome: 'ADM Master League F1',
+                    message: msgAdm,
+                }),
+            ]).catch(() => { /* ignorar */ });
 
             setSuccessMsg('Inscrição enviada com sucesso! Seus dados já estão disponíveis para o ADM.');
             setForm(initialForm);
