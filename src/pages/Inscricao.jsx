@@ -168,7 +168,7 @@ function Inscricao() {
                 foto_url: fotoUrl,
             };
 
-            const { error } = await supabase.from('season_registrations').insert(payload);
+            const { data: inserted, error } = await supabase.from('season_registrations').insert(payload).select('id').single();
             if (error) throw error;
 
             // Mensagem de boas-vindas + cópia ao ADM (reusa o mesmo mecanismo já usado em análises/propostas)
@@ -207,7 +207,17 @@ function Inscricao() {
                     nome: 'ADM Master League F1',
                     message: msgAdm,
                 }),
-            ]).catch(() => { /* ignorar */ });
+            ])
+                .then(async (results) => {
+                    const okPiloto = results?.[0]?.status === 'fulfilled' && results?.[0]?.value?.success;
+                    if (okPiloto && inserted?.id) {
+                        await supabase
+                            .from('season_registrations')
+                            .update({ boas_vindas_enviada_em: new Date().toISOString() })
+                            .eq('id', inserted.id);
+                    }
+                })
+                .catch(() => { /* ignorar */ });
 
             setSuccessMsg('Inscrição enviada com sucesso! Seus dados já estão disponíveis para o ADM.');
             setForm(initialForm);

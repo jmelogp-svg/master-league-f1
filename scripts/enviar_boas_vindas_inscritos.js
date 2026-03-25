@@ -68,7 +68,11 @@ async function sendWhatsapp({ phone, email, nome, message }) {
 async function main() {
   console.log(`[INSCRICOES] DRY_RUN=${DRY_RUN} TEMPORADA=${TEMPORADA ?? 'todas'} LIMIT=${LIMIT ?? 'sem limite'}`);
 
-  let query = supabase.from('season_registrations').select('*').order('data_inscricao', { ascending: false });
+  let query = supabase
+    .from('season_registrations')
+    .select('*')
+    .is('boas_vindas_enviada_em', null)
+    .order('data_inscricao', { ascending: false });
   if (TEMPORADA) query = query.eq('temporada', TEMPORADA);
   if (LIMIT) query = query.limit(LIMIT);
 
@@ -126,6 +130,11 @@ async function main() {
     } else {
       console.log(`[OK] enviado`);
       okCount++;
+      // marcar no banco para não reenviar
+      await supabase
+        .from('season_registrations')
+        .update({ boas_vindas_enviada_em: new Date().toISOString() })
+        .eq('id', r.id);
     }
 
     // pequeno delay para evitar rate limit / flood

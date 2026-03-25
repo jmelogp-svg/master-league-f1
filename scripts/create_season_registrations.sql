@@ -149,6 +149,10 @@ END $$;
 ALTER TABLE season_registrations
     ADD COLUMN IF NOT EXISTS foto_url TEXT;
 
+-- Controle: marca quando a mensagem automática de boas-vindas foi enviada
+ALTER TABLE season_registrations
+    ADD COLUMN IF NOT EXISTS boas_vindas_enviada_em TIMESTAMPTZ;
+
 -- Bucket para fotos de inscrição (execute uma vez; depois confira no Dashboard → Storage)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
