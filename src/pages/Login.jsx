@@ -605,7 +605,12 @@ function Login() {
                 } else if (errorMessage.includes('Erro ao processar resposta')) {
                     errorMessage = `❌ Erro ao processar resposta do servidor.\n\nPor favor, tente novamente em alguns instantes.`;
                 } else {
-                    errorMessage = `❌ Erro ao enviar código de verificação: ${errorMessage}\n\nPor favor, verifique o número e tente novamente.`;
+                    const prefix = `❌ Erro ao enviar código de verificação: ${errorMessage}`;
+                    const isProvedorOuAdmin =
+                        /administração|Z-API|assinatura da instância|temporariamente indisponível/i.test(errorMessage);
+                    errorMessage = isProvedorOuAdmin
+                        ? prefix
+                        : `${prefix}\n\nPor favor, verifique o número e tente novamente.`;
                 }
                 
                 // Manter na tela de input_whatsapp para permitir nova tentativa

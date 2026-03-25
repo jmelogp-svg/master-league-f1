@@ -7,6 +7,29 @@ import { supabase } from '../supabaseClient';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
 /**
+ * Mensagens técnicas do provedor (ex.: Z-API) → texto claro para o piloto.
+ * "subscribe to this instance again" = instância Z-API sem assinatura ativa.
+ */
+export function humanizeWhatsappSendError(raw) {
+    if (raw == null) return 'Erro desconhecido ao enviar o código.';
+    const s = String(raw).trim();
+    if (!s) return 'Erro desconhecido ao enviar o código.';
+    if (/subscribe to this instance again/i.test(s)) {
+        return (
+            'O envio pelo WhatsApp está temporariamente indisponível: a instância Z-API da liga precisa de assinatura renovada ou reativação no painel da Z-API. ' +
+            'Isto não indica problema com o seu telefone. Avise a administração da Master League F1.'
+        );
+    }
+    if (/instance.*not.*connected|disconnected|instância.*desconect/i.test(s)) {
+        return (
+            'A conexão WhatsApp da liga com o provedor não está ativa (instância desconectada). ' +
+            'Entre em contato com a administração.'
+        );
+    }
+    return s;
+}
+
+/**
  * Extrai mensagem de erro real da resposta da Edge Function (quando retorna 4xx/5xx)
  * Ex: "Twilio não configurado", "Piloto não encontrado"
  */
@@ -61,13 +84,15 @@ export async function requestVerificationCode(email, whatsapp, nomePiloto = null
 
             return {
                 success: false,
-                error: realError || error.message || `Erro ao enviar código (HTTP ${status || 'desconhecido'}).`,
+                error: humanizeWhatsappSendError(
+                    realError || error.message || `Erro ao enviar código (HTTP ${status || 'desconhecido'}).`
+                ),
             };
         }
 
         // Resposta 200 mas com success: false (defensivo)
         if (data?.success === false && data?.error) {
-            return { success: false, error: data.error };
+            return { success: false, error: humanizeWhatsappSendError(data.error) };
         }
 
         console.log('✅ Código solicitado com sucesso');
@@ -80,7 +105,7 @@ export async function requestVerificationCode(email, whatsapp, nomePiloto = null
         console.error('❌ Erro ao solicitar código:', error);
         return {
             success: false,
-            error: error.message || 'Erro ao conectar com servidor',
+            error: humanizeWhatsappSendError(error.message || 'Erro ao conectar com servidor'),
         };
     }
 }
