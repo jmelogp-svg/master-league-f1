@@ -11,8 +11,8 @@ const initialForm = {
     nome: '',
     gamertagId: '',
     whatsapp: '',
-    plataforma: 'Xbox',
-    grid: 'Carreira',
+    plataforma: '',
+    grid: '',
     emailLogin: '',
     nomePilotoTransmissao: '',
     numeroCarro: '',
@@ -72,6 +72,8 @@ function Inscricao() {
         if (!form.emailLogin.trim()) return 'Informe o e-mail de login.';
         if (!form.nomePilotoTransmissao.trim()) return 'Informe o nome de piloto para transmissão.';
         if (!form.numeroCarro.trim()) return 'Informe o número do carro.';
+        if (!form.plataforma) return 'Selecione a plataforma.';
+        if (!form.grid) return 'Selecione o grid.';
         if (form.formaPagamento === 'pagar_depois' && !form.dataPagamento) {
             return 'Informe a data para pagamento posterior.';
         }
@@ -157,18 +159,20 @@ function Inscricao() {
                             </div>
                             <div className="form-steward-field-block">
                                 <label className="form-steward-section-title" style={{ display: 'block', marginBottom: '6px', color: '#334155', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Plataforma</label>
-                                <select className="form-steward-select" value={form.plataforma} onChange={(e) => handleChange('plataforma', e.target.value)} style={{ width: '100%', padding: '12px 14px', background: '#374151', border: 'none', borderRadius: '8px', color: 'white' }}>
-                                    <option>Xbox</option>
-                                    <option>Play</option>
-                                    <option>PC</option>
+                                <select className="form-steward-select" value={form.plataforma} onChange={(e) => handleChange('plataforma', e.target.value)} style={{ width: '100%', padding: '12px 14px', background: '#374151', border: 'none', borderRadius: '8px', color: 'white' }} required>
+                                    <option value="">Selecione a plataforma</option>
+                                    <option value="Xbox">Xbox</option>
+                                    <option value="Play">Play</option>
+                                    <option value="PC">PC</option>
                                 </select>
                             </div>
                             <div className="form-steward-field-block">
                                 <label className="form-steward-section-title" style={{ display: 'block', marginBottom: '6px', color: '#334155', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Grid</label>
-                                <select className="form-steward-select" value={form.grid} onChange={(e) => handleChange('grid', e.target.value)} style={{ width: '100%', padding: '12px 14px', background: '#374151', border: 'none', borderRadius: '8px', color: 'white' }}>
-                                    <option>Carreira</option>
-                                    <option>Light</option>
-                                    <option>Open</option>
+                                <select className="form-steward-select" value={form.grid} onChange={(e) => handleChange('grid', e.target.value)} style={{ width: '100%', padding: '12px 14px', background: '#374151', border: 'none', borderRadius: '8px', color: 'white' }} required>
+                                    <option value="">Selecione o grid</option>
+                                    <option value="Carreira">Carreira</option>
+                                    <option value="Light">Light</option>
+                                    <option value="Open">Open</option>
                                 </select>
                             </div>
                             <div className="form-steward-field-block">
