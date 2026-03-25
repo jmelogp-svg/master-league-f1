@@ -58,7 +58,7 @@ BEGIN
     END IF;
 END $$;
 
--- Leitura para usuários autenticados (necessário para painel ADM)
+-- Leitura para JWT autenticado (Supabase Auth)
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -74,7 +74,25 @@ BEGIN
     END IF;
 END $$;
 
--- Edição para usuários autenticados (painel ADM)
+-- Leitura para anon: o painel ADM do site usa senha própria (sem sessão Supabase Auth),
+-- logo o cliente fica como role anon. Sem esta política o .select() retorna 0 linhas.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'season_registrations'
+          AND policyname = 'season_registrations_read_anon'
+    ) THEN
+        CREATE POLICY season_registrations_read_anon
+            ON season_registrations
+            FOR SELECT
+            TO anon
+            USING (true);
+    END IF;
+END $$;
+
+-- Edição para JWT autenticado
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -88,5 +106,90 @@ BEGIN
             FOR UPDATE
             USING (auth.role() = 'authenticated')
             WITH CHECK (auth.role() = 'authenticated');
+    END IF;
+END $$;
+
+-- UPDATE pelo painel ADM (anon). Mesma razão do SELECT acima.
+-- A chave anon já está no front; reforce segurança com URL do /admin obscura ou migre para Supabase Auth.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'season_registrations'
+          AND policyname = 'season_registrations_update_anon'
+    ) THEN
+        CREATE POLICY season_registrations_update_anon
+            ON season_registrations
+            FOR UPDATE
+            TO anon
+            USING (true)
+            WITH CHECK (true);
+    END IF;
+END $$;
+
+-- Exclusão pelo painel ADM (anon)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'season_registrations'
+          AND policyname = 'season_registrations_delete_anon'
+    ) THEN
+        CREATE POLICY season_registrations_delete_anon
+            ON season_registrations
+            FOR DELETE
+            TO anon
+            USING (true);
+    END IF;
+END $$;
+
+-- URL pública da foto anexada no formulário (Supabase Storage)
+ALTER TABLE season_registrations
+    ADD COLUMN IF NOT EXISTS foto_url TEXT;
+
+-- Bucket para fotos de inscrição (execute uma vez; depois confira no Dashboard → Storage)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'inscricoes-fotos',
+    'inscricoes-fotos',
+    true,
+    5242880,
+    ARRAY['image/jpeg', 'image/png', 'image/webp']::text[]
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Leitura pública das imagens (URL pública no insert)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'storage'
+          AND tablename = 'objects'
+          AND policyname = 'inscricoes_fotos_select_public'
+    ) THEN
+        CREATE POLICY inscricoes_fotos_select_public
+            ON storage.objects
+            FOR SELECT
+            TO public
+            USING (bucket_id = 'inscricoes-fotos');
+    END IF;
+END $$;
+
+-- Upload anônimo (formulário público sem login)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'storage'
+          AND tablename = 'objects'
+          AND policyname = 'inscricoes_fotos_insert_anon'
+    ) THEN
+        CREATE POLICY inscricoes_fotos_insert_anon
+            ON storage.objects
+            FOR INSERT
+            TO anon
+            WITH CHECK (bucket_id = 'inscricoes-fotos');
     END IF;
 END $$;

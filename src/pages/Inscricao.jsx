@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import Footer from '../components/Footer';
 import './FormularioAcusacaoDefesa.css';
@@ -6,6 +6,9 @@ import './Inscricao.css';
 
 const PIX_PHONE = '51983433940';
 const PIX_LABEL = '(51) 98343-3940';
+const INSCRICAO_FOTOS_BUCKET = 'inscricoes-fotos';
+const FOTO_MAX_BYTES = 5 * 1024 * 1024;
+const FOTO_TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp'];
 
 const initialForm = {
     nome: '',
@@ -29,6 +32,9 @@ const formatWhatsapp = (value) => {
 
 function Inscricao() {
     const [form, setForm] = useState(initialForm);
+    const [fotoFile, setFotoFile] = useState(null);
+    const [fotoPreview, setFotoPreview] = useState(null);
+    const fotoInputRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
@@ -65,6 +71,43 @@ function Inscricao() {
         setSuccessMsg('');
     };
 
+    const handleFotoChange = (e) => {
+        const f = e.target.files?.[0];
+        setErrorMsg('');
+        setSuccessMsg('');
+        if (!f) {
+            setFotoFile(null);
+            setFotoPreview(null);
+            return;
+        }
+        if (!FOTO_TIPOS_ACEITOS.includes(f.type)) {
+            setErrorMsg('Foto: use JPG, PNG ou WebP.');
+            setFotoFile(null);
+            setFotoPreview(null);
+            e.target.value = '';
+            return;
+        }
+        if (f.size > FOTO_MAX_BYTES) {
+            setErrorMsg('Foto: tamanho máximo 5 MB.');
+            setFotoFile(null);
+            setFotoPreview(null);
+            e.target.value = '';
+            return;
+        }
+        setFotoFile(f);
+        setFotoPreview(URL.createObjectURL(f));
+    };
+
+    const limparFoto = () => {
+        setFotoFile(null);
+        setFotoPreview(null);
+        if (fotoInputRef.current) fotoInputRef.current.value = '';
+    };
+
+    useEffect(() => () => {
+        if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+    }, [fotoPreview]);
+
     const validate = () => {
         if (!form.nome.trim()) return 'Informe seu nome.';
         if (!form.gamertagId.trim()) return 'Informe a Gamertag/ID.';
@@ -93,6 +136,19 @@ function Inscricao() {
         setSuccessMsg('');
 
         try {
+            let fotoUrl = null;
+            if (fotoFile) {
+                const ext =
+                    fotoFile.type === 'image/png' ? 'png' : fotoFile.type === 'image/webp' ? 'webp' : 'jpg';
+                const path = `inscricoes/${crypto.randomUUID()}.${ext}`;
+                const { error: upErr } = await supabase.storage
+                    .from(INSCRICAO_FOTOS_BUCKET)
+                    .upload(path, fotoFile, { contentType: fotoFile.type, upsert: false });
+                if (upErr) throw upErr;
+                const { data: pub } = supabase.storage.from(INSCRICAO_FOTOS_BUCKET).getPublicUrl(path);
+                fotoUrl = pub.publicUrl;
+            }
+
             const payload = {
                 temporada: temporadaAtual,
                 nome: form.nome.trim(),
@@ -107,6 +163,7 @@ function Inscricao() {
                 forma_pagamento: form.formaPagamento,
                 data_pagamento_prevista: form.formaPagamento === 'pagar_depois' ? form.dataPagamento : null,
                 status_inscricao: 'pendente',
+                foto_url: fotoUrl,
             };
 
             const { error } = await supabase.from('season_registrations').insert(payload);
@@ -114,6 +171,7 @@ function Inscricao() {
 
             setSuccessMsg('Inscrição enviada com sucesso! Seus dados já estão disponíveis para o ADM.');
             setForm(initialForm);
+            limparFoto();
         } catch (err) {
             setErrorMsg(`Erro ao salvar inscrição: ${err.message || 'erro desconhecido'}`);
         } finally {
@@ -223,6 +281,35 @@ function Inscricao() {
                                 <div style={{ marginTop: '10px' }}>
                                     <label className="form-steward-section-title" style={{ display: 'block', marginBottom: '6px', color: '#92400E', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Data prevista para pagamento</label>
                                     <input type="date" className="form-steward-input" value={form.dataPagamento} onChange={(e) => handleChange('dataPagamento', e.target.value)} style={{ width: '100%', padding: '12px 14px', background: '#374151', border: 'none', borderRadius: '8px', color: 'white' }} />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="inscricao-foto-box" style={{ marginTop: '18px', padding: '16px', background: '#E0F2FE', border: '1px solid #38BDF8', borderRadius: '10px' }}>
+                            <label className="form-steward-section-title" style={{ display: 'block', marginBottom: '8px', color: '#0C4A6E', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Foto (opcional)
+                            </label>
+                            <p style={{ color: '#075985', margin: '0 0 10px', fontSize: '0.88rem', lineHeight: 1.45 }}>
+                                Anexe uma imagem sua (JPG, PNG ou WebP, até 5 MB), por exemplo para identificação no grid.
+                            </p>
+                            <input
+                                ref={fotoInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                onChange={handleFotoChange}
+                                className="inscricao-foto-input"
+                                style={{ width: '100%', fontSize: '0.9rem' }}
+                            />
+                            {fotoPreview && (
+                                <div style={{ marginTop: '12px', display: 'flex', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+                                    <img src={fotoPreview} alt="Pré-visualização" style={{ maxWidth: '160px', maxHeight: '160px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #0EA5E9' }} />
+                                    <button
+                                        type="button"
+                                        onClick={limparFoto}
+                                        style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: '#64748B', color: 'white', fontWeight: 700, cursor: 'pointer', alignSelf: 'center' }}
+                                    >
+                                        Remover foto
+                                    </button>
                                 </div>
                             )}
                         </div>
