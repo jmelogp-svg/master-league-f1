@@ -334,10 +334,15 @@ function FormularioAcusacao() {
                 status: formData.tipoSolicitacao === 'retirada_bug' ? 'aguardando_analise' : 'aguardando_defesa',
             };
 
-            // Envia automaticamente para o admin (background, não bloqueia)
-            notifyAdminNewAccusation(dadosAcusacao)
-                .then(result => console.log('📨 Notificação ao admin:', result))
-                .catch(err => console.warn('⚠️ Erro notificação admin:', err));
+            // Envia para o admin - aguardar gravação no banco para detectar falhas
+            const resultAdmin = await notifyAdminNewAccusation(dadosAcusacao);
+            if (!resultAdmin?.database) {
+                await showAlert(
+                    'A acusação foi enviada por WhatsApp/Telegram, mas houve erro ao salvar no painel dos Stewards. Tente reenviar ou entre em contato com a administração.',
+                    'Atenção'
+                );
+                return; // Não mostrar sucesso nem redirecionar - usuário pode tentar novamente
+            }
 
             // 🔔 Notificar PILOTO ACUSADOR que a análise foi aberta
             notifyAccusatorAnalysisOpened({
@@ -931,17 +936,22 @@ Aguarde análise dos Stewards.`
                                     }}
                                 >
                                     <option value="">Selecione {formData.tipoSolicitacao === 'retirada_bug' ? 'o destinatário' : 'o piloto acusado'}...</option>
-                                    {pilotosGrid.length === 0 ? (
+                                    {formData.tipoSolicitacao === 'retirada_bug' && (
+                                        <option value="Administração Master League F1" style={{ background: '#374151' }}>
+                                            Administração Master League F1
+                                        </option>
+                                    )}
+                                    {pilotosGrid.length === 0 && formData.tipoSolicitacao !== 'retirada_bug' ? (
                                         <option value="" disabled style={{ background: '#374151', color: '#9CA3AF' }}>
                                             {loadingPilotos || !selectedGrid ? 'Carregando pilotos...' : 'Nenhum piloto disponível neste grid'}
                                         </option>
-                                    ) : (
+                                    ) : formData.tipoSolicitacao !== 'retirada_bug' ? (
                                         pilotosGrid.map(p => (
                                             <option key={p.nome} value={p.nome} style={{ background: '#374151' }}>
                                                 {p.nome}
                                             </option>
                                         ))
-                                    )}
+                                    ) : null}
                                 </select>
                             </div>
 

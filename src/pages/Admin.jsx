@@ -7,6 +7,7 @@ import { isMobileDevice } from '../utils/deviceDetection';
 import { notifyJuradosAguardandoAnalise, flushPendingJuradoNotifications } from '../utils/emailService';
 import { atualizarLancesComDefesaExpirada } from '../hooks/useAnalises';
 import AdminPowerRanking from './AdminPowerRanking';
+import AdminInscricoesPanel from '../components/AdminInscricoesPanel';
 import '../index.css';
 
 function Admin() {
@@ -2348,6 +2349,9 @@ function Admin() {
                     <button className={`adm-tab-btn ${activeTab === 'power-ranking' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('power-ranking')}>
                         📊 POWER RANKING
                     </button>
+                    <button className={`adm-tab-btn ${activeTab === 'inscricoes' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('inscricoes')}>
+                        🧾 INSCRIÇÕES
+                    </button>
                     <button className={`adm-tab-btn ${activeTab === 'revisao-vereditos' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('revisao-vereditos')}>
                         🔧 REVISÃO
                     </button>
@@ -3760,6 +3764,10 @@ function Admin() {
 
                 {activeTab === 'power-ranking' && (
                     <AdminPowerRanking />
+                )}
+
+                {activeTab === 'inscricoes' && (
+                    <AdminInscricoesPanel />
                 )}
 
                 {activeTab === 'noticias' && (

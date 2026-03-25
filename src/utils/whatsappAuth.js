@@ -4,6 +4,23 @@
  */
 
 import { supabase } from '../supabaseClient';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+
+/**
+ * Extrai mensagem de erro real da resposta da Edge Function (quando retorna 4xx/5xx)
+ * Ex: "Twilio não configurado", "Piloto não encontrado"
+ */
+async function extractErrorMessage(error) {
+    if (error instanceof FunctionsHttpError && error.context) {
+        try {
+            const body = typeof error.context.json === 'function'
+                ? await error.context.json()
+                : error.context;
+            if (body?.error && typeof body.error === 'string') return body.error;
+        } catch (_) { /* ignorar */ }
+    }
+    return null;
+}
 
 /**
  * Solicita envio de código de verificação via WhatsApp
@@ -31,6 +48,9 @@ export async function requestVerificationCode(email, whatsapp, nomePiloto = null
             console.error('❌ Erro ao solicitar código (invoke):', error);
             const status = error.status || error.code;
 
+            // Tentar extrair mensagem real da Edge Function (ex: "Twilio não configurado", "Piloto não encontrado")
+            const realError = await extractErrorMessage(error);
+
             // 404 geralmente significa função não deployada no projeto Supabase configurado
             if (String(status) === '404') {
                 return {
@@ -41,8 +61,13 @@ export async function requestVerificationCode(email, whatsapp, nomePiloto = null
 
             return {
                 success: false,
-                error: error.message || `Erro ao enviar código (HTTP ${status || 'desconhecido'}).`,
+                error: realError || error.message || `Erro ao enviar código (HTTP ${status || 'desconhecido'}).`,
             };
+        }
+
+        // Resposta 200 mas com success: false (defensivo)
+        if (data?.success === false && data?.error) {
+            return { success: false, error: data.error };
         }
 
         console.log('✅ Código solicitado com sucesso');

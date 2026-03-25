@@ -34,6 +34,7 @@ const Noticias = lazy(() => import('./pages/Noticias'));
 const Cards = lazy(() => import('./pages/Cards'));
 const CardsCarousel = lazy(() => import('./pages/CardsCarousel'));
 const PowerRankingObjetivos = lazy(() => import('./pages/PowerRankingObjetivos'));
+const Inscricao = lazy(() => import('./pages/Inscricao'));
 
 // Fallback enquanto a página lazy carrega
 const PageFallback = () => (
@@ -87,6 +88,7 @@ function App() {
                     <Route path="/cards" element={<Cards />} />
                     <Route path="/cards-carousel" element={<CardsCarousel />} />
                     <Route path="/admin/powerranking-objetivos" element={<PowerRankingObjetivos />} />
+                    <Route path="/inscricao" element={<Inscricao />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Suspense>

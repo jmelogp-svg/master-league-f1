@@ -246,7 +246,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { email, whatsapp, nomePiloto, tipo, skipPilotoCheck, mensagemCustomizada } = await req.json();
+    const { email, whatsapp, nomePiloto, tipo, skipPilotoCheck, mensagemCustomizada, forceApi } = await req.json();
 
     if (!email || !whatsapp) {
       return new Response(
@@ -254,6 +254,16 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
+
+    // Determina qual API usar: Z-API (chip/operadora) ou Twilio
+    // forceApi: 'twilio' | 'zapi' força o uso de uma API específica (útil para testes)
+    const useZAPI = forceApi === 'twilio' ? false : (
+      forceApi === 'zapi' ? true : (
+        WHATSAPP_API_TYPE === 'zapi' || WHATSAPP_API_TYPE === 'z-api' ||
+        (ZAPI_INSTANCE && ZAPI_TOKEN && WHATSAPP_API_TYPE !== 'twilio')
+      )
+    );
+    const useTwilio = (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER);
 
     // Se for notificação de aprovação, enviar mensagem diferente
     if (tipo === 'notificacao_aprovacao') {
@@ -265,13 +275,18 @@ serve(async (req) => {
       const mensagemPadrao = `✅ *ACESSO LIBERADO - MASTER LEAGUE F1*\n\nOlá ${nome},\n\nSeu acesso ao Painel do Piloto foi *APROVADO*!\n\n📋 *CADASTRE SUA SENHA E ACESSE:*\n\n🔗 Link direto: ${loginUrl}\n\n📝 *Passos:*\n\n1️⃣ Clique no link acima\n\n2️⃣ Digite seu e-mail:\n   ${email}\n\n3️⃣ Valide seu WhatsApp com o código que será enviado\n\n4️⃣ Crie sua senha de acesso\n\n5️⃣ Pronto! Você terá acesso ao seu painel histórico\n\n🏎️ Reveja a sua história na Master League F1`;
       const mensagem = mensagemCustomizada || mensagemPadrao;
 
-      // Usar apenas Twilio (Z-API removido)
       let result = { success: false, error: '' };
-      
-      if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER) {
+      if (forceApi === 'twilio' && useTwilio) {
+        console.log(`📋 [forceApi] Usando Twilio para notificação de aprovação`);
+        result = await sendViaTwilio(whatsappFormatted, mensagem, nome);
+      } else if (useZAPI) {
+        console.log(`📋 Usando Z-API para notificação de aprovação`);
+        result = await sendViaZAPI(whatsappFormatted, mensagem, nome, true);
+      } else if (useTwilio) {
+        console.log(`📋 Usando Twilio para notificação de aprovação`);
         result = await sendViaTwilio(whatsappFormatted, mensagem, nome);
       } else {
-        result = { success: false, error: 'Twilio não configurado' };
+        result = { success: false, error: 'Configure Z-API ou Twilio nos secrets do Supabase' };
       }
 
       if (result.success) {
@@ -357,15 +372,19 @@ serve(async (req) => {
 
     const nome = nomePiloto || piloto?.nome || 'Piloto';
     
-    // Usar apenas Twilio (Z-API removido)
     let result = { success: false, error: '' };
-    
-    if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER) {
+    if (forceApi === 'twilio' && useTwilio) {
+      console.log(`📋 [forceApi] Usando Twilio`);
+      result = await sendViaTwilio(whatsappFormatted, code, nome);
+    } else if (useZAPI) {
+      console.log(`📋 Usando Z-API (chip/operadora)`);
+      result = await sendViaZAPI(whatsappFormatted, code, nome);
+    } else if (useTwilio) {
       console.log(`📋 Usando Twilio`);
       result = await sendViaTwilio(whatsappFormatted, code, nome);
     } else {
-      console.log(`❌ Twilio não configurado`);
-      result = { success: false, error: 'Twilio não configurado' };
+      console.log(`❌ Nenhuma API configurada`);
+      result = { success: false, error: 'Configure Z-API ou Twilio nos secrets do Supabase. Z-API: WHATSAPP_API_TYPE=zapi, ZAPI_INSTANCE e ZAPI_TOKEN.' };
     }
 
     if (!result.success) {
