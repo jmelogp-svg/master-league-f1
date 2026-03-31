@@ -118,6 +118,21 @@ export function proposalsDraftSeason(ctx) {
     return ctx.currentSeason;
 }
 
+/**
+ * Coluna "temporada" da planilha (ex. coluna D) para carrossel / TOP 3 da Home quando NÃO está em pré-temporada.
+ * OPEN: temporada atual; CLOSED: última oficialmente encerrada. Em PRE_SEASON usar só os CSVs de draft (Home ignora isto no agregado).
+ */
+export function homeCarouselStandingsSeason(ctx) {
+    if (!ctx) return 20;
+    if (ctx.phase === SEASON_PHASE.PRE_SEASON) {
+        return Math.max(ctx.currentSeason, ctx.lastClosedSeason + 1);
+    }
+    if (ctx.phase === SEASON_PHASE.CLOSED) {
+        return ctx.lastClosedSeason;
+    }
+    return ctx.currentSeason;
+}
+
 export function canSwitchSeason(ctx) {
     return ctx?.phase === SEASON_PHASE.PRE_SEASON;
 }

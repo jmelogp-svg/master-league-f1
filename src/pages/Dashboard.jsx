@@ -21,6 +21,7 @@ import {
     proposalsDraftSeason,
     isPreSeasonMode,
 } from '../utils/seasonLifecycle';
+import { gerarObjetivosPorEquipe } from '../utils/powerRankingObjectives';
 
 // --- CONFIGURAÇÃO ---
 // CADASTRO MLF1 (gid=1844400629)
@@ -1021,7 +1022,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         const nomeCapitalizado = capitalizeWords(nomePiloto);
         const dataEstreiaFormatada = formatarData(dataEstreia);
         const temporadaAtualNum = Number(temporadaAtual) || 20;
-        const isTemporada20 = temporadaAtualNum === 20;
+        const temporadaReferenciaNarrativa =
+            isPreSeasonMode(seasonCtx) ? (Number(draftSeasonProposals) || (temporadaAtualNum + 1)) : temporadaAtualNum;
         const gridEntradaNorm = normalizeGridName(gridEntrada);
         const dateMapEntrada = gridEntradaNorm === 'light' ? datesLightMap : datesCarreiraMap;
 
@@ -1061,7 +1063,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         );
         
         if (isEstreiaFutura) {
-            const temporadaEstreia = temporadaAtual || 20;
+            const temporadaEstreia = temporadaReferenciaNarrativa || temporadaAtualNum || 20;
             return `${nomeCapitalizado} irá estrear na Liga na Temporada ${temporadaEstreia}.`;
         }
         
@@ -1165,26 +1167,26 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         } else {
             // Se participou da S19
             const participouS19 = statsAdicionais?.totalTemporadas.has(19);
-            const participouS20 = statsAdicionais?.totalTemporadas.has(20);
-            const temContratoS20 = !!contratoFechado?.id;
+            const participouTemporadaRef = statsAdicionais?.totalTemporadas.has(temporadaReferenciaNarrativa);
+            const temContratoTemporadaRef = !!contratoFechado?.id;
             const gridCalendario = normalizeGridName(gridAtual) || normalizeGridName(contratoFechado?.grid) || 'carreira';
             const dateMapAtual = gridCalendario === 'light' ? datesLightMap : datesCarreiraMap;
             const roundAtual = getCurrentRound(temporadaAtualNum, dateMapAtual);
 
-            if (participouS19 && !participouS20) {
+            if (participouS19 && !participouTemporadaRef) {
                 resumo += `Na última temporada (Temporada 19), mostrou sua competitividade nas pistas. `;
             }
 
-            if (participouS20) {
-                // Incluir estatísticas da temporada 20 se disponíveis
-                const statsS20 = statsAdicionais?.statsPorTemporada?.[20] || {};
+            if (participouTemporadaRef) {
+                // Incluir estatísticas da temporada de referência se disponíveis
+                const statsS20 = statsAdicionais?.statsPorTemporada?.[temporadaReferenciaNarrativa] || {};
                 const vitoriasS20 = statsS20.vitorias || 0;
                 const podiosS20 = statsS20.podios || 0;
                 const pontosS20 = statsS20.pontos || 0;
                 const corridasS20 = statsS20.corridas || 0;
                 
                 if (vitoriasS20 > 0 || podiosS20 > 0 || pontosS20 > 0) {
-                    resumo += `Na Temporada 20, ${nomeCapitalizado} `;
+                    resumo += `Na Temporada ${temporadaReferenciaNarrativa}, ${nomeCapitalizado} `;
                     const conquistasS20 = [];
                     if (vitoriasS20 > 0) {
                         conquistasS20.push(`conquistou ${vitoriasS20} vitória${vitoriasS20 > 1 ? 's' : ''}`);
@@ -1205,31 +1207,31 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                         }
                         resumo += `. `;
                     }
-                } else if (temContratoS20) {
+                } else if (temContratoTemporadaRef) {
                     const novaEquipe = contratoFechado?.equipes?.name || 'sua nova equipe';
                     if (roundAtual > 0 || corridasS20 > 0) {
-                        resumo += `Na Temporada 20, ${nomeCapitalizado} já defende as cores da ${novaEquipe}, em busca de resultados ainda mais expressivos.`;
+                        resumo += `Na Temporada ${temporadaReferenciaNarrativa}, ${nomeCapitalizado} já defende as cores da ${novaEquipe}, em busca de resultados ainda mais expressivos.`;
                         if (roundAtual >= 2) {
                             resumo += ` Com ${roundAtual} etapas já disputadas, a expectativa segue alta.`;
                         }
                     } else {
-                        resumo += `Para a Temporada 20, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
+                        resumo += `Para a Temporada ${temporadaReferenciaNarrativa}, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
                     }
                 } else {
-                    resumo += `Atualmente, está focado nos desafios da Temporada 20.`;
+                    resumo += `Atualmente, está focado nos desafios da Temporada ${temporadaReferenciaNarrativa}.`;
                 }
-            } else if (temContratoS20) {
+            } else if (temContratoTemporadaRef) {
                 const novaEquipe = contratoFechado?.equipes?.name || 'sua nova equipe';
                 if (roundAtual > 0) {
-                    resumo += `Na Temporada 20, ${nomeCapitalizado} já defende as cores da ${novaEquipe}, em busca de resultados ainda mais expressivos.`;
+                    resumo += `Na Temporada ${temporadaReferenciaNarrativa}, ${nomeCapitalizado} já defende as cores da ${novaEquipe}, em busca de resultados ainda mais expressivos.`;
                     if (roundAtual >= 2) {
                         resumo += ` Com ${roundAtual} etapas já disputadas, a expectativa segue alta.`;
                     }
                 } else {
-                    resumo += `Para a Temporada 20, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
+                    resumo += `Para a Temporada ${temporadaReferenciaNarrativa}, ${nomeCapitalizado} já está confirmado e defenderá as cores da ${novaEquipe}, onde enfrentará novos desafios em busca de resultados ainda mais expressivos.`;
                 }
-            } else if (isTemporada20) {
-                resumo += `Atualmente, está focado nos desafios da Temporada 20.`;
+            } else if (temporadaReferenciaNarrativa === temporadaAtualNum) {
+                resumo += `Atualmente, está focado nos desafios da Temporada ${temporadaReferenciaNarrativa}.`;
             } else {
                 resumo += `Segue ativo na liga, aguardando os próximos capítulos de sua jornada.`;
             }
@@ -2305,6 +2307,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     const photoSeasonMotorhome =
         contratoFechado?.season ||
         (isPreSeasonMode(seasonCtx) ? draftSeasonProposals : dashData.currentSeason);
+    const currentSeasonLabel = Number(photoSeasonMotorhome) || 20;
     const teamColor = getTeamColor(effectiveTeamName);
     const teamGradient = getTeamGradient(effectiveTeamName);
     const teamLogo = getTeamLogo(effectiveTeamName);
@@ -2494,7 +2497,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     };
 
     // Função para gerar texto do contrato personalizado por equipe
-    const generateContractText = (team, pilotRanking) => {
+    const generateContractText = (team, pilotRanking, pilotName = '', pilotGrid = '') => {
         const tier = getTeamTier(team.name || team);
         const teamName = (team.name || team).toLowerCase();
         
@@ -2702,6 +2705,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                 ];
             }
         }
+
+        objetivos = gerarObjetivosPorEquipe(team.name || team, tier, pilotName, pilotGrid);
 
         return {
             introducao,
@@ -3190,7 +3195,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                         : 'CAIXA DE ENTRADA';
 
                                 const remetente = hasContrato
-                                    ? (contratoFechado?.equipes?.name ? `Equipe: ${contratoFechado.equipes.name}` : 'Equipe')
+                                    ? (contratoFechado?.equipes?.name ? `Equipe: ${contratoFechado?.equipes?.name}` : 'Equipe')
                                     : hasPropostas
                                         ? `${propostas.length} proposta${propostas.length > 1 ? 's' : ''} recebida${propostas.length > 1 ? 's' : ''}`
                                         : 'Nenhuma proposta pendente';
@@ -3290,9 +3295,9 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                             alignItems: 'center',
                                                             gap: '6px'
                                                         }}>
-                                                            {hasContrato && contratoFechado?.equipes?.name && getTeamLogo(contratoFechado.equipes.name) && (
-                                                                <img 
-                                                                    src={getTeamLogo(contratoFechado.equipes.name)} 
+                                                            {hasContrato && contratoFechado?.equipes?.name && getTeamLogo(contratoFechado?.equipes?.name) && (
+                                                                <img
+                                                                    src={getTeamLogo(contratoFechado?.equipes?.name)}
                                                                     alt="" 
                                                                     style={{ 
                                                                         width: deviceInfo.isMobile ? '14px' : '16px', 
@@ -3873,7 +3878,12 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                             /* INFOGRÁFICO DE OBJETIVOS */
                             <div style={{ animation: 'fadeIn 0.5s ease-out', position: 'relative', zIndex: 1 }}>
                                 {(() => {
-                                    const contractData = generateContractText(contratoFechado.equipes?.name || effectiveTeamName, getPilotRanking());
+                                    const contractData = generateContractText(
+                                        contratoFechado?.equipes?.name || effectiveTeamName,
+                                        getPilotRanking(),
+                                        profile?.nome || user?.nome || '',
+                                        dashData?.currentGrid || profile?.grid || ''
+                                    );
                                     const totalObjetivos = contractData.objetivos?.length || 0;
                                     
                                     return (
@@ -3956,7 +3966,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                         STATUS DO CONTRATO
                                                     </div>
                                                     <div style={{ fontSize: '2rem', fontWeight: '900', color: '#FFF', letterSpacing: '1px' }}>EM VIGOR</div>
-                                                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginTop: '8px', fontWeight: '600' }}>Temporada 20 • {formatGridWithStatus(contratoFechado?.grid)} • Master League F1</div>
+                                                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginTop: '8px', fontWeight: '600' }}>Temporada {currentSeasonLabel} • {formatGridWithStatus(contratoFechado?.grid)} • Master League F1</div>
                                                 </div>
 
                                                 <div style={{
@@ -4126,7 +4136,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                         fontWeight: '600',
                                         color: '#000000'
                                     }}>
-                                        Temporada 20
+                                        Temporada {currentSeasonLabel}
                                     </p>
                                 </div>
                             </div>
@@ -4155,9 +4165,9 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                         fontSize: '1rem',
                                         marginBottom: '20px'
                                     }}>
-                                        Você já possui um contrato assinado para a Temporada 20.
+                                        Você já possui um contrato assinado para a Temporada {currentSeasonLabel}.
                                     </div>
-                                    {contratoFechado.equipes && (
+                                    {contratoFechado?.equipes && (
                                         <div style={{
                                             display: 'flex',
                                             flexDirection: 'row',
@@ -4166,10 +4176,10 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             gap: '15px',
                                             marginTop: '30px'
                                         }}>
-                                            {getTeamLogo(contratoFechado.equipes.name) && (
+                                            {getTeamLogo(contratoFechado?.equipes?.name) && (
                                                 <img
-                                                    src={getTeamLogo(contratoFechado.equipes.name)}
-                                                    alt={contratoFechado.equipes.name}
+                                                    src={getTeamLogo(contratoFechado?.equipes?.name)}
+                                                    alt={contratoFechado?.equipes?.name}
                                                     style={{
                                                         width: '60px',
                                                         height: 'auto'
@@ -4177,11 +4187,11 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                 />
                                             )}
                                             <div style={{
-                                                color: getTeamColor(contratoFechado.equipes.name),
+                                                color: getTeamColor(contratoFechado?.equipes?.name),
                                                 fontWeight: '700',
                                                 fontSize: '1.2rem'
                                             }}>
-                                                {contratoFechado.equipes.name}
+                                                {contratoFechado?.equipes?.name}
                                             </div>
                                         </div>
                                     )}
@@ -4236,7 +4246,13 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                         }}>
                                         {(Array.isArray(propostaSelecionada) ? propostaSelecionada : [propostaSelecionada]).map((proposta, idx) => {
                                             const equipe = proposta.equipes;
-                                            const contractData = generateContractText(equipe, getPilotRanking());
+                                            const gridDaProposta = (proposta.grid || dashData?.currentGrid || profile?.grid || '').toLowerCase();
+                                            const contractData = generateContractText(
+                                                equipe,
+                                                getPilotRanking(),
+                                                profile?.nome || user?.nome || '',
+                                                gridDaProposta
+                                            );
                                             const teamColor = getTeamColor(equipe?.name || '');
                                             const teamLogo = getTeamLogo(equipe?.name || '');
 
@@ -4675,7 +4691,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                                 fontSize: deviceInfo.isMobile ? '0.8rem' : '0.9rem',
                                                                 lineHeight: 1.5
                                                             }}>
-                                                                {(contractData.objetivos || []).slice(0, 4).map((obj, i) => (
+                                                                {(contractData.objetivos || []).map((obj, i) => (
                                                                     <li key={i} style={{ 
                                                                         listStyleType: 'disc',
                                                                         color: '#374151'
@@ -4880,7 +4896,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                     fontWeight: '600',
                                     opacity: 0.9
                                 }}>
-                                    Temporada 20 • {formatGridWithStatus(contratoFechado?.grid)}
+                                    Temporada {currentSeasonLabel} • {formatGridWithStatus(contratoFechado?.grid)}
                                 </div>
                             </div>
                         </div>
@@ -4953,7 +4969,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                         color: '#4B5563',
                                         fontWeight: '600'
                                     }}>
-                                        Temporada 20
+                                        Temporada {currentSeasonLabel}
                                     </div>
                                 </div>
 
@@ -4966,7 +4982,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                     </p>
                                     <p style={{ marginBottom: '15px', textIndent: '30px' }}>
                                         Estamos muito felizes em te dar as boas-vindas à <strong style={{ color: teamColor, fontSize: deviceInfo.isMobile ? '1.05rem' : '1.15rem', fontWeight: '800' }}>{effectiveTeamName}</strong>! 
-                                        É uma honra ter você conosco para correr no <strong>{formatGridWithStatus(contratoFechado?.grid)}</strong> da <strong>Temporada 20</strong> da Master League F1.
+                                        É uma honra ter você conosco para correr no <strong>{formatGridWithStatus(contratoFechado?.grid)}</strong> da <strong>Temporada {currentSeasonLabel}</strong> da Master League F1.
                                     </p>
                                     <p style={{ marginBottom: '15px', textIndent: '30px' }}>
                                         Sabemos que você tem muito talento e estamos animados para ver o que vamos conquistar juntos nesta temporada. 
@@ -4994,11 +5010,16 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                         📋 Cláusulas do Contrato
                                     </div>
                                     {(() => {
-                                        const contractData = generateContractText(contratoFechado.equipes?.name || effectiveTeamName, getPilotRanking());
+                                        const contractData = generateContractText(
+                                            contratoFechado?.equipes?.name || effectiveTeamName,
+                                            getPilotRanking(),
+                                            profile?.nome || user?.nome || '',
+                                            dashData?.currentGrid || profile?.grid || ''
+                                        );
                                         return (
                                             <div style={{ paddingLeft: '20px' }}>
                                                 <p style={{ marginBottom: '12px' }}>
-                                                    <strong style={{ color: teamColor }}>1. OBJETO:</strong> O presente contrato tem por objeto a participação do PILOTO pela EQUIPE no {formatGridWithStatus(contratoFechado?.grid)} da Temporada 20 da Master League F1.
+                                                    <strong style={{ color: teamColor }}>1. OBJETO:</strong> O presente contrato tem por objeto a participação do PILOTO pela EQUIPE no {formatGridWithStatus(contratoFechado?.grid)} da Temporada {currentSeasonLabel} da Master League F1.
                                                 </p>
                                                 <p style={{ marginBottom: '12px' }}>
                                                     <strong style={{ color: teamColor }}>2. COMPROMISSOS DO PILOTO:</strong> O PILOTO compromete-se a representar a EQUIPE com dedicação, profissionalismo e ética, seguindo os regulamentos da Master League F1 e os valores da EQUIPE.
@@ -5007,10 +5028,10 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                     <strong style={{ color: teamColor }}>3. COMPROMISSOS DA EQUIPE:</strong> A EQUIPE compromete-se a fornecer todo o suporte necessário para o desempenho do PILOTO, incluindo estratégias, desenvolvimento técnico e ambiente de trabalho adequado.
                                                 </p>
                                                 <p style={{ marginBottom: '12px' }}>
-                                                    <strong style={{ color: teamColor }}>4. TEMPORADA:</strong> Este contrato é válido exclusivamente para a Temporada 20 da Master League F1, no {formatGridWithStatus(contratoFechado?.grid)}.
+                                                    <strong style={{ color: teamColor }}>4. TEMPORADA:</strong> Este contrato é válido exclusivamente para a Temporada {currentSeasonLabel} da Master League F1, no {formatGridWithStatus(contratoFechado?.grid)}.
                                                 </p>
                                                 <p style={{ marginBottom: '12px' }}>
-                                                    <strong style={{ color: teamColor }}>5. VIGÊNCIA:</strong> O presente contrato entra em vigor na data de assinatura e permanece válido até o término da Temporada 20.
+                                                    <strong style={{ color: teamColor }}>5. VIGÊNCIA:</strong> O presente contrato entra em vigor na data de assinatura e permanece válido até o término da Temporada {currentSeasonLabel}.
                                                 </p>
                                                 <p style={{ marginBottom: '12px' }}>
                                                     <strong style={{ color: teamColor }}>6. OBJETIVOS DA TEMPORADA:</strong> O PILOTO concorda em empenhar-se para atingir os seguintes objetivos estabelecidos pela EQUIPE:

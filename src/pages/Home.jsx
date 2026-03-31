@@ -1,7 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { supabase } from '../supabaseClient';
+import {
+    fetchSeasonLifecycleConfig,
+    defaultSeasonContext,
+    isPreSeasonMode,
+    proposalsDraftSeason,
+    homeCarouselStandingsSeason,
+} from '../utils/seasonLifecycle';
 import Papa from 'papaparse';
 import Footer from '../components/Footer';
 
@@ -39,22 +46,45 @@ const RecordIcon = () => (<svg className="rh-icon-small" viewBox="0 0 24 24" fil
 const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
 
+/** CSV do Google às vezes chega como UTF-8 lido em Latin-1 (ex.: JoÃ£o → João). */
+function repairUtf8Mojibake(str) {
+    if (!str || typeof str !== 'string') return str;
+    if (!/[\u00C3\u00C2]/.test(str)) return str;
+    try {
+        const bytes = new Uint8Array(str.length);
+        for (let i = 0; i < str.length; i++) {
+            const c = str.charCodeAt(i);
+            if (c > 255) return str;
+            bytes[i] = c;
+        }
+        const repaired = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+        if (!repaired || repaired.includes('\uFFFD')) return str;
+        return repaired;
+    } catch {
+        return str;
+    }
+}
+
 const flagColors = { 
     'BÉLGICA': ['#000000', '#FDDA24', '#EF3340'], 'HOLANDA': ['#AE1C28', '#FFFFFF', '#21468B'], 'ITÁLIA': ['#009246', '#FFFFFF', '#CE2B37'], 'AZERBAIJÃO': ['#00B5E2', '#EF3340', '#509E2F'], 'SINGAPURA': ['#EF3340', '#FFFFFF'], 'EUA': ['#B22234', '#FFFFFF', '#3C3B6E'], 'MÉXICO': ['#006847', '#FFFFFF', '#CE1126'], 'BRASIL': ['#009C3B', '#FFDF00', '#002776'], 'LAS VEGAS': ['#B22234', '#FFFFFF', '#3C3B6E'], 'QATAR': ['#8D1B3D', '#FFFFFF'], 'ABU DHABI': ['#EF3340', '#007A3D', '#FFFFFF', '#000000'], 'BAHREIN': ['#EF3340', '#FFFFFF'], 'ARÁBIA SAUDITA': ['#006C35', '#FFFFFF'], 'AUSTRÁLIA': ['#00008B', '#FFFFFF', '#EF3340'], 'JAPÃO': ['#FFFFFF', '#BC002D'], 'CHINA': ['#DE2910', '#FFDE00'], 'MIAMI': ['#B22234', '#FFFFFF', '#3C3B6E'], 'EMÍLIA-ROMAGNA': ['#009246', '#FFFFFF', '#CE2B37'], 'MÔNACO': ['#EF3340', '#FFFFFF'], 'CANADÁ': ['#EF3340', '#FFFFFF'], 'ESPANHA': ['#AA151B', '#F1BF00'], 'ÁUSTRIA': ['#EF3340', '#FFFFFF'], 'INGLATERRA': ['#FFFFFF', '#CE1124', '#00247D'], 'HUNGRIA': ['#CE2939', '#FFFFFF', '#477050'], 'DEFAULT': ['#1E293B', '#0F172A'],
     'TEXAS': ['#B22234', '#FFFFFF', '#3C3B6E'],
     'AUSTIN': ['#B22234', '#FFFFFF', '#3C3B6E']
 };
 
+/** forceSML: usa direto `/pilotos/SML/{nome}.png` (draft / pré-temporada / T21+ sem fotos de grid na pasta s{N}). */
 const DriverImage = ({ name, gridType, season, className, style, forceSML = false }) => {
-    const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
-    // Prioriza pasta da temporada primeiro, depois SML, depois shadow
-    const seasonSrc = `/pilotos/${gridType}/s${season}/${cleanName}.png`;
+    const baseName = name ? repairUtf8Mojibake(String(name)) : '';
+    const cleanName = baseName
+        ? baseName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '').toLowerCase()
+        : 'pilotoshadow';
+    const seasonNum = Number.isFinite(Number(season)) ? Number(season) : 20;
+    const seasonSrc = `/pilotos/${gridType}/s${seasonNum}/${cleanName}.png`;
     const smlSrc = `/pilotos/SML/${cleanName}.png`;
     const fallbackS19Src = `/pilotos/${gridType}/s19/${cleanName}.png`;
     const shadowSrc = '/pilotos/pilotoshadow.png';
     
     const handleError = (e) => {
-        if (e.target.src.includes(`/s${season}/`)) {
+        if (e.target.src.includes(`/s${seasonNum}/`)) {
             e.target.src = smlSrc;
         } else if (e.target.src.includes('/SML/')) {
             // Se não existir no SML, tenta a pasta s19 do próprio grid (muitos pilotos ainda têm foto lá)
@@ -208,6 +238,40 @@ function Home() {
     }, []);
 
     const { rawCarreira, rawLight, rawGridsT20, draftCarreira, draftLight, tracks, seasons, loading } = useLeagueData();
+
+    const [seasonCtx, setSeasonCtx] = useState(() => defaultSeasonContext());
+    useEffect(() => {
+        let cancelled = false;
+        fetchSeasonLifecycleConfig()
+            .then((ctx) => {
+                if (!cancelled) setSeasonCtx(ctx);
+            })
+            .catch(() => {
+                if (!cancelled) setSeasonCtx(defaultSeasonContext());
+            });
+        return () => { cancelled = true; };
+    }, []);
+
+    const carouselPhotoSeason = useMemo(() => {
+        const ctx = seasonCtx || defaultSeasonContext();
+        if (isPreSeasonMode(ctx)) return proposalsDraftSeason(ctx);
+        return homeCarouselStandingsSeason(ctx);
+    }, [seasonCtx]);
+
+    /**
+     * Carrossel / TOP 3 do hub: SML primeiro na pré-temporada ou na T21+ (fotos de grid em s21 ainda incompletas),
+     * e sempre que o card for draft (isDraft).
+     */
+    const hubCarouselForceSmlPhotos = useMemo(() => {
+        const ctx = seasonCtx || defaultSeasonContext();
+        if (isPreSeasonMode(ctx)) return true;
+        const s = homeCarouselStandingsSeason(ctx);
+        return Number.isFinite(s) && s >= 21;
+    }, [seasonCtx]);
+    const heroSeasonLabel = useMemo(() => {
+        const s = Number(carouselPhotoSeason);
+        return Number.isFinite(s) && s > 0 ? s : 20;
+    }, [carouselPhotoSeason]);
     
     const [viewType, setViewType] = useState('hub'); 
     const [gridType, setGridType] = useState('carreira');
@@ -251,6 +315,13 @@ function Home() {
     const normalizeNomePiloto = (nome) => {
         if (!nome) return '';
         return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, ' ').toLowerCase();
+    };
+
+    /** Nome na coluna A do CSV de draft (espaços inquebráveis, aspas, encoding). */
+    const sanitizeDraftPilotName = (raw) => {
+        if (raw == null || raw === '') return '';
+        const step1 = String(raw).replace(/\u00A0/g, ' ').replace(/^[\s"'“”]+|[\s"'“”]+$/g, '').trim();
+        return repairUtf8Mojibake(step1);
     };
 
     // Extrai número seguro de string (ex: "Etapa 8" => 8)
@@ -709,40 +780,50 @@ function Home() {
         }
     }, [seasons, loading]);
 
-    // Hub Data
+    // Hub Data (carrosséis + TOP 3 do hub): em pré-temporada usa só o grid dos drafts (próxima temporada), não a classificação da temporada encerrada.
     useEffect(() => {
         if (loading || rawCarreira.length === 0 || rawLight.length === 0) return;
         const today = new Date().getTime();
         let upcoming = null;
         const totals = {};
         const totalsLight = {};
-        const targetSeason = 20; // Home: carrosséis fixos da T20
+        const ctx = seasonCtx || defaultSeasonContext();
+        const preSeason = isPreSeasonMode(ctx);
+        const carouselSheetSeason = homeCarouselStandingsSeason(ctx);
+        const calendarSeason = preSeason ? proposalsDraftSeason(ctx) : carouselSheetSeason;
 
-                rawCarreira.forEach(row => {
+        rawCarreira.forEach(row => {
             const s = parseInt(row[3]);
-            if (s === parseInt(targetSeason)) {
+            if (s === calendarSeason) {
+                const dateStr = row[0];
+                if (dateStr && row[5]) {
+                    const [d, m, y] = dateStr.includes('/') ? dateStr.split('/') : [0, 0, 0];
+                    if (y) {
+                        const rDate = new Date(`${y}-${m}-${d}`).getTime();
+                        if (rDate >= today && (!upcoming || rDate < upcoming.timestamp)) {
+                            upcoming = { gp: row[5], date: dateStr, timestamp: rDate, round: row[4] };
+                        }
+                    }
+                }
+            }
+            if (!preSeason && s === carouselSheetSeason) {
                 const name = row[9];
                 if (name) {
                     if (!totals[name]) totals[name] = { name, team: row[10], points: 0, bestPosition: Infinity };
-                    // Para temporada 20+, tentar ler pontos da coluna 15, senão calcular pela posição
                     const racePos = parseInt(row[8]);
                     const sprintPos = parseInt(row[7]);
                     let p = 0;
                     if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
-                        p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
+                        p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, ''));
                         if (isNaN(p)) p = 0;
                     }
-                    // Fallback: calcular pela posição da corrida se não encontrou na coluna 15
                     if (p === 0 && racePos >= 1 && racePos <= 10) {
                         p = POINTS_RACE[racePos - 1];
                     }
-                    // Sempre somar pontos da Sprint (não estão na coluna 15)
                     if (sprintPos >= 1 && sprintPos <= 8) {
                         p += POINTS_SPRINT[sprintPos - 1];
                     }
                     totals[name].points += p;
-                    
-                    // Rastrear melhor posição (menor número = melhor)
                     if (racePos >= 1 && racePos < totals[name].bestPosition) {
                         totals[name].bestPosition = racePos;
                     }
@@ -750,44 +831,29 @@ function Home() {
                         totals[name].bestPosition = sprintPos;
                     }
                 }
-                const dateStr = row[0];
-                if (dateStr && row[5]) {
-                     const [d, m, y] = dateStr.includes('/') ? dateStr.split('/') : [0,0,0];
-                     if(y) {
-                        const rDate = new Date(`${y}-${m}-${d}`).getTime();
-                        if (rDate >= today && (!upcoming || rDate < upcoming.timestamp)) {
-                            upcoming = { gp: row[5], date: dateStr, timestamp: rDate, round: row[4] };
-                        }
-                     }
-                }
             }
         });
 
         rawLight.forEach(row => {
             const s = parseInt(row[3]);
-            if (s === parseInt(targetSeason)) {
+            if (!preSeason && s === carouselSheetSeason) {
                 const name = row[9];
                 if (name) {
                     if (!totalsLight[name]) totalsLight[name] = { name, team: row[10], points: 0, bestPosition: Infinity };
-                    // Para temporada 20+, tentar ler pontos da coluna 15, senão calcular pela posição
                     const racePos = parseInt(row[8]);
                     const sprintPos = parseInt(row[7]);
                     let p = 0;
                     if (row.length > 15 && row[15] !== undefined && row[15] !== '') {
-                        p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, '')); 
+                        p = parseFloat(String(row[15]).replace(',', '.').replace(/\s/g, ''));
                         if (isNaN(p)) p = 0;
                     }
-                    // Fallback: calcular pela posição da corrida se não encontrou na coluna 15
                     if (p === 0 && racePos >= 1 && racePos <= 10) {
                         p = POINTS_RACE[racePos - 1];
                     }
-                    // Sempre somar pontos da Sprint (não estão na coluna 15)
                     if (sprintPos >= 1 && sprintPos <= 8) {
                         p += POINTS_SPRINT[sprintPos - 1];
                     }
                     totalsLight[name].points += p;
-                    
-                    // Rastrear melhor posição (menor número = melhor)
                     if (racePos >= 1 && racePos < totalsLight[name].bestPosition) {
                         totalsLight[name].bestPosition = racePos;
                     }
@@ -799,6 +865,34 @@ function Home() {
         });
 
         setNextRaceData(upcoming);
+
+        // Planilhas draft: coluna A = nome, coluna C (índice 2) = SEASON — só entram pilotos dessa temporada (ex. T21).
+        const draftSeasonForHubCarousels = preSeason
+            ? proposalsDraftSeason(ctx)
+            : carouselSheetSeason;
+
+        const fromDraftBySeason = (rows) => {
+            const list = [];
+            const need = draftSeasonForHubCarousels;
+            (rows || []).forEach((row) => {
+                const name = sanitizeDraftPilotName(row[0]);
+                if (!name || name === 'Piloto' || name === 'NOME' || name === 'Nome' || name.includes('#')) return;
+                const rowSeason = parseInt(String(row[2] ?? '').trim(), 10);
+                if (!Number.isFinite(need) || rowSeason !== need) return;
+                list.push({ name, team: 'Master League', points: 0, bestPosition: Infinity, isDraft: true });
+            });
+            return list;
+        };
+
+        if (preSeason) {
+            const sortedPre = fromDraftBySeason(draftCarreira);
+            const sortedLightPre = fromDraftBySeason(draftLight);
+            setTopDrivers(sortedPre.slice(0, 3));
+            setTopDriversLight(sortedLightPre.slice(0, 3));
+            setSeasonDrivers(sortedPre);
+            setSeasonDriversLightFull(sortedLightPre);
+            return;
+        }
         
         // Subtrair pontos perdidos em punições para cada piloto (antes de ordenar)
         // Usando punições específicas do carrossel (T20 fixo por grid)
@@ -840,33 +934,20 @@ function Home() {
         let sorted = Object.values(totals).sort(sortDrivers);
         let sortedLightFull = Object.values(totalsLight).sort(sortDrivers);
 
-        // FALLBACK: Se não houver dados de resultados para S20 (temporada não começou), 
-        // usar os dados dos DRAFTS conforme GIDs informados
+        // FALLBACK: classificação vazia — mesmo critério de SEASON na coluna C dos drafts.
         if (sorted.length === 0 && draftCarreira && draftCarreira.length > 0) {
-            draftCarreira.forEach(row => {
-                const name = (row[0] || '').toString().trim();
-                // Ignorar cabeçalhos comuns
-                if (name && name !== 'Piloto' && name !== 'NOME' && name !== 'Nome' && !name.includes('#')) {
-                    // Por enquanto usa logo ML e equipe ML conforme solicitado
-                    sorted.push({ name, team: 'Master League', points: 0, isDraft: true });
-                }
-            });
+            fromDraftBySeason(draftCarreira).forEach((d) => sorted.push(d));
         }
 
         if (sortedLightFull.length === 0 && draftLight && draftLight.length > 0) {
-            draftLight.forEach(row => {
-                const name = (row[0] || '').toString().trim();
-                if (name && name !== 'Piloto' && name !== 'NOME' && name !== 'Nome' && !name.includes('#')) {
-                    sortedLightFull.push({ name, team: 'Master League', points: 0, isDraft: true });
-                }
-            });
+            fromDraftBySeason(draftLight).forEach((d) => sortedLightFull.push(d));
         }
 
         setTopDrivers(sorted.slice(0, 3));
         setTopDriversLight(sortedLightFull.slice(0, 3));
         setSeasonDrivers(sorted);
         setSeasonDriversLightFull(sortedLightFull);
-    }, [rawCarreira, rawLight, draftCarreira, draftLight, loading, seasons, punicoesCarrosselCarreira, punicoesCarrosselLight]);
+    }, [rawCarreira, rawLight, draftCarreira, draftLight, loading, seasons, punicoesCarrosselCarreira, punicoesCarrosselLight, seasonCtx]);
 
     // Rounds
     useEffect(() => {
@@ -1739,7 +1820,7 @@ function Home() {
                     <header className="hub-hero">
                         <div className="hero-overlay"></div>
                         <div className="hero-content">
-                            <span className="hero-badge">TEMPORADA {selectedSeason}</span>
+                            <span className="hero-badge">TEMPORADA {heroSeasonLabel}</span>
                             <h1 className="hero-title">SUPERANDO<br/>SEUS LIMITES</h1>
                             <div className="hero-actions">
                                 <button className="btn-motorhome hero-btn" onClick={() => navigate('/dashboard/escolher-tipo')} title="Motorhome">
@@ -1879,7 +1960,7 @@ function Home() {
                                     style={{ height: '40px', borderRadius: '6px' }}
                                     onError={(e) => (e.target.style.display = 'none')}
                                 />
-                                <h2 style={{ color: 'var(--carreira-wine)' }}>GRID CARREIRA T20</h2>
+                                <h2 style={{ color: 'var(--carreira-wine)' }}>GRID CARREIRA T{carouselPhotoSeason}</h2>
                                 <div className="header-line" style={{ background: 'linear-gradient(90deg, var(--carreira-wine), transparent)' }}></div>
                                 <Link to="/standings?grid=carreira" className="btn-text" style={{ marginLeft: 'auto', color: 'var(--carreira-wine)' }}>Ver Classificação <ArrowRightIcon/></Link>
                             </div>
@@ -1909,7 +1990,7 @@ function Home() {
                                                 {d.points.toFixed(0)}
                                             </div>
                                         )}
-                                        <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="carreira" season={20} className="dch-photo" forceSML={d.isDraft} /></div>
+                                        <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="carreira" season={carouselPhotoSeason} className="dch-photo" forceSML={hubCarouselForceSmlPhotos || d.isDraft} /></div>
                                         <div className="dch-info">
                                             <div className="dch-name">
                                                 <span className="dch-firstname">{firstName}</span>
@@ -1945,7 +2026,7 @@ function Home() {
                                     style={{ height: '40px', borderRadius: '6px' }}
                                     onError={(e) => (e.target.style.display = 'none')}
                                 />
-                                <h2 style={{ color: 'var(--light-blue)' }}>GRID LIGHT T20</h2>
+                                <h2 style={{ color: 'var(--light-blue)' }}>GRID LIGHT T{carouselPhotoSeason}</h2>
                                 <div className="header-line" style={{ background: 'linear-gradient(90deg, var(--light-blue), transparent)' }}></div>
                                 <Link to="/standings?grid=light" className="btn-text" style={{ marginLeft: 'auto', color: 'var(--light-blue)' }}>Ver Classificação <ArrowRightIcon/></Link>
                             </div>
@@ -1980,7 +2061,7 @@ function Home() {
                                                     {d.points.toFixed(0)}
                                                 </div>
                                             )}
-                                            <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="light" season={20} className="dch-photo" forceSML={d.isDraft} /></div>
+                                            <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="light" season={carouselPhotoSeason} className="dch-photo" forceSML={hubCarouselForceSmlPhotos || d.isDraft} /></div>
                                             <div className="dch-info">
                                                 <div className="dch-name">
                                                     <span className="dch-firstname">{firstName}</span>
@@ -2015,7 +2096,7 @@ function Home() {
                                     {topDrivers.map((d, i) => (
                                         <div key={d.name} className={`ms-row rank-${i+1}`} onClick={() => handleDriverClick(d)} style={{cursor:'pointer'}}>
                                             <div className="ms-pos">{i+1}</div>
-                                            <div className="ms-driver"><DriverImage name={d.name} gridType="carreira" season={selectedSeason} className="ms-photo" forceSML={d.isDraft} /><div className="ms-info"><span className="ms-name">{d.name}</span><span className="ms-team">{d.team}</span></div></div>
+                                            <div className="ms-driver"><DriverImage name={d.name} gridType="carreira" season={carouselPhotoSeason} className="ms-photo" forceSML={hubCarouselForceSmlPhotos || d.isDraft} /><div className="ms-info"><span className="ms-name">{d.name}</span><span className="ms-team">{d.team}</span></div></div>
                                             <div className="ms-pts">{d.points.toFixed(0)}</div>
                                         </div>
                                     ))}
@@ -2027,7 +2108,7 @@ function Home() {
                                     {topDriversLight.map((d, i) => (
                                         <div key={d.name} className={`ms-row rank-${i+1}`} onClick={() => handleDriverClick({ ...d, gridType: 'light' })} style={{cursor:'pointer'}}>
                                             <div className="ms-pos">{i+1}</div>
-                                            <div className="ms-driver"><DriverImage name={d.name} gridType="light" season={selectedSeason} className="ms-photo" forceSML={d.isDraft} /><div className="ms-info"><span className="ms-name">{d.name}</span><span className="ms-team">{d.team}</span></div></div>
+                                            <div className="ms-driver"><DriverImage name={d.name} gridType="light" season={carouselPhotoSeason} className="ms-photo" forceSML={hubCarouselForceSmlPhotos || d.isDraft} /><div className="ms-info"><span className="ms-name">{d.name}</span><span className="ms-team">{d.team}</span></div></div>
                                             <div className="ms-pts">{d.points.toFixed(0)}</div>
                                         </div>
                                     ))}

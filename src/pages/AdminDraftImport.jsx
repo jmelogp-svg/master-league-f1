@@ -1,10 +1,16 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { importDraftPilotos, importAllDraftPilotos, getDraftPilotos } from '../utils/importDraftPilotos';
 import { DriverImage, formatDriverName, getTeamLogo as utilsGetTeamLogo, getTeamColor as utilsGetTeamColor } from '../utils/classificacaoUtils';
 import { sendWhatsappNotification } from '../utils/whatsappNotify';
 import { isMobileDevice, getDeviceInfo } from '../utils/deviceDetection';
+import {
+    fetchSeasonLifecycleConfig,
+    defaultSeasonContext,
+    isPreSeasonMode,
+    proposalsDraftSeason
+} from '../utils/seasonLifecycle';
 import '../index.css';
 
 // Estilos adicionais
@@ -90,11 +96,15 @@ export default function AdminDraftImport() {
     const [proposals, setProposals] = useState({ carreira: {}, light: {} });
     const [pilotoPropostasStatus, setPilotoPropostasStatus] = useState({}); // { cod_idml: { hasProposal: bool, hasContract: bool, team: object, teamsWithProposals: array } }
     const [offerSentCountByTeamByGrid, setOfferSentCountByTeamByGrid] = useState({ carreira: {}, light: {} }); // { grid: { teamId: count } }
+    const [seasonCtx, setSeasonCtx] = useState(() => defaultSeasonContext());
+    const [preSeasonDraftSynced, setPreSeasonDraftSynced] = useState(false);
 
     // Normalizações (sem inferir grid de contrato: se `contracts.grid` estiver vazio/inconsistente,
     // não contamos esse contrato em nenhum grid para evitar bloqueios errados).
     const normalizeGrid = (g) => (g ?? '').toString().trim().toLowerCase();
     const normalizeCodIdml = (cod) => (cod ? String(cod).trim().toUpperCase() : null);
+    const draftSeason = proposalsDraftSeason(seasonCtx || defaultSeasonContext());
+    const preSeasonMode = isPreSeasonMode(seasonCtx);
     const getContractGrid = (contract) => {
         if (!contract) return null;
         
@@ -112,6 +122,18 @@ export default function AdminDraftImport() {
         const g = normalizeGrid(contract?.grid);
         return g || null;
     };
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchSeasonLifecycleConfig()
+            .then((ctx) => {
+                if (!cancelled) setSeasonCtx(ctx);
+            })
+            .catch(() => {
+                if (!cancelled) setSeasonCtx(defaultSeasonContext());
+            });
+        return () => { cancelled = true; };
+    }, []);
 
     useEffect(() => {
         try {
@@ -185,7 +207,7 @@ export default function AdminDraftImport() {
         setLoading(true);
         try {
             const result = await getDraftPilotos();
-            const allPilotos = result.pilotos || [];
+            const allPilotos = (result.pilotos || []).filter((p) => parseInt(String(p?.season ?? ''), 10) === draftSeason);
             console.log('📊 [VISÃO GERAL] Total de pilotos carregados:', allPilotos.length);
             
             // Normalizar grid para comparação (trim + lowercase)
@@ -245,6 +267,10 @@ export default function AdminDraftImport() {
         }
     };
 
+    useEffect(() => {
+        setPilotForm((prev) => ({ ...prev, season: draftSeason }));
+    }, [draftSeason]);
+
     // Carregar pilotos cadastrados (tabela pilotos) para resolver nomes/fotos na Visão Geral via pilot_cod_idml
     const loadPilotosCadastro = async () => {
         try {
@@ -275,7 +301,7 @@ export default function AdminDraftImport() {
                     *,
                     equipes (*)
                 `)
-                .eq('season', 20);
+                .eq('season', draftSeason);
             
             // Log detalhado dos contratos carregados
             if (data && data.length > 0) {
@@ -313,16 +339,15 @@ export default function AdminDraftImport() {
                 `)
                 .eq('status', 'OFFER_SENT')
                 .eq('grid', negotiationsGrid)
-                .eq('season', 20);
+                .eq('season', draftSeason);
 
-            // Buscar todos os contratos da temporada
             const { data: contratosData, error: contratosError } = await supabase
                 .from('contracts')
                 .select(`
                     *,
                     equipes (*)
                 `)
-                .eq('season', 20);
+                .eq('season', draftSeason);
 
             if (propostasError) console.error('Erro ao buscar propostas:', propostasError);
             if (contratosError) console.error('Erro ao buscar contratos:', contratosError);
@@ -421,7 +446,24 @@ export default function AdminDraftImport() {
             loadContracts();
             loadPilotoPropostasStatus();
         }
-    }, [isAuthenticated, activeTab, negotiationsGrid]);
+    }, [isAuthenticated, activeTab, negotiationsGrid, draftSeason, preSeasonMode]);
+
+    useEffect(() => {
+        if (!isAuthenticated || !preSeasonMode || preSeasonDraftSynced) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                await importAllDraftPilotos(false);
+                if (!cancelled) {
+                    setPreSeasonDraftSynced(true);
+                    await loadPilotos();
+                }
+            } catch {
+                if (!cancelled) setPreSeasonDraftSynced(true);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isAuthenticated, preSeasonMode, preSeasonDraftSynced]);
 
     useEffect(() => {
         if (!isAuthenticated) return;
@@ -608,7 +650,7 @@ export default function AdminDraftImport() {
 
     const handleImportReplaceAll = async () => {
         const ok = window.confirm(
-            '⚠️ SUBSTITUIR DADOS DO DRAFT?\n\nIsso vai APAGAR o draft atual da temporada 20 (Carreira + Light) e importar novamente das planilhas.\n\nUse isso para remover duplicados e "devolver" pilotos ao grid correto.'
+            `⚠️ SUBSTITUIR DADOS DO DRAFT?\n\nIsso vai APAGAR o draft atual da temporada ${draftSeason} (Carreira + Light) e importar novamente das planilhas.\n\nUse isso para remover duplicados e "devolver" pilotos ao grid correto.`
         );
         if (!ok) return;
         await handleImport(null, true);
@@ -616,7 +658,7 @@ export default function AdminDraftImport() {
 
     const handleFixContractsGridFromDraft = async () => {
         const ok = window.confirm(
-            'Corrigir GRID dos contratos usando o DRAFT como fonte?\n\nIsso atualiza contracts.grid na temporada 20 para bater com o grid do piloto no draft.\n\n(Útil quando contrato foi salvo com grid errado.)'
+            `Corrigir GRID dos contratos usando o DRAFT como fonte?\n\nIsso atualiza contracts.grid na temporada ${draftSeason} para bater com o grid do piloto no draft.\n\n(Útil quando contrato foi salvo com grid errado.)`
         );
         if (!ok) return;
 
@@ -715,7 +757,7 @@ export default function AdminDraftImport() {
                     .from('interests')
                     .select('id', { count: 'exact', head: true })
                     .eq('status', 'OFFER_SENT')
-                    .eq('season', 20)
+                    .eq('season', draftSeason)
                     .eq('grid', negotiationsGrid)
                     .eq('team_id', teamId);
                 if (countError) throw countError;
@@ -731,7 +773,7 @@ export default function AdminDraftImport() {
                 pilot_cod_idml: codIdmlNormalizado,
                 team_id: teamId,
                 grid: negotiationsGrid,
-                season: 20,
+                season: draftSeason,
                 status: 'OFFER_SENT',
                 created_at: new Date().toISOString()
             }));
@@ -753,7 +795,7 @@ export default function AdminDraftImport() {
                     '📨 NOVA PROPOSTA - MASTER LEAGUE F1',
                     '',
                     `Olá ${formatDriverName(piloto.nome)}!`,
-                    `Você recebeu ${pilotoProposals.length} proposta${pilotoProposals.length > 1 ? 's' : ''} para correr na Temporada 20 (${negotiationsGrid.toUpperCase()}).`,
+                    `Você recebeu ${pilotoProposals.length} proposta${pilotoProposals.length > 1 ? 's' : ''} para correr na Temporada ${draftSeason} (${negotiationsGrid.toUpperCase()}).`,
                     'Acesse o Painel do Piloto e abra a Caixa de Mensagens para avaliar e escolher sua equipe.',
                     '',
                     '⏰ IMPORTANTE: Você tem 10 horas para responder às propostas. Após esse prazo, as propostas serão automaticamente canceladas.',
@@ -792,7 +834,7 @@ export default function AdminDraftImport() {
                     pilot_cod_idml: codIdmlNormalizado,
                     team_id: teamId,
                     grid: currentGrid,
-                    season: 20,
+                    season: draftSeason,
                     signed_at: new Date().toISOString()
                 }]);
 
@@ -803,7 +845,7 @@ export default function AdminDraftImport() {
                 .from('interests')
                 .update({ status: 'REJECTED', updated_at: new Date().toISOString() })
                 .eq('pilot_cod_idml', codIdmlNormalizado)
-                .eq('season', 20)
+                    .eq('season', draftSeason)
                 .neq('team_id', teamId); // Rejeita as outras
 
             // 3. Se houver proposta desta equipe, marcar como ACCEPTED
@@ -812,7 +854,7 @@ export default function AdminDraftImport() {
                 .update({ status: 'ACCEPTED', updated_at: new Date().toISOString() })
                 .eq('pilot_cod_idml', codIdmlNormalizado)
                 .eq('team_id', teamId)
-                .eq('season', 20);
+                    .eq('season', draftSeason);
 
             // 4. Notificar via WhatsApp (Mesma lógica do Dashboard)
             const messageAdmin = [
@@ -838,7 +880,7 @@ export default function AdminDraftImport() {
                     '',
                     `Olá ${formatDriverName(piloto.nome)}!`,
                     '',
-                    `Seu contrato foi formalizado pela administração para a Temporada 20.`,
+                    `Seu contrato foi formalizado pela administração para a Temporada ${draftSeason}.`,
                     '',
                     `Equipe: ${team.name}`,
                     `Grid: ${currentGrid.toUpperCase()}`,
@@ -905,7 +947,7 @@ export default function AdminDraftImport() {
                 }}>
                     <div style={{ flex: 1 }}>
                         <h1 style={{ margin: 0, fontSize: deviceInfo.isMobile ? '1.3rem' : '1.8rem', color: '#FFD700', fontWeight: '800' }}>GERENCIAMENTO DE DRAFT</h1>
-                        <p style={{ margin: '5px 0 0', color: 'rgba(255,255,255,0.6)', fontSize: deviceInfo.isMobile ? '0.75rem' : '1rem' }}>Temporada 20 | Controle de Propostas e Contratos</p>
+                        <p style={{ margin: '5px 0 0', color: 'rgba(255,255,255,0.6)', fontSize: deviceInfo.isMobile ? '0.75rem' : '1rem' }}>Temporada {draftSeason} | Controle de Propostas e Contratos</p>
                     </div>
                     <button 
                         onClick={() => navigate('/admin')} 
@@ -1186,7 +1228,7 @@ export default function AdminDraftImport() {
                                                                         .eq('pilot_cod_idml', codIdml)
                                                                         .eq('team_id', team.id)
                                                                         .eq('grid', contractGrid || selectedGrid)
-                                                                        .eq('season', 20);
+                                                                        .eq('season', draftSeason);
 
                                                                     // 2) Cancelar propostas vinculadas ao contrato (OFFER_SENT/ACCEPTED) para liberar novo envio
                                                                     await supabase
@@ -1194,7 +1236,7 @@ export default function AdminDraftImport() {
                                                                         .update({ status: 'WITHDRAWN', updated_at: new Date().toISOString() })
                                                                         .eq('pilot_cod_idml', codIdml)
                                                                         .eq('grid', selectedGrid)
-                                                                        .eq('season', 20)
+                                                                        .eq('season', draftSeason)
                                                                         .in('status', ['OFFER_SENT', 'ACCEPTED']);
 
                                                                     await loadContracts();
@@ -1421,7 +1463,7 @@ export default function AdminDraftImport() {
                                                         </div>
                                                         <button onClick={async () => {
                                                             if (!window.confirm(`Cancelar contrato de ${piloto.nome}?`)) return;
-                                                            await supabase.from('contracts').delete().eq('pilot_cod_idml', codIdmlNormalizado).eq('season', 20);
+                                                            await supabase.from('contracts').delete().eq('pilot_cod_idml', codIdmlNormalizado).eq('season', draftSeason);
                                                             await loadContracts();
                                                             await loadPilotoPropostasStatus();
                                                         }} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: 'bold', padding: '5px' }}>✖</button>
@@ -1442,7 +1484,7 @@ export default function AdminDraftImport() {
                                                                                     .update({ status: 'WITHDRAWN', updated_at: new Date().toISOString() })
                                                                                     .eq('pilot_cod_idml', cod)
                                                                                     .eq('grid', negotiationsGrid)
-                                                                                    .eq('season', 20)
+                                                                                    .eq('season', draftSeason)
                                                                                     .eq('status', 'OFFER_SENT');
                                                                                 if (error) throw error;
 

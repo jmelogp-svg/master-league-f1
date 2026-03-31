@@ -1819,6 +1819,7 @@ function Admin() {
             email_original: user.email || '', // Guardar email original para busca
             nome: user.nome_piloto || user.nome || '',
             email: user.email || '',
+            cod_idml: (user.cod_idml || '').toString().trim().toUpperCase(),
             grid: user.grid_preferencia || user.grid || 'carreira',
             equipe: user.equipe || '',
             whatsapp: user.whatsapp || '',
@@ -1848,6 +1849,12 @@ function Admin() {
             alert('⚠️ WhatsApp inválido! Deve ter pelo menos 10 dígitos.');
             return;
         }
+        const codIdmlInput = String(editingUser.cod_idml || '').trim().toUpperCase();
+        const codIdmlPattern = /^MLF1-\d{4}$/;
+        if (codIdmlInput && !codIdmlPattern.test(codIdmlInput)) {
+            alert('⚠️ COD IDML inválido! Use o padrão MLF1-XXXX (4 dígitos), ex.: MLF1-0320.');
+            return;
+        }
 
         setSavingUser(true);
         try {
@@ -1857,6 +1864,7 @@ function Admin() {
             const dadosAtualizacao = {
                 nome: capitalizeWords(editingUser.nome.trim()),
                 email: editingUser.email.trim().toLowerCase(),
+                cod_idml: codIdmlInput || null,
                 grid: editingUser.grid,
                 equipe: editingUser.equipe || null,
                 whatsapp: editingUser.whatsapp || null,
@@ -2445,14 +2453,17 @@ function Admin() {
                                     // Adaptar para campos da tabela 'pilotos' ou 'profiles'
                                     const nome = user.nome || user.nome_piloto || 'Sem Nome';
                                     const email = user.email || '';
+                                    const codIdml = (user.cod_idml || '').toString().trim().toUpperCase();
                                     const grid = user.grid || user.grid_preferencia || '-';
                                     const equipe = user.equipe || '-';
                                     const whatsapp = user.whatsapp || '-';
                                     const isSteward = user.is_steward || false;
                                     const isExPiloto = user.tipo_piloto === 'ex-piloto';
+                                    const isInativoByStatus = String(user.status || '').toLowerCase() === 'inativo';
+                                    const isInativo = isExPiloto || isInativoByStatus;
                                     // Para ex-pilotos, verificar se status é 'pendente'
                                     // Para 'profiles', verificar status 'pending'; para 'pilotos', verificar status 'pendente'
-                                    const isPending = isExPiloto 
+                                    const isPending = isExPiloto
                                         ? (user.status === 'pendente' || user.status === 'pending')
                                         : (user.status === 'pending' || (!user.status && user.nome_piloto));
                                     
@@ -2477,8 +2488,16 @@ function Admin() {
                                                     color:'#94A3B8',
                                                     wordBreak: 'break-word'
                                                 }}>{email}</div>
+                                                <div style={{
+                                                    fontSize: isMobile ? '0.78rem' : '0.72rem',
+                                                    color: codIdml ? '#67E8F9' : '#64748B',
+                                                    fontFamily: 'monospace',
+                                                    marginTop: '2px'
+                                                }}>
+                                                    COD IDML: {codIdml || 'NÃO CADASTRADO'}
+                                                </div>
                                                 {isSteward && <div style={{fontSize:'0.7rem', color:'#FFD700', marginTop:'2px'}}>👨‍⚖️ STEWARD</div>}
-                                                {isExPiloto && <div style={{fontSize:'0.7rem', color:'#94A3B8', marginTop:'2px'}}>📜 EX-PILOTO</div>}
+                                                {isInativo && <div style={{fontSize:'0.7rem', color:'#94A3B8', marginTop:'2px'}}>📜 EX-PILOTO</div>}
                                             </div>
                                             <div style={{
                                                 flex: isMobile ? 'none' : 1, 
@@ -2517,9 +2536,9 @@ function Admin() {
                                                 {isMobile && <span style={{color:'#64748B', fontSize:'0.75rem'}}>Status:</span>}
                                                 <span className={`status-badge ${
                                                     isPending ? 'pending' : 
-                                                    (isExPiloto ? 'inactive' : 'active')
+                                                    (isInativo ? 'inactive' : 'active')
                                                 }`}>
-                                                    {isPending ? 'PENDENTE' : (isExPiloto ? 'INATIVO' : 'ATIVO')}
+                                                    {isPending ? 'PENDENTE' : (isInativo ? 'INATIVO' : 'ATIVO')}
                                                 </span>
                                             </div>
 
@@ -2540,7 +2559,7 @@ function Admin() {
                                                         ✅
                                                     </button>
                                                 )}
-                                                {isExPiloto && !isPending && (
+                                                {isInativo && !isPending && (
                                                     <>
                                                         <button 
                                                             onClick={() => handleReenviarNotificacao(email, nome, whatsapp)} 
@@ -5156,6 +5175,32 @@ function Admin() {
                                             fontSize: '14px'
                                         }}
                                     />
+                                </div>
+
+                                <div>
+                                    <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                                        COD IDML
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editingUser.cod_idml || ''}
+                                        onChange={(e) => setEditingUser({ ...editingUser, cod_idml: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '') })}
+                                        placeholder="Ex: MLF1-0320"
+                                        maxLength={9}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #475569',
+                                            background: '#0F172A',
+                                            color: '#F8FAFC',
+                                            fontSize: '14px',
+                                            fontFamily: 'monospace'
+                                        }}
+                                    />
+                                    <div style={{ color: '#64748B', fontSize: '11px', marginTop: '4px' }}>
+                                        Formato obrigatório: MLF1-XXXX (4 dígitos). Deixe vazio apenas se necessário.
+                                    </div>
                                 </div>
 
                                 <div>

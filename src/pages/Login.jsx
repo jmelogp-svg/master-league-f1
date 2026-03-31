@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { requestVerificationCode, verifyCode, cleanWhatsAppNumber, formatWhatsAppDisplay } from '../utils/whatsappAuth';
-import { findAndSyncPilotoFromSheet, findDriverByEmail } from '../utils/syncPilotosFromSheet';
+import { findAndSyncPilotoFromSheet, findDriverByEmail, buscarCodIdmlPorNome } from '../utils/syncPilotosFromSheet';
 import { 
     isMobileDevice, 
     is2FAValidatedForDevice, 
@@ -800,6 +800,19 @@ function Login() {
         setErrorMsg('');
 
         try {
+            // Regra de negócio: COD IDML deve seguir planilha oficial (não gerar localmente).
+            const nomeParaCod = (inscricaoData.nomePiloto || inscricaoData.nome || '').trim();
+            const codIdmlPlanilha = await buscarCodIdmlPorNome(nomeParaCod);
+            if (!codIdmlPlanilha) {
+                setErrorMsg(
+                    '❌ Não foi possível localizar seu COD IDML na planilha oficial.\n\n' +
+                    'Para evitar geração automática de código, seu cadastro não foi salvo.\n\n' +
+                    'Confirme o nome do piloto exatamente como está na planilha e tente novamente.'
+                );
+                setLoading(false);
+                return;
+            }
+
             // Salvar no banco para admin verificar
             const { data, error } = await supabase
                 .from('pilotos')
@@ -809,7 +822,8 @@ function Login() {
                     whatsapp: inscricaoData.whatsapp.replace(/\D/g, ''),
                     grid: inscricaoData.grid.toLowerCase(),
                     is_steward: false,
-                    equipe: null
+                    equipe: null,
+                    cod_idml: codIdmlPlanilha
                     // Removido 'status', 'nome_completo', 'gamertag' e 'plataforma' pois não existem na tabela pilotos
                 }, {
                     onConflict: 'email',

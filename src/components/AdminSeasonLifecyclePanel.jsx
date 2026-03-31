@@ -6,8 +6,158 @@ import {
     SEASON_PHASE,
     phaseLabelPt,
 } from '../utils/seasonLifecycle';
+import { importAllDraftPilotos } from '../utils/importDraftPilotos';
 
 const nowIso = () => new Date().toISOString();
+
+const normalizeText = (v) =>
+    String(v || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+const normalizeCod = (v) => String(v || '').trim().toUpperCase();
+const PILOTOS_PR_CSV_URL =
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=884534812&single=true&output=csv';
+
+function parseCsvLine(line) {
+    const out = [];
+    let curr = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+        const ch = line[i];
+        if (ch === '"') {
+            inQuotes = !inQuotes;
+        } else if (ch === ',' && !inQuotes) {
+            out.push(curr.trim());
+            curr = '';
+        } else {
+            curr += ch;
+        }
+    }
+    out.push(curr.trim());
+    return out;
+}
+
+async function fetchPilotosPrAtivosSet() {
+    const response = await fetch(PILOTOS_PR_CSV_URL);
+    if (!response.ok) {
+        throw new Error(`Falha ao ler PILOTOS PR (HTTP ${response.status})`);
+    }
+    const csvText = await response.text();
+    const lines = String(csvText || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+    const codSet = new Set();
+    const nameSet = new Set();
+
+    // Colunas: A=Drivers, B=COD IDML, J=Status
+    for (let i = 1; i < lines.length; i += 1) {
+        const cols = parseCsvLine(lines[i]);
+        const nome = normalizeText(cols[0] || '');
+        const cod = normalizeCod(cols[1] || '');
+        const status = normalizeText(cols[9] || '');
+        if (status !== 'ativo') continue;
+        if (cod) codSet.add(cod);
+        if (nome) nameSet.add(nome);
+    }
+
+    return { codSet, nameSet };
+}
+
+async function syncPilotosByDraftSeason(targetSeason) {
+    const season = parseInt(String(targetSeason), 10);
+    if (!Number.isFinite(season) || season < 1) {
+        throw new Error(`Temporada inválida para sincronização de pilotos: ${targetSeason}`);
+    }
+
+    // Sempre sincronizar draft do banco com as planilhas antes de aplicar status.
+    // Evita reaplicar com draft_pilotos desatualizado.
+    const importResult = await importAllDraftPilotos(false);
+    if (!importResult?.success) {
+        throw new Error(
+            `Falha ao sincronizar draft das planilhas antes da reaplicação: ${
+                importResult?.error || 'erro desconhecido'
+            }`
+        );
+    }
+
+    const { data: draftRows, error: draftErr } = await supabase
+        .from('draft_pilotos')
+        .select('nome, cod_idml, season, grid')
+        .eq('season', season)
+        .in('grid', ['carreira', 'light']);
+    if (draftErr) throw draftErr;
+
+    const pilotosPrAtivos = await fetchPilotosPrAtivosSet();
+
+    const draftCodSet = new Set();
+    const draftNameSet = new Set();
+    (draftRows || []).forEach((r) => {
+        const cod = normalizeCod(r?.cod_idml);
+        const nome = normalizeText(r?.nome);
+        if (cod) draftCodSet.add(cod);
+        if (nome) draftNameSet.add(nome);
+    });
+
+    if (draftCodSet.size === 0 && draftNameSet.size === 0) {
+        throw new Error(
+            `Draft da T${season} está vazio. Importe os pilotos do draft antes de ativar a pré-temporada.`
+        );
+    }
+
+    const { data: pilotosRows, error: pilotosErr } = await supabase
+        .from('pilotos')
+        .select('id, nome, cod_idml, status, tipo_piloto');
+    if (pilotosErr) throw pilotosErr;
+
+    const ativos = [];
+    const inativos = [];
+    (pilotosRows || []).forEach((p) => {
+        const cod = normalizeCod(p?.cod_idml);
+        const nome = normalizeText(p?.nome);
+        const inDraft = (cod && draftCodSet.has(cod)) || (nome && draftNameSet.has(nome));
+        const ativoNoPilotosPr =
+            (cod && pilotosPrAtivos.codSet.has(cod)) ||
+            (nome && pilotosPrAtivos.nameSet.has(nome));
+        if (inDraft && ativoNoPilotosPr) ativos.push(p.id);
+        else inativos.push(p.id);
+    });
+
+    if (ativos.length > 0) {
+        const { error: upActiveErr } = await supabase
+            .from('pilotos')
+            .update({
+                status: 'ativo',
+                tipo_piloto: null,
+                updated_at: nowIso(),
+            })
+            .in('id', ativos);
+        if (upActiveErr) throw upActiveErr;
+    }
+
+    if (inativos.length > 0) {
+        const { error: upInactiveErr } = await supabase
+            .from('pilotos')
+            .update({
+                status: 'inativo',
+                tipo_piloto: 'ex-piloto',
+                updated_at: nowIso(),
+            })
+            .in('id', inativos);
+        if (upInactiveErr) throw upInactiveErr;
+    }
+
+    return {
+        ativos: ativos.length,
+        inativos: inativos.length,
+        season,
+        pilotosPrAtivos: pilotosPrAtivos.codSet.size || pilotosPrAtivos.nameSet.size,
+    };
+}
 
 async function persistContext(patch, eventRow) {
     const rows = Object.entries(patch).map(([key, value]) => ({
@@ -87,9 +237,12 @@ export default function AdminSeasonLifecyclePanel() {
                 event.last_closed_after = before.currentSeason;
             } else if (action === 'pre') {
                 if (before.phase !== SEASON_PHASE.CLOSED) throw new Error('Antes, feche a temporada oficialmente.');
+                const nextSeason = before.lastClosedSeason + 1;
+                const syncResult = await syncPilotosByDraftSeason(nextSeason);
                 patch.season_phase = SEASON_PHASE.PRE_SEASON;
                 patch.phase_updated_at = nowIso();
                 event.to_phase = SEASON_PHASE.PRE_SEASON;
+                event.notes = `pre_temporada_sync_pilotos:t${syncResult.season}:ativos=${syncResult.ativos}:inativos=${syncResult.inativos}:pr_ativos=${syncResult.pilotosPrAtivos}`;
             } else if (action === 'mudar') {
                 if (before.phase !== SEASON_PHASE.PRE_SEASON) throw new Error('Antes, ative a pré-temporada.');
                 const nextS = before.lastClosedSeason + 1;
@@ -111,6 +264,16 @@ export default function AdminSeasonLifecyclePanel() {
                 event.to_phase = SEASON_PHASE.OPEN;
                 event.season_after = nextS;
                 event.notes = 'abrir_temporada_atalho';
+            } else if (action === 'sync_pilotos_pre') {
+                if (before.phase !== SEASON_PHASE.PRE_SEASON) {
+                    throw new Error('Reaplicar status de pilotos só está disponível na pré-temporada.');
+                }
+                const nextS = before.lastClosedSeason + 1;
+                const syncResult = await syncPilotosByDraftSeason(nextS);
+                // Mantém a fase, só marca atualização e registra auditoria.
+                patch.phase_updated_at = nowIso();
+                event.to_phase = before.phase;
+                event.notes = `sync_pilotos_pre:t${syncResult.season}:ativos=${syncResult.ativos}:inativos=${syncResult.inativos}:pr_ativos=${syncResult.pilotosPrAtivos}`;
             }
 
             event.to_phase = patch.season_phase || event.to_phase;
@@ -263,6 +426,20 @@ export default function AdminSeasonLifecyclePanel() {
                 </button>
                 <button type="button" style={{ ...btn(false), background: '#334155', color: '#e2e8f0' }} onClick={reload} disabled={busy}>
                     Recarregar
+                </button>
+                <button
+                    type="button"
+                    style={{ ...btn(ctx.phase !== SEASON_PHASE.PRE_SEASON || busy), background: '#4f46e5', color: '#fff' }}
+                    disabled={ctx.phase !== SEASON_PHASE.PRE_SEASON || busy}
+                    onClick={() =>
+                        openConfirm({
+                            action: 'sync_pilotos_pre',
+                            title: 'Reaplicar status de pilotos',
+                            body: `Sem mudar fase: reprocessa a T${ctx.lastClosedSeason + 1} e marca ATIVO apenas quem está no draft e com status ATIVO na PILOTOS PR (coluna J); demais viram INATIVO (ex-piloto).`,
+                        })
+                    }
+                >
+                    Reaplicar status dos pilotos
                 </button>
             </div>
 

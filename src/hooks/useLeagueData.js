@@ -23,9 +23,9 @@ const LINKS = {
     pilotoPR: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=884534812&single=true&output=csv",
     // GRIDS - T20 (gid=995939670) - MANTIDO SE PRECISAR
     gridsT20: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=995939670&single=true&output=csv",
-    // DRAFT T20
+    // Pré-temporada / fallback home: col A = nome; col C = SEASON (deve bater com current_season / próxima no app).
     draftCarreira: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=914372939&single=true&output=csv",
-    draftLight: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=905408135&single=true&output=csv"
+    draftLight: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=905408135&single=true&output=csv",
 };
 
 // Timeout para requisições (8 segundos)
@@ -206,13 +206,13 @@ export const useLeagueData = () => {
                     await Promise.allSettled(fallbackPromises);
                 }
 
-                // PASSO 3: Buscar dados SECUNDÁRIOS em background (não bloqueia)
-                // Esses dados são usados em outras páginas, não na classificação
-                Promise.allSettled([
-                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.gridsT20)).then(r => r.text()).then(parseCSV).then(d => { rowsG20 = d; cacheData.rawGridsT20 = d; }),
-                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.draftCarreira)).then(r => r.text()).then(parseCSV).then(d => { rowsDC = d; cacheData.draftCarreira = d; }),
-                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.draftLight)).then(r => r.text()).then(parseCSV).then(d => { rowsDL = d; cacheData.draftLight = d; })
-                ]).catch(() => {}); // Ignora erros - dados secundários
+                // PASSO 3: Drafts e grids auxiliares — precisam estar preenchidos antes do setData;
+                // sem await, carrossel da Home (pré-temporada) recebia listas vazias e só o cache em visitas seguintes trazia nomes.
+                await Promise.allSettled([
+                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.gridsT20)).then(r => r.text()).then(parseCSV).then((d) => { rowsG20 = d; cacheData.rawGridsT20 = d; }),
+                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.draftCarreira)).then(r => r.text()).then(parseCSV).then((d) => { rowsDC = d; cacheData.draftCarreira = d; }),
+                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.draftLight)).then(r => r.text()).then(parseCSV).then((d) => { rowsDL = d; cacheData.draftLight = d; }),
+                ]).catch(() => {});
                 const trackMap = {};
                 
                 // --- FUNÇÃO DE EXTRAÇÃO E CORREÇÃO DE IMAGENS ---

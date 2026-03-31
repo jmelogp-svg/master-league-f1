@@ -9,7 +9,7 @@ const PILOTOS_PR_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROK
 /**
  * Busca COD IDML da planilha "Pilotos PR" pelo nome do piloto
  */
-async function buscarCodIdmlPorNome(nomePiloto) {
+export async function buscarCodIdmlPorNome(nomePiloto) {
     try {
         const response = await fetch(PILOTOS_PR_CSV_URL);
         if (!response.ok) {

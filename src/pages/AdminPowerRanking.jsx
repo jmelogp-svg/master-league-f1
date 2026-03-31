@@ -2098,6 +2098,25 @@ export default function AdminPowerRanking() {
                         return Math.ceil(Math.max(2, pontos));
                     }
 
+                    // Objetivos com formato "TOP N" do campeonato de pilotos
+                    const matchTopCampeonato = objLower.match(/top\s*(\d+).*(campeonato|pilotos)|(?:campeonato|pilotos).*top\s*(\d+)/i);
+                    if (matchTopCampeonato && stats.posicaoFinal) {
+                        const meta = parseInt(matchTopCampeonato[1] || matchTopCampeonato[3], 10);
+                        if (Number.isFinite(meta) && meta > 0) {
+                            if (stats.posicaoFinal <= meta) return 20;
+                            const afastamento = stats.posicaoFinal - meta;
+                            return Math.ceil(Math.max(2, 20 - afastamento));
+                        }
+                    }
+
+                    // Objetivo extra dos campeões T20 (McLaren/Ferrari): repetir top2 e construtores
+                    if (objLower.includes('objetivo extra (campeoes t20)') || (objLower.includes('top2') && objLower.includes('construtores'))) {
+                        if (!stats.posicaoFinal) return 12;
+                        if (stats.posicaoFinal <= 2) return 20;
+                        const afastamento = stats.posicaoFinal - 2;
+                        return Math.ceil(Math.max(2, 20 - afastamento));
+                    }
+
                     if (forcarQualitativo) {
                         pontos = Math.max(0, 20 - (totalFaltas * 1.5));
                         return pontos;
@@ -2283,13 +2302,19 @@ export default function AdminPowerRanking() {
                             objetivo2: 0,
                             objetivo3: 0,
                             objetivo4: 0,
-                            objetivo5: 0
+                            objetivo5: 0,
+                            objetivo6: 0
                         };
                         textosCalculados[piloto.nome] = [];
                         return;
                     }
 
-                    const objetivos = gerarObjetivosPorEquipe(contrato.equipe, contrato.tier);
+                    const objetivos = gerarObjetivosPorEquipe(
+                        contrato.equipe,
+                        contrato.tier,
+                        piloto.nome,
+                        contrato.grid || piloto.grid || ''
+                    );
                     textosCalculados[piloto.nome] = objetivos;
                     const gridAtual = (piloto.grid || contrato.grid || 'carreira').toLowerCase();
                     let stats = calcularEstatisticasPiloto(piloto.nome, gridAtual);
@@ -2321,7 +2346,8 @@ export default function AdminPowerRanking() {
                         objetivo2: objetivos[1] ? verificarObjetivo(objetivos[1], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
                         objetivo3: objetivos[2] ? verificarObjetivo(objetivos[2], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
                         objetivo4: objetivos[3] ? verificarObjetivo(objetivos[3], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
-                        objetivo5: objetivos[4] ? verificarObjetivo(objetivos[4], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0
+                        objetivo5: objetivos[4] ? verificarObjetivo(objetivos[4], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0,
+                        objetivo6: objetivos[5] ? verificarObjetivo(objetivos[5], stats, totalFaltas, totalNC, etapasInfo, (isLeandroSopena ? 'Leandro Sopeña' : '') || (isJulioMelo ? 'Julio Melo' : '')) : 0
                     };
 
                     objetivosCalculados[piloto.nome] = pontosObjetivos;
@@ -2455,7 +2481,7 @@ export default function AdminPowerRanking() {
 
                 // --- PILAR 4: OVERALL (Soma metas) ---
                 const obj = objetivosData[nome] || {};
-                let over = (obj.objetivo1 || 0) + (obj.objetivo2 || 0) + (obj.objetivo3 || 0) + (obj.objetivo4 || 0) + (obj.objetivo5 || 0);
+                let over = (obj.objetivo1 || 0) + (obj.objetivo2 || 0) + (obj.objetivo3 || 0) + (obj.objetivo4 || 0) + (obj.objetivo5 || 0) + (obj.objetivo6 || 0);
                 
                 // Se não tem PR na temporada atual (ainda não correu), setar base 60
                 if (totalS20 === 0) over = 60;
@@ -3024,6 +3050,7 @@ export default function AdminPowerRanking() {
         { key: 'objetivo3', label: 'OBJETIVO 3', color: COLORS.OVERALL, width: 100, subitem: true },
         { key: 'objetivo4', label: 'OBJETIVO 4', color: COLORS.OVERALL, width: 100, subitem: true },
         { key: 'objetivo5', label: 'OBJETIVO 5', color: COLORS.OVERALL, width: 100, subitem: true },
+        { key: 'objetivo6', label: 'OBJETIVO 6', color: COLORS.OVERALL, width: 100, subitem: true },
         { key: 'historico', label: 'HISTÓRICO', color: COLORS.HISTORICO, width: 120 },
         { key: 'temporadas', label: 'TEMPORADAS', color: COLORS.HISTORICO, width: 120 },
         { key: 'corridas', label: 'CORRIDAS', color: COLORS.HISTORICO, width: 120 },
@@ -3447,6 +3474,7 @@ export default function AdminPowerRanking() {
                                             case 'objetivo3':
                                             case 'objetivo4':
                                             case 'objetivo5':
+                                            case 'objetivo6':
                                                 const objetivoNum = colKey.replace('objetivo', '');
                                                 const objetivoKey = `objetivo${objetivoNum}`;
                                                 const pontosObjetivo = objetivosData[piloto.nome]?.[objetivoKey];
