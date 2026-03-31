@@ -185,7 +185,6 @@ const DriverImage = ({ name, gridType, season, isExPiloto = false }) => {
     // Caminhos em ordem de prioridade
     const seasonSrc = `/pilotos/${gridType || 'carreira'}/s${s}/${cleanName}.png`;
     const smlSrc = `/pilotos/SML/${cleanName}.png`;
-    const fallbackS19Src = `/pilotos/${gridType || 'carreira'}/s19/${cleanName}.png`;
     const shadowSrc = '/pilotos/pilotoshadow.png';
 
     const handleError = (e) => {
@@ -193,13 +192,8 @@ const DriverImage = ({ name, gridType, season, isExPiloto = false }) => {
         if (e.target.src.includes(`/s${s}/`)) {
             e.target.src = smlSrc;
         } 
-        // Se falhou SML, tenta pasta s19 (caso não tenha s20 nem sml, mas tenha s19)
+        // Se falhou SML, usa shadow
         else if (e.target.src.includes('/SML/')) {
-            if (!e.target.src.includes(`/s19/`)) e.target.src = fallbackS19Src;
-            else e.target.src = shadowSrc;
-        }
-        // Se falhou s19, tenta shadow
-        else if (e.target.src.includes(`/s19/`)) {
             e.target.src = shadowSrc;
         }
     };
@@ -2308,6 +2302,9 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     // Se houver contrato fechado, o dashboard deve refletir a equipe do contrato (cores + marca d'água).
     const standingsTeamMotorhome = isPreSeasonMode(seasonCtx) ? 'Sem Equipe' : dashData.currentTeam;
     const effectiveTeamName = (contratoFechado?.equipes?.name || standingsTeamMotorhome);
+    const photoSeasonMotorhome =
+        contratoFechado?.season ||
+        (isPreSeasonMode(seasonCtx) ? draftSeasonProposals : dashData.currentSeason);
     const teamColor = getTeamColor(effectiveTeamName);
     const teamGradient = getTeamGradient(effectiveTeamName);
     const teamLogo = getTeamLogo(effectiveTeamName);
@@ -2888,7 +2885,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                             <DriverImage 
                                                 name={profile.nome} 
                                                 gridType={contratoFechado?.grid || dashData.currentGrid} 
-                                                season={contratoFechado?.season || dashData.currentSeason} 
+                                                season={photoSeasonMotorhome} 
                                                 isExPiloto={isExPiloto} 
                                             />
                                         </div>
