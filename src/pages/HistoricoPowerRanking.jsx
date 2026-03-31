@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePowerRankingCache } from '../hooks/useSupabaseCache';
+import { fetchSeasonLifecycleConfig, defaultSeasonContext } from '../utils/seasonLifecycle';
 import '../index.css'; 
 
 // --- HELPERS VISUAIS ---
@@ -96,6 +97,20 @@ function HistoricoPowerRanking() {
     const [rankingData, setRankingData] = useState([]);
     const [availableSeasons, setAvailableSeasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState("");
+    const [seasonHint, setSeasonHint] = useState(null);
+
+    useEffect(() => {
+        let c = true;
+        (async () => {
+            try {
+                const cfg = await fetchSeasonLifecycleConfig();
+                if (c) setSeasonHint(cfg?.lastClosedSeason ?? cfg?.currentSeason ?? null);
+            } catch {
+                if (c) setSeasonHint(defaultSeasonContext()?.lastClosedSeason ?? 20);
+            }
+        })();
+        return () => { c = false; };
+    }, []);
     const [isPhone, setIsPhone] = useState(window.innerWidth <= 768);
     
     useEffect(() => {
@@ -124,8 +139,12 @@ function HistoricoPowerRanking() {
             .filter(s => s && !isNaN(s))
             .sort((a, b) => b - a);
         setAvailableSeasons(seasons);
-        if (seasons.length > 0 && !selectedSeason) setSelectedSeason(seasons[0]);
-    }, [rawPR, loading, selectedSeason]);
+        if (seasons.length > 0 && !selectedSeason) {
+            const prefer = seasonHint != null ? String(seasonHint) : null;
+            const pick = prefer && seasons.includes(prefer) ? prefer : seasons[0];
+            setSelectedSeason(pick);
+        }
+    }, [rawPR, loading, selectedSeason, seasonHint]);
 
     useEffect(() => {
         if (!selectedSeason || !rawPR || rawPR.length === 0) return;

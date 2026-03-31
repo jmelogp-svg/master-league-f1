@@ -8,6 +8,7 @@ import { notifyJuradosAguardandoAnalise, flushPendingJuradoNotifications } from 
 import { atualizarLancesComDefesaExpirada } from '../hooks/useAnalises';
 import AdminPowerRanking from './AdminPowerRanking';
 import AdminInscricoesPanel from '../components/AdminInscricoesPanel';
+import AdminSeasonLifecyclePanel from '../components/AdminSeasonLifecyclePanel';
 import '../index.css';
 
 function Admin() {
@@ -2349,6 +2350,9 @@ function Admin() {
                     <button className={`adm-tab-btn ${activeTab === 'power-ranking' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('power-ranking')}>
                         📊 POWER RANKING
                     </button>
+                    <button className={`adm-tab-btn ${activeTab === 'temporada' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('temporada')}>
+                        📅 TEMPORADA
+                    </button>
                     <button className={`adm-tab-btn ${activeTab === 'inscricoes' ? 'active' : ''}`} onClick={() => setActiveTabAndKeepScroll('inscricoes')}>
                         🧾 INSCRIÇÕES
                     </button>
@@ -3764,6 +3768,12 @@ function Admin() {
 
                 {activeTab === 'power-ranking' && (
                     <AdminPowerRanking />
+                )}
+
+                {activeTab === 'temporada' && (
+                    <div className="adm-content" style={{ padding: '20px' }}>
+                        <AdminSeasonLifecyclePanel />
+                    </div>
                 )}
 
                 {activeTab === 'inscricoes' && (

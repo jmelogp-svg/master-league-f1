@@ -2,6 +2,12 @@ import { useState, useMemo, useEffect } from 'react';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { usePowerRankingCache, usePowerRankingLightCache } from '../hooks/useSupabaseCache';
 import { supabase } from '../supabaseClient';
+import {
+    fetchSeasonLifecycleConfig,
+    defaultSeasonContext,
+    hallChampionDisplayCapSeason,
+    motorhomePowerRankingSeason,
+} from '../utils/seasonLifecycle';
 import '../index.css'; 
 
 // --- ÍCONES ---
@@ -126,15 +132,32 @@ const timeToMs = (timeStr) => {
 };
 
 function HallOfFame() {
+    const [seasonCtx, setSeasonCtx] = useState(null);
+
     useEffect(() => {
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, []);
 
+    useEffect(() => {
+        let c = true;
+        (async () => {
+            try {
+                const cfg = await fetchSeasonLifecycleConfig();
+                if (c) setSeasonCtx(cfg);
+            } catch {
+                if (c) setSeasonCtx(defaultSeasonContext());
+            }
+        })();
+        return () => { c = false; };
+    }, []);
+
+    const prSeasonHall = seasonCtx ? motorhomePowerRankingSeason(seasonCtx) : 20;
+
     const { rawCarreira, rawLight, tracks, datesCarreira, datesLight, loading } = useLeagueData();
-    const { data: rawPRCarreira, loading: loadingPRCarreira } = usePowerRankingCache(20);
-    const { data: rawPRLight, loading: loadingPRLight } = usePowerRankingLightCache(20);
+    const { data: rawPRCarreira, loading: loadingPRCarreira } = usePowerRankingCache(prSeasonHall);
+    const { data: rawPRLight, loading: loadingPRLight } = usePowerRankingLightCache(prSeasonHall);
     const [gridType, setGridType] = useState('carreira'); 
     const [activeTab, setActiveTab] = useState('stats'); 
     
@@ -199,6 +222,13 @@ function HallOfFame() {
     };
 
     useMemo(() => {
+        const closedCarreira = new Set([...HALL_OF_FAME_SEASON_CLOSED.carreira]);
+        const closedLight = new Set([...HALL_OF_FAME_SEASON_CLOSED.light]);
+        if (seasonCtx?.lastClosedSeason) {
+            closedCarreira.add(seasonCtx.lastClosedSeason);
+            closedLight.add(seasonCtx.lastClosedSeason);
+        }
+
         // Função para verificar se uma temporada está completa
         // Uma temporada completa deve ter 8 etapas e todas devem estar no passado (nenhuma etapa futura)
         // Campeões do Muro = líder da classificação daquele grid (mesma soma de pontos + punições que Standings).
@@ -226,7 +256,8 @@ function HallOfFame() {
             }
 
             // Temporada marcada como encerrada: confia nos dados (8 etapas) mesmo com datas futuras na planilha
-            if (HALL_OF_FAME_SEASON_CLOSED[grid]?.includes(season)) {
+            const closedSet = grid === 'carreira' ? closedCarreira : closedLight;
+            if (closedSet.has(season)) {
                 return true;
             }
             
@@ -354,7 +385,11 @@ function HallOfFame() {
         }).filter(Boolean).sort((a, b) => b.season - a.season);
 
         // Filtrar apenas temporadas completas (tanto para Grid Light quanto Grid Carreira)
-        const completeChamps = champs.filter(champ => isSeasonComplete(gridType, champ.season));
+        let completeChamps = champs.filter(champ => isSeasonComplete(gridType, champ.season));
+        const cap = hallChampionDisplayCapSeason(seasonCtx);
+        if (cap != null) {
+            completeChamps = completeChamps.filter((c) => c.season <= cap);
+        }
 
         // Top Stats Globais
         const driversArray = Object.values(driverStats);
@@ -440,7 +475,7 @@ function HallOfFame() {
             return obj;
         }, {}));
 
-    }, [gridType, rawCarreira, rawLight, rawPRCarreira, rawPRLight, datesCarreira, datesLight, punicoesRaw]);
+    }, [gridType, rawCarreira, rawLight, rawPRCarreira, rawPRLight, datesCarreira, datesLight, punicoesRaw, seasonCtx]);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
 

@@ -14,6 +14,13 @@ import {
 } from '../utils/deviceDetection';
 import '../index.css';
 import { ADMIN_WHATSAPP, ADMIN_EMAIL_FALLBACK, sendWhatsappNotification } from '../utils/whatsappNotify';
+import {
+    fetchSeasonLifecycleConfig,
+    defaultSeasonContext,
+    motorhomePowerRankingSeason,
+    proposalsDraftSeason,
+    isPreSeasonMode,
+} from '../utils/seasonLifecycle';
 
 // --- CONFIGURAÇÃO ---
 // CADASTRO MLF1 (gid=1844400629)
@@ -401,6 +408,7 @@ const Onboarding = ({ session, onComplete }) => {
 function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmailProp = null }) {
     const navigate = useNavigate();
     const { rawCarreira, rawLight, tracks, datesCarreira, datesLight, seasons, loading: loadingData } = useLeagueData();
+    const [seasonCtx, setSeasonCtx] = useState(null);
     
     const [session, setSession] = useState(null);
     const [profile, setProfile] = useState(null);
@@ -427,6 +435,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     const painelPilotoUrl = 'https://masterleaguef1.com.br/dashboard';
 
     const [viewMode, setViewMode] = useState('telemetria');
+
+    useEffect(() => {
+        let c = true;
+        (async () => {
+            try {
+                const cfg = await fetchSeasonLifecycleConfig();
+                if (c) setSeasonCtx(cfg);
+            } catch {
+                if (c) setSeasonCtx(defaultSeasonContext());
+            }
+        })();
+        return () => { c = false; };
+    }, []);
+
+    const prSeasonMotorhome = seasonCtx ? motorhomePowerRankingSeason(seasonCtx) : 20;
+    const draftSeasonProposals = seasonCtx ? proposalsDraftSeason(seasonCtx) : 20;
 
     // Inicializar viewMode como 'objetivos' se houver contrato
     useEffect(() => {
@@ -481,13 +505,14 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         }
     };
 
-    const notifyPilotoContrato = async (teamName, pilotWhatsapp, pilotNome) => {
+    const notifyPilotoContrato = async (teamName, pilotWhatsapp, pilotNome, temporadaNumero) => {
         if (!pilotWhatsapp) {
             console.warn('⚠️ WhatsApp do piloto não encontrado, não será enviada notificação');
             return;
         }
 
         const gridAtual = (dashData?.currentGrid || profile?.grid || 'carreira').toUpperCase();
+        const tNum = temporadaNumero ?? draftSeasonProposals ?? 20;
         const message = [
             '🎉 PARABÉNS! CONTRATO FECHADO - MASTER LEAGUE F1',
             '',
@@ -497,7 +522,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             '',
             `Equipe: ${teamName || 'Equipe não informada'}`,
             `Grid: ${gridAtual}`,
-            `Temporada: 20`,
+            `Temporada: ${tNum}`,
             '',
             `Bem-vindo à sua nova equipe! 🏎️`,
             '',
@@ -1592,7 +1617,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                     .from('power_ranking_stats')
                     .select('power_ranking')
                     .eq('piloto_id', profile.id)
-                    .eq('season', 20)
+                    .eq('season', prSeasonMotorhome)
                     .single();
                 
                 if (data && !error) {
@@ -1615,8 +1640,10 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                 filter: `piloto_id=eq.${profile.id}`
             }, (payload) => {
                 console.log('🔄 Atualização de Power Ranking recebida em tempo real:', payload);
-                if (payload.new && payload.new.power_ranking !== undefined) {
-                    setPowerRanking(payload.new.power_ranking);
+                const row = payload.new;
+                if (row && row.season != null && Number(row.season) !== Number(prSeasonMotorhome)) return;
+                if (row && row.power_ranking !== undefined) {
+                    setPowerRanking(row.power_ranking);
                 }
             })
             .subscribe();
@@ -1624,7 +1651,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         return () => {
             supabase.removeChannel(subscription);
         };
-    }, [profile?.id]);
+    }, [profile?.id, prSeasonMotorhome]);
 
     useEffect(() => {
         const buscarAcusacoesPendentes = async () => {
@@ -1704,7 +1731,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                     .from('draft_pilotos')
                     .select('cod_idml, season')
                     .ilike('nome', profile.nome)
-                    .eq('season', 20)
+                    .eq('season', draftSeasonProposals)
                     .limit(1)
                     .maybeSingle();
                 
@@ -1753,6 +1780,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                     `)
                     .eq('pilot_cod_idml', codIdmlNormalizado)
                     .eq('status', 'OFFER_SENT')
+                    .eq('season', draftSeasonProposals)
                     .order('created_at', { ascending: false });
                 
                 console.log('📊 [PROPOSTAS] Primeira tentativa com cod_idml normalizado:', {
@@ -1774,6 +1802,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                         `)
                         .ilike('pilot_cod_idml', codIdmlNormalizado)
                         .eq('status', 'OFFER_SENT')
+                        .eq('season', draftSeasonProposals)
                         .order('created_at', { ascending: false });
                     
                     if (!propostasErrorIlike && propostasDataIlike && propostasDataIlike.length > 0) {
@@ -1818,6 +1847,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                     `)
                                     .eq('pilot_cod_idml', codIdmlDoBanco)
                                     .eq('status', 'OFFER_SENT')
+                                    .eq('season', draftSeasonProposals)
                                     .order('created_at', { ascending: false });
                                 
                                 if (!propostasErrorExato && propostasDataExato && propostasDataExato.length > 0) {
@@ -1885,7 +1915,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                         equipes (*)
                     `)
                     .eq('pilot_cod_idml', codIdmlNormalizado)
-                    .eq('season', 20)
+                    .eq('season', draftSeasonProposals)
                     .maybeSingle();
 
                 if (contratoError) {
@@ -1930,7 +1960,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         return () => {
             clearInterval(intervalId);
         };
-    }, [profile?.id, profile?.cod_idml, codIdml, session?.user?.email]);
+    }, [profile?.id, profile?.cod_idml, codIdml, session?.user?.email, draftSeasonProposals]);
 
     // Atualizar ref de propostas sempre que mudarem para o cronômetro usar sem reiniciar o efeito
     useEffect(() => {
@@ -2268,13 +2298,16 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
 
     console.log('✅ Renderizando Dashboard completo');
 
+    const faixaPreTemporada = isPreSeasonMode(seasonCtx) && !contratoFechado?.id;
+
     // Verificar se é ex-piloto
     const isExPiloto = profile?.tipo_piloto === 'ex-piloto' || profile?.status === 'inativo';
     const isReadOnly = isReadOnlyProp !== null ? isReadOnlyProp : isExPiloto; // Modo narrador ou ex-pilotos têm acesso somente leitura
 
     // RENDERIZAÇÃO DO PAINEL
     // Se houver contrato fechado, o dashboard deve refletir a equipe do contrato (cores + marca d'água).
-    const effectiveTeamName = (contratoFechado?.equipes?.name || dashData.currentTeam);
+    const standingsTeamMotorhome = isPreSeasonMode(seasonCtx) ? 'Sem Equipe' : dashData.currentTeam;
+    const effectiveTeamName = (contratoFechado?.equipes?.name || standingsTeamMotorhome);
     const teamColor = getTeamColor(effectiveTeamName);
     const teamGradient = getTeamGradient(effectiveTeamName);
     const teamLogo = getTeamLogo(effectiveTeamName);
@@ -2694,6 +2727,22 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                 backgroundAttachment: deviceInfo.isMobile ? 'scroll' : 'fixed'
             }}>
                 <div className="dashboard-hero-content">
+                    {faixaPreTemporada && (
+                        <div style={{
+                            width: '100%',
+                            marginBottom: 14,
+                            padding: '10px 14px',
+                            background: 'rgba(234, 179, 8, 0.18)',
+                            border: '1px solid rgba(234, 179, 8, 0.45)',
+                            borderRadius: 8,
+                            color: '#fef9c3',
+                            fontSize: deviceInfo.isMobile ? 12 : 13,
+                            lineHeight: 1.45
+                        }}>
+                            <strong>Pré-temporada:</strong> o motorhome não exibe a equipe da planilha da temporada anterior até você fechar um novo contrato.
+                            Propostas ativas: <strong>T{draftSeasonProposals}</strong>. Power Ranking consolidado: <strong>T{prSeasonMotorhome}</strong>.
+                        </div>
+                    )}
                     <div>
                         <h1 style={{
                             fontSize: deviceInfo.isMobile ? '1.8rem' : '2.5rem', 
@@ -4288,7 +4337,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                                         team_id: equipe.id,
                                                                         team_name: equipe.name,
                                                                         grid: proposta.grid || dashData?.currentGrid || 'carreira',
-                                                                        season: 20
+                                                                        season: draftSeasonProposals
                                                                     });
 
                                                                     try {
@@ -4299,7 +4348,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                                                 pilot_cod_idml: pilotCodIdmlNormalizado,
                                                                                 team_id: equipe.id,
                                                                                 grid: (proposta.grid || dashData?.currentGrid || 'carreira').toLowerCase(),
-                                                                                season: 20,
+                                                                                season: draftSeasonProposals,
                                                                                 signed_at: new Date().toISOString()
                                                                             })
                                                                             .select(`
@@ -4323,7 +4372,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                                             .select('id, team_id')
                                                                             .eq('pilot_cod_idml', pilotCodIdmlNormalizado)
                                                                             .eq('status', 'OFFER_SENT')
-                                                                            .eq('season', 20);
+                                                                            .eq('season', draftSeasonProposals);
 
                                                                         console.log('📊 [PROPOSTAS] Propostas encontradas:', {
                                                                             total: todasPropostasPiloto?.length || 0,
@@ -4410,7 +4459,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                                                 .from('contracts')
                                                                                 .select(`*, equipes (*)`)
                                                                                 .eq('pilot_cod_idml', codIdmlNormalizado)
-                                                                                .eq('season', 20)
+                                                                                .eq('season', draftSeasonProposals)
                                                                                 .maybeSingle();
 
                                                                             setPropostas(propostasData || []);
@@ -4429,7 +4478,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                                                                                         .from('contracts')
                                                                                         .select(`*, equipes (*)`)
                                                                                         .eq('pilot_cod_idml', codIdmlNormalizado)
-                                                                                        .eq('season', 20)
+                                                                                        .eq('season', draftSeasonProposals)
                                                                                         .maybeSingle();
                                                                                     
                                                                                     if (contratoRetry) {

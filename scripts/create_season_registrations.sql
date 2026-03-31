@@ -197,3 +197,6 @@ BEGIN
             WITH CHECK (bucket_id = 'inscricoes-fotos');
     END IF;
 END $$;
+
+-- Temporada exibida nas inscrições: alinhar com app_config (current_season / ciclo) via
+-- scripts/create_season_lifecycle.sql quando for atualizar a temporada global.

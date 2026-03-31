@@ -5,6 +5,7 @@ import { usePowerRankingCache, usePowerRankingLightCache } from '../hooks/useSup
 import { useLeagueData } from '../hooks/useLeagueData';
 import '../index.css';
 import { gerarObjetivosPorEquipe } from '../utils/powerRankingObjectives';
+import { fetchSeasonLifecycleConfig, canEditPowerRanking, phaseLabelPt } from '../utils/seasonLifecycle';
 
 // Cores dos pilares
 const COLORS = {
@@ -43,10 +44,15 @@ export default function AdminPowerRanking() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedGrid, setSelectedGrid] = useState('all'); // 'all', 'carreira', 'light'
     const [selectedSeason, setSelectedSeason] = useState(20); // Mantido para carregar dados
+    const [seasonCtx, setSeasonCtx] = useState(null);
     const [saving, setSaving] = useState({}); // { piloto_id_round: true/false }
     const [isPublishing, setIsPublishing] = useState(false);
 
     const handleRecalcularTudo = () => {
+        if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) {
+            alert('🔒 Temporada somente leitura (fase encerrada/pré-temporada ou outra temporada).');
+            return;
+        }
         setObjetivosData({});
         setObjetivosTextos({});
         setPilaresData({});
@@ -54,6 +60,22 @@ export default function AdminPowerRanking() {
         pilaresDataRef.current = {};
         setRecalculoVersion((prev) => prev + 1);
     };
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const c = await fetchSeasonLifecycleConfig();
+                if (!cancelled) {
+                    setSeasonCtx(c);
+                    if (c?.currentSeason) setSelectedSeason(c.currentSeason);
+                }
+            } catch (e) {
+                console.warn('season lifecycle config:', e);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
     
     const { data: rawPRCarreira, loading: loadingPRCarreira } = usePowerRankingCache(selectedSeason);
     const { data: rawPRLight, loading: loadingPRLight } = usePowerRankingLightCache(selectedSeason);
@@ -1707,7 +1729,8 @@ export default function AdminPowerRanking() {
     // Calcular RACECRAFT baseado na média ponderada das colunas CORRIDA, POS. Q, QUALY e POS. R
     useEffect(() => {
         if (!telemetriaData || Object.keys(telemetriaData).length === 0) return;
-        
+        if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) return;
+
         setPilaresData(prevPilares => {
             const updatedPilares = { ...prevPilares };
             
@@ -1735,7 +1758,7 @@ export default function AdminPowerRanking() {
             
             return updatedPilares;
         });
-    }, [telemetriaData]);
+    }, [telemetriaData, seasonCtx, selectedSeason]);
 
     useEffect(() => {
         const handleUpdate = () => setObjetivosClassificacaoVersion((prev) => prev + 1);
@@ -2535,6 +2558,10 @@ export default function AdminPowerRanking() {
 
     // Função para atualizar flag manual
     const handleUpdateFlag = async (pilotoId, roundLabel, flagName, value) => {
+        if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) {
+            alert('🔒 Edição bloqueada para esta temporada/fase.');
+            return;
+        }
         const key = `${pilotoId}_${roundLabel}`;
         setSaving(prev => ({ ...prev, [key]: true }));
 
@@ -2599,7 +2626,8 @@ export default function AdminPowerRanking() {
     // Sempre calcula power_ranking a partir dos pilares ao persistir (causa raiz: evita gravar 0 quando um efeito atualizou pilares sem setar power_ranking)
     const publicarSilencioso = useCallback(async (dadosPilares) => {
         if (!pilotos.length || Object.keys(dadosPilares).length === 0) return;
-        
+        if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) return;
+
         try {
             const statsToUpsert = pilotos.map(p => {
                 const stats = dadosPilares[p.nome];
@@ -2629,7 +2657,7 @@ export default function AdminPowerRanking() {
         } catch (err) {
             console.warn('Erro na sincronização automática:', err);
         }
-    }, [pilotos, selectedSeason, calcularFaltasPorResultados]);
+    }, [pilotos, selectedSeason, calcularFaltasPorResultados, seasonCtx]);
 
     // Auto-save: sempre que pilaresData mudar, sincronizar com o banco após 2 segundos de inatividade
     useEffect(() => {
@@ -2645,6 +2673,10 @@ export default function AdminPowerRanking() {
     // Função para publicar resultados no Motorhome
     // Sempre calcula power_ranking a partir dos pilares ao persistir (mesma causa raiz que publicarSilencioso)
     const handlePublicarMotorhome = async () => {
+        if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) {
+            alert('🔒 Publicação bloqueada: temporada congelada ou somente leitura.');
+            return;
+        }
         if (!window.confirm('Deseja publicar as pontuações atuais para visualização no Motorhome dos pilotos?')) return;
         
         setIsPublishing(true);
@@ -2712,6 +2744,10 @@ export default function AdminPowerRanking() {
     const handleBatchUpdateFlags = async (updates) => {
         // updates: [{ pilotoId, round, flagName, value }, ...]
         if (!updates || updates.length === 0) return;
+        if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) {
+            alert('🔒 Edição bloqueada para esta temporada/fase.');
+            return;
+        }
 
         try {
             // Atualizar estado local primeiro para feedback imediato
@@ -2782,6 +2818,7 @@ export default function AdminPowerRanking() {
 
     // Desmarcar todos os checkboxes de uma linha (piloto)
     const handleUncheckRow = async (pilotoId) => {
+        if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) return;
         if (!window.confirm('Deseja desmarcar todos os checkboxes desta linha?')) return;
         
         const flags = getEditableFlags();
@@ -2814,6 +2851,7 @@ export default function AdminPowerRanking() {
 
     // Desmarcar todos os checkboxes de uma coluna (flag)
     const handleUncheckColumn = async (colKey) => {
+        if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) return;
         console.log('handleUncheckColumn chamado com:', colKey);
         
         const flagMap = {
@@ -2891,6 +2929,7 @@ export default function AdminPowerRanking() {
 
     // Desmarcar todos os checkboxes de todos os pilotos
     const handleUncheckAll = async () => {
+        if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) return;
         if (!window.confirm('Deseja desmarcar TODOS os checkboxes de TODOS os pilotos? Esta ação não pode ser desfeita facilmente.')) return;
         
         const flags = getEditableFlags();
@@ -2954,6 +2993,9 @@ export default function AdminPowerRanking() {
         );
     }
 
+    const editsLocked = seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason);
+    const seasonOptions = Array.from({ length: 16 }, (_, i) => 31 - i);
+
     // Definir colunas da tabela
     const columns = [
         { key: 'piloto', label: 'PILOTO', color: COLORS.PILOTO, width: 200, sticky: true, stickyLeft: 50 },
@@ -2994,6 +3036,49 @@ export default function AdminPowerRanking() {
                 <h2 style={{ color: '#F8FAFC', marginBottom: '20px' }}>
                     📊 Power Ranking - Painel Administrativo
                 </h2>
+                {editsLocked && (
+                    <div style={{
+                        background: 'rgba(251, 191, 36, 0.12)',
+                        border: '1px solid rgba(251, 191, 36, 0.5)',
+                        color: '#fef3c7',
+                        padding: '12px 16px',
+                        borderRadius: 8,
+                        marginBottom: 16,
+                        fontSize: 14
+                    }}>
+                        🔒 <strong>Somente leitura</strong> — temporada congelada, fase pré-temporada ou temporada diferente da
+                        atual do site (T{seasonCtx?.currentSeason ?? '—'}). Ajuste a temporada no seletor ou altere a fase em <strong>ADM → Temporada</strong>.
+                    </div>
+                )}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', marginBottom: 16 }}>
+                    <label style={{ color: '#94A3B8', fontSize: 14 }}>
+                        Temporada (planilha / PR):{' '}
+                        <select
+                            value={selectedSeason}
+                            onChange={(e) => setSelectedSeason(Number(e.target.value))}
+                            style={{
+                                marginLeft: 8,
+                                padding: '8px 12px',
+                                background: '#1E293B',
+                                border: '1px solid #475569',
+                                borderRadius: 6,
+                                color: '#F8FAFC',
+                                fontSize: 14
+                            }}
+                        >
+                            {seasonOptions.map((s) => (
+                                <option key={s} value={s}>T{s}</option>
+                            ))}
+                        </select>
+                    </label>
+                    {seasonCtx && (
+                        <span style={{ color: '#94A3B8', fontSize: 13 }}>
+                            Ciclo: <strong style={{ color: '#e2e8f0' }}>{phaseLabelPt(seasonCtx.phase)}</strong>
+                            {' · '}Site T{seasonCtx.currentSeason}
+                            {' · '}Última encerrada T{seasonCtx.lastClosedSeason}
+                        </span>
+                    )}
+                </div>
                 <a
                     href="/admin/powerranking-objetivos"
                     style={{
@@ -3016,6 +3101,7 @@ export default function AdminPowerRanking() {
                 <button
                     type="button"
                     onClick={handleRecalcularTudo}
+                    disabled={editsLocked}
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -3028,7 +3114,8 @@ export default function AdminPowerRanking() {
                         fontWeight: 700,
                         fontSize: '0.85rem',
                         marginLeft: '10px',
-                        cursor: 'pointer'
+                        cursor: editsLocked ? 'not-allowed' : 'pointer',
+                        opacity: editsLocked ? 0.5 : 1
                     }}
                 >
                     🔄 Recalcular tudo
@@ -3089,7 +3176,7 @@ export default function AdminPowerRanking() {
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <button
                             onClick={handleUncheckAll}
-                            disabled={loading}
+                            disabled={loading || editsLocked}
                             style={{
                                 padding: '10px 20px',
                                 background: '#EF4444',
@@ -3098,8 +3185,8 @@ export default function AdminPowerRanking() {
                                 color: '#FFFFFF',
                                 fontWeight: '700',
                                 fontSize: '13px',
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                                opacity: loading ? 0.7 : 1,
+                                cursor: loading || editsLocked ? 'not-allowed' : 'pointer',
+                                opacity: loading || editsLocked ? 0.7 : 1,
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
@@ -3111,7 +3198,7 @@ export default function AdminPowerRanking() {
                         </button>
                         <button
                             onClick={handlePublicarMotorhome}
-                            disabled={isPublishing || loading}
+                            disabled={isPublishing || loading || editsLocked}
                             style={{
                                 padding: '10px 20px',
                                 background: 'linear-gradient(135deg, #FFD700 0%, #FDB931 100%)',
@@ -3120,8 +3207,8 @@ export default function AdminPowerRanking() {
                                 color: '#0F172A',
                                 fontWeight: '800',
                                 fontSize: '14px',
-                                cursor: (isPublishing || loading) ? 'not-allowed' : 'pointer',
-                                opacity: (isPublishing || loading) ? 0.7 : 1,
+                                cursor: (isPublishing || loading || editsLocked) ? 'not-allowed' : 'pointer',
+                                opacity: (isPublishing || loading || editsLocked) ? 0.7 : 1,
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
@@ -3211,7 +3298,7 @@ export default function AdminPowerRanking() {
                                                 {showUncheckButton && (
                                                     <button
                                                         onClick={() => handleUncheckColumn(col.key)}
-                                                        disabled={loading}
+                                                        disabled={loading || editsLocked}
                                                         style={{
                                                             padding: '3px 6px',
                                                             background: '#EF4444',
@@ -3220,8 +3307,8 @@ export default function AdminPowerRanking() {
                                                             color: '#FFFFFF',
                                                             fontWeight: '600',
                                                             fontSize: '9px',
-                                                            cursor: loading ? 'not-allowed' : 'pointer',
-                                                            opacity: loading ? 0.5 : 1,
+                                                            cursor: loading || editsLocked ? 'not-allowed' : 'pointer',
+                                                            opacity: loading || editsLocked ? 0.5 : 1,
                                                             whiteSpace: 'nowrap',
                                                             flexShrink: 0
                                                         }}
@@ -3425,7 +3512,7 @@ export default function AdminPowerRanking() {
                                             }}>
                                                 <button
                                                     onClick={() => handleUncheckRow(piloto.id)}
-                                                    disabled={loading}
+                                                    disabled={loading || editsLocked}
                                                     style={{
                                                         padding: '8px',
                                                         background: '#475569',
@@ -3434,8 +3521,8 @@ export default function AdminPowerRanking() {
                                                         color: '#FFFFFF',
                                                         fontWeight: '600',
                                                         fontSize: '16px',
-                                                        cursor: loading ? 'not-allowed' : 'pointer',
-                                                        opacity: loading ? 0.5 : 1,
+                                                        cursor: loading || editsLocked ? 'not-allowed' : 'pointer',
+                                                        opacity: loading || editsLocked ? 0.5 : 1,
                                                         width: '32px',
                                                         height: '32px',
                                                         display: 'flex',
@@ -3485,7 +3572,7 @@ export default function AdminPowerRanking() {
                                                                 return (
                                                                     <div
                                                                         onClick={() => {
-                                                                            if (isSavingRound) return;
+                                                                            if (isSavingRound || editsLocked) return;
                                                                             handleUpdateFlag(piloto.id, 'R01', flagNameAtual, !isInfraction);
                                                                         }}
                                                                         style={{
@@ -3498,8 +3585,8 @@ export default function AdminPowerRanking() {
                                                                             alignItems: 'center',
                                                                             justifyContent: 'center',
                                                                             margin: '0 auto',
-                                                                            cursor: isSavingRound ? 'not-allowed' : 'pointer',
-                                                                            opacity: isSavingRound ? 0.5 : 1,
+                                                                            cursor: isSavingRound || editsLocked ? 'not-allowed' : 'pointer',
+                                                                            opacity: isSavingRound || editsLocked ? 0.5 : 1,
                                                                             transition: 'all 0.2s ease',
                                                                             color: 'white',
                                                                             fontSize: '12px',
@@ -3532,7 +3619,7 @@ export default function AdminPowerRanking() {
                                                                             <span style={{ fontSize: '9px', color: '#94A3B8', fontWeight: 'bold' }}>{idx + 1}</span>
                                                                             <div
                                                                                 onClick={() => {
-                                                                                    if (isSavingRound) return;
+                                                                                    if (isSavingRound || editsLocked) return;
                                                                                     handleUpdateFlag(piloto.id, round, flagNameAtual, !isInfraction);
                                                                                 }}
                                                                                 title={`${round} - Etapa ${idx + 1}`}
@@ -3545,8 +3632,8 @@ export default function AdminPowerRanking() {
                                                                                     display: 'flex',
                                                                                     alignItems: 'center',
                                                                                     justifyContent: 'center',
-                                                                                    cursor: isSavingRound ? 'not-allowed' : 'pointer',
-                                                                                    opacity: isSavingRound ? 0.5 : 1,
+                                                                                    cursor: isSavingRound || editsLocked ? 'not-allowed' : 'pointer',
+                                                                                    opacity: isSavingRound || editsLocked ? 0.5 : 1,
                                                                                     transition: 'all 0.2s ease',
                                                                                     color: 'white',
                                                                                     fontSize: '11px',

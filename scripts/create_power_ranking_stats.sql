@@ -45,3 +45,6 @@ CREATE POLICY pr_stats_read ON power_ranking_stats
 
 -- Comentários
 COMMENT ON TABLE power_ranking_stats IS 'Resultados consolidados do Power Ranking para exibição no Motorhome';
+
+-- Sincronize a temporada exibida / congelamento com scripts/create_season_lifecycle.sql
+-- (app_config: current_season, season_phase, last_closed_season).
