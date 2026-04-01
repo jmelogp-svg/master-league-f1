@@ -71,31 +71,50 @@ const flagColors = {
     'AUSTIN': ['#B22234', '#FFFFFF', '#3C3B6E']
 };
 
-/** forceSML: usa direto `/pilotos/SML/{nome}.png` (draft / pré-temporada / T21+ sem fotos de grid na pasta s{N}). */
+/**
+ * forceSML: prioriza `/pilotos/SML/{nome}.png` (draft / pré-temporada / T21+).
+ * Usa estado + src controlado: re-renders do React não podem “desfazer” o fallback feito no onError (mutação no DOM).
+ */
 const DriverImage = ({ name, gridType, season, className, style, forceSML = false }) => {
     const baseName = name ? repairUtf8Mojibake(String(name)) : '';
     const cleanName = baseName
         ? baseName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '').toLowerCase()
         : 'pilotoshadow';
     const seasonNum = Number.isFinite(Number(season)) ? Number(season) : 20;
-    const seasonSrc = `/pilotos/${gridType}/s${seasonNum}/${cleanName}.png`;
-    const smlSrc = `/pilotos/SML/${cleanName}.png`;
-    const fallbackS19Src = `/pilotos/${gridType}/s19/${cleanName}.png`;
-    const shadowSrc = '/pilotos/pilotoshadow.png';
-    
-    const handleError = (e) => {
-        if (e.target.src.includes(`/s${seasonNum}/`)) {
-            e.target.src = smlSrc;
-        } else if (e.target.src.includes('/SML/')) {
-            // Se não existir no SML, tenta a pasta s19 do próprio grid (muitos pilotos ainda têm foto lá)
-            if (!e.target.src.includes(`/s19/`)) e.target.src = fallbackS19Src;
-            else e.target.src = shadowSrc;
-        } else if (e.target.src.includes(`/s19/`)) {
-            e.target.src = shadowSrc;
-        }
+
+    const fallbackChain = useMemo(() => {
+        const seasonSrc = `/pilotos/${gridType}/s${seasonNum}/${cleanName}.png`;
+        const smlSrc = `/pilotos/SML/${cleanName}.png`;
+        const fallbackS19Src = `/pilotos/${gridType}/s19/${cleanName}.png`;
+        const shadowSrc = '/pilotos/pilotoshadow.png';
+        if (forceSML) return [smlSrc, fallbackS19Src, shadowSrc];
+        return [seasonSrc, smlSrc, fallbackS19Src, shadowSrc];
+    }, [forceSML, gridType, seasonNum, cleanName]);
+
+    const [step, setStep] = useState(0);
+
+    useEffect(() => {
+        setStep(0);
+    }, [cleanName, gridType, seasonNum, forceSML]);
+
+    const maxIdx = Math.max(0, fallbackChain.length - 1);
+    const safeStep = Math.min(step, maxIdx);
+    const src = fallbackChain[safeStep] || '/pilotos/pilotoshadow.png';
+
+    const onError = () => {
+        setStep((s) => (s < maxIdx ? s + 1 : s));
     };
-    
-    return <img src={forceSML ? smlSrc : seasonSrc} className={className} style={style} onError={handleError} alt="" />;
+
+    return (
+        <img
+            key={`${cleanName}-${gridType}-${seasonNum}-${forceSML}`}
+            src={src}
+            className={className}
+            style={style}
+            onError={onError}
+            alt=""
+        />
+    );
 };
 
 // Função para obter logo da equipe
