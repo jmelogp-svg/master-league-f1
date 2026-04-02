@@ -354,22 +354,10 @@ export default function AdminDraftImport() {
 
             const statusMap = {};
             
-            // Processar propostas
+            // Processar propostas (contagem por equipe só depois dos contratos + pilotos distintos)
             if (propostasData) {
-                const teamCounts = {};
                 propostasData.forEach(proposta => {
                     const codIdmlNormalizado = normalizeCodIdml(proposta.pilot_cod_idml);
-                    
-                    // SÓ CONTAR PROPOSTA SE O PILOTO NÃO TIVER CONTRATO FECHADO
-                    // Buscamos se esse cod_idml já está no statusMap como hasContract (processado na etapa de contratos)
-                    // Como processamos contratos DEPOIS no código atual, vou inverter a ordem ou fazer uma pré-verificação.
-                    
-                    const teamIdForCount = proposta.team_id || proposta.equipes?.id;
-                    if (teamIdForCount) {
-                        const tid = String(teamIdForCount);
-                        // Por enquanto guardamos todos, vamos filtrar na renderização ou após processar contratos
-                        teamCounts[tid] = (teamCounts[tid] || 0) + 1;
-                    }
                     if (codIdmlNormalizado) {
                         if (!statusMap[codIdmlNormalizado]) {
                             statusMap[codIdmlNormalizado] = { hasProposal: false, hasContract: false, team: null, teamsWithProposals: [] };
@@ -383,11 +371,6 @@ export default function AdminDraftImport() {
                         }
                     }
                 });
-
-                setOfferSentCountByTeamByGrid(prev => ({
-                    ...prev,
-                    [negotiationsGrid]: teamCounts
-                }));
             }
 
             // Processar contratos
@@ -407,21 +390,22 @@ export default function AdminDraftImport() {
                 });
             }
 
-            // RECALCULAR CONTAGEM DE PROPOSTAS ENVIADAS (DESCONSIDERAR QUEM JÁ TEM CONTRATO)
+            // Vagas: 2 pilotos distintos por equipe/grid (contrato OU OFFER_SENT). Ignora duplicatas no banco e quem já fechou contrato.
             if (propostasData) {
-                const teamCounts = {};
+                const teamPilotSets = {};
                 propostasData.forEach(proposta => {
                     const codIdmlNormalizado = normalizeCodIdml(proposta.pilot_cod_idml);
-                    // Se o piloto já tem contrato, a proposta enviada dele NÃO ocupa mais vaga na equipe
-                    if (codIdmlNormalizado && statusMap[codIdmlNormalizado]?.hasContract) {
-                        return;
-                    }
+                    if (!codIdmlNormalizado || statusMap[codIdmlNormalizado]?.hasContract) return;
 
                     const teamIdForCount = proposta.team_id || proposta.equipes?.id;
-                    if (teamIdForCount) {
-                        const tid = String(teamIdForCount);
-                        teamCounts[tid] = (teamCounts[tid] || 0) + 1;
-                    }
+                    if (!teamIdForCount) return;
+                    const tid = String(teamIdForCount);
+                    if (!teamPilotSets[tid]) teamPilotSets[tid] = new Set();
+                    teamPilotSets[tid].add(codIdmlNormalizado);
+                });
+                const teamCounts = {};
+                Object.entries(teamPilotSets).forEach(([tid, set]) => {
+                    teamCounts[tid] = set.size;
                 });
                 setOfferSentCountByTeamByGrid(prev => ({
                     ...prev,
@@ -484,7 +468,8 @@ export default function AdminDraftImport() {
                         const piloto = pilotos[grid].find(p => String(p.id) === String(pilotId));
                         if (piloto) {
                             const cod = normalizeCodIdml(piloto.cod_idml);
-                            if (cod && pilotoPropostasStatus[cod]?.hasContract) {
+                            const st = cod ? pilotoPropostasStatus[cod] : null;
+                            if (cod && (st?.hasContract || st?.hasProposal)) {
                                 delete gridProposals[pilotId];
                                 changed = true;
                             }
@@ -753,16 +738,28 @@ export default function AdminDraftImport() {
                     (getContractGrid(c) === currentGrid)
                 ).length;
 
-                const { count: dbOfferSentCount, error: countError } = await supabase
+                const { data: offerRows, error: offerErr } = await supabase
                     .from('interests')
-                    .select('id', { count: 'exact', head: true })
+                    .select('pilot_cod_idml')
                     .eq('status', 'OFFER_SENT')
                     .eq('season', draftSeason)
                     .eq('grid', negotiationsGrid)
                     .eq('team_id', teamId);
-                if (countError) throw countError;
-                const sentProposalsCount = dbOfferSentCount || 0;
-                
+                if (offerErr) throw offerErr;
+
+                const contractedCods = new Set(
+                    contracts
+                        .filter(c => String(c.team_id) === tid && getContractGrid(c) === currentGrid)
+                        .map(c => normalizeCodIdml(c.pilot_cod_idml))
+                        .filter(Boolean)
+                );
+                const offerPilotSet = new Set();
+                (offerRows || []).forEach((r) => {
+                    const c = normalizeCodIdml(r.pilot_cod_idml);
+                    if (c && !contractedCods.has(c)) offerPilotSet.add(c);
+                });
+                const sentProposalsCount = offerPilotSet.size;
+
                 if (closedContractsCount + sentProposalsCount >= 2) {
                     alert(`❌ A equipe ${team?.name || teamId} já atingiu o limite de 2 vagas (contratos ou propostas enviadas).`);
                     return;
@@ -1591,7 +1588,16 @@ export default function AdminDraftImport() {
                                                                 const closedContractsCount = contracts.filter(c => String(c.team_id) === tid && (getContractGrid(c) === currentGrid)).length;
                                                                 const sentProposalsCount = (offerSentCountByTeamByGrid?.[negotiationsGrid]?.[tid] || 0);
                                                                 const officialOccupied = closedContractsCount + sentProposalsCount;
-                                                                const otherPendingCount = Object.entries(gridProposals).filter(([pid, pTeams]) => String(pid) !== String(piloto.id) && (pTeams || []).map(String).includes(tid)).length;
+                                                                // Só conta seleção local de quem ainda não tem proposta/contrato no DB (evita somar 1+1 com estado sujo após ENVIAR)
+                                                                const otherPendingCount = Object.entries(gridProposals).filter(([pid, pTeams]) => {
+                                                                    if (String(pid) === String(piloto.id)) return false;
+                                                                    if (!(pTeams || []).map(String).includes(tid)) return false;
+                                                                    const outro = pilotos[negotiationsGrid]?.find(p => String(p.id) === String(pid));
+                                                                    const oc = outro?.cod_idml ? normalizeCodIdml(outro.cod_idml) : null;
+                                                                    if (oc && pilotoPropostasStatus[oc]?.hasContract) return false;
+                                                                    if (oc && pilotoPropostasStatus[oc]?.hasProposal) return false;
+                                                                    return true;
+                                                                }).length;
                                                                 const isSent = pilotoStatus?.teamsWithProposals?.map(String).includes(tid);
                                                                 const isFull = officialOccupied >= 2;
                                                                 const isBlockedByLimit = !isSelected && (officialOccupied + otherPendingCount >= 2);
