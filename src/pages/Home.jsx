@@ -72,11 +72,11 @@ const flagColors = {
 };
 
 /**
- * Cadeia: pasta da temporada (ex. s21) → SML → s19 do grid → sombra.
- * Estado no src evita re-render sobrescrever fallback (React + img).
- * Não omitir s{N}: fotos T21 passam a viver em carreira/light/s21.
+ * Cadeia normal: s{N} → SML → s19 do grid → sombra.
+ * `hubCarouselSmlOnly`: pré-temporada no hub — só `/pilotos/SML/` e depois sombra (não usa pasta s{N} nem s19).
+ * Estado no src evita re-render sobrescrever o fallback.
  */
-const DriverImage = ({ name, gridType, season, className, style }) => {
+const DriverImage = ({ name, gridType, season, className, style, hubCarouselSmlOnly = false }) => {
     const baseName = name ? repairUtf8Mojibake(String(name)) : '';
     const cleanName = baseName
         ? baseName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '').toLowerCase()
@@ -88,14 +88,15 @@ const DriverImage = ({ name, gridType, season, className, style }) => {
         const smlSrc = `/pilotos/SML/${cleanName}.png`;
         const fallbackS19Src = `/pilotos/${gridType}/s19/${cleanName}.png`;
         const shadowSrc = '/pilotos/pilotoshadow.png';
+        if (hubCarouselSmlOnly) return [smlSrc, shadowSrc];
         return [seasonSrc, smlSrc, fallbackS19Src, shadowSrc];
-    }, [gridType, seasonNum, cleanName]);
+    }, [hubCarouselSmlOnly, gridType, seasonNum, cleanName]);
 
     const [step, setStep] = useState(0);
 
     useEffect(() => {
         setStep(0);
-    }, [cleanName, gridType, seasonNum]);
+    }, [cleanName, gridType, seasonNum, hubCarouselSmlOnly]);
 
     const maxIdx = Math.max(0, fallbackChain.length - 1);
     const safeStep = Math.min(step, maxIdx);
@@ -107,7 +108,7 @@ const DriverImage = ({ name, gridType, season, className, style }) => {
 
     return (
         <img
-            key={`${cleanName}-${gridType}-${seasonNum}`}
+            key={`${cleanName}-${gridType}-${seasonNum}-${hubCarouselSmlOnly ? 'sml' : 'std'}`}
             src={src}
             className={className}
             style={style}
@@ -276,6 +277,9 @@ function Home() {
         if (isPreSeasonMode(ctx)) return proposalsDraftSeason(ctx);
         return homeCarouselStandingsSeason(ctx);
     }, [seasonCtx]);
+
+    /** Carrossel + mini TOP 3 do hub: em pré-temporada usa somente fotos da pasta SML. */
+    const hubCarouselSmlOnly = useMemo(() => isPreSeasonMode(seasonCtx || defaultSeasonContext()), [seasonCtx]);
 
     const heroSeasonLabel = useMemo(() => {
         const s = Number(carouselPhotoSeason);
@@ -1999,7 +2003,7 @@ function Home() {
                                                 {d.points.toFixed(0)}
                                             </div>
                                         )}
-                                        <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="carreira" season={carouselPhotoSeason} className="dch-photo" /></div>
+                                        <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="carreira" season={carouselPhotoSeason} className="dch-photo" hubCarouselSmlOnly={hubCarouselSmlOnly} /></div>
                                         <div className="dch-info">
                                             <div className="dch-name">
                                                 <span className="dch-firstname">{firstName}</span>
@@ -2070,7 +2074,7 @@ function Home() {
                                                     {d.points.toFixed(0)}
                                                 </div>
                                             )}
-                                            <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="light" season={carouselPhotoSeason} className="dch-photo" /></div>
+                                            <div className="dch-photo-wrapper"><DriverImage name={d.name} gridType="light" season={carouselPhotoSeason} className="dch-photo" hubCarouselSmlOnly={hubCarouselSmlOnly} /></div>
                                             <div className="dch-info">
                                                 <div className="dch-name">
                                                     <span className="dch-firstname">{firstName}</span>
@@ -2105,7 +2109,7 @@ function Home() {
                                     {topDrivers.map((d, i) => (
                                         <div key={d.name} className={`ms-row rank-${i+1}`} onClick={() => handleDriverClick(d)} style={{cursor:'pointer'}}>
                                             <div className="ms-pos">{i+1}</div>
-                                            <div className="ms-driver"><DriverImage name={d.name} gridType="carreira" season={carouselPhotoSeason} className="ms-photo" /><div className="ms-info"><span className="ms-name">{d.name}</span><span className="ms-team">{d.team}</span></div></div>
+                                            <div className="ms-driver"><DriverImage name={d.name} gridType="carreira" season={carouselPhotoSeason} className="ms-photo" hubCarouselSmlOnly={hubCarouselSmlOnly} /><div className="ms-info"><span className="ms-name">{d.name}</span><span className="ms-team">{d.team}</span></div></div>
                                             <div className="ms-pts">{d.points.toFixed(0)}</div>
                                         </div>
                                     ))}
@@ -2117,7 +2121,7 @@ function Home() {
                                     {topDriversLight.map((d, i) => (
                                         <div key={d.name} className={`ms-row rank-${i+1}`} onClick={() => handleDriverClick({ ...d, gridType: 'light' })} style={{cursor:'pointer'}}>
                                             <div className="ms-pos">{i+1}</div>
-                                            <div className="ms-driver"><DriverImage name={d.name} gridType="light" season={carouselPhotoSeason} className="ms-photo" /><div className="ms-info"><span className="ms-name">{d.name}</span><span className="ms-team">{d.team}</span></div></div>
+                                            <div className="ms-driver"><DriverImage name={d.name} gridType="light" season={carouselPhotoSeason} className="ms-photo" hubCarouselSmlOnly={hubCarouselSmlOnly} /><div className="ms-info"><span className="ms-name">{d.name}</span><span className="ms-team">{d.team}</span></div></div>
                                             <div className="ms-pts">{d.points.toFixed(0)}</div>
                                         </div>
                                     ))}
