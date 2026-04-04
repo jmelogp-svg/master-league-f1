@@ -4,15 +4,12 @@ import { supabase } from '../supabaseClient';
 import { requestVerificationCode, verifyCode, cleanWhatsAppNumber } from '../utils/whatsappAuth';
 import Papa from 'papaparse';
 import '../index.css';
+import { fetchGoogleSheetCsvText } from '../utils/fetchGoogleSheetCsv';
 
 // Pilotos PR (gid=884534812) - Para buscar nomes de pilotos e histórico
 const PILOTOS_PR_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=884534812&single=true&output=csv';
 
-const fetchWithProxy = async (url) => {
-    const proxyUrl = "https://corsproxy.io/?";
-    const response = await fetch(proxyUrl + encodeURIComponent(url));
-    return response.text();
-};
+const fetchWithProxy = async (url) => fetchGoogleSheetCsvText(url, { timeoutMs: 15000 });
 
 function ExPilotoCadastro() {
     const navigate = useNavigate();
@@ -51,7 +48,13 @@ function ExPilotoCadastro() {
             try {
                 setLoadingNomes(true);
                 const csvText = await fetchWithProxy(PILOTOS_PR_CSV_URL);
-                
+                if (!csvText || !String(csvText).trim()) {
+                    console.warn('⚠️ Não foi possível carregar a planilha Pilotos PR.');
+                    setNomesPilotos([]);
+                    setLoadingNomes(false);
+                    return;
+                }
+
                 Papa.parse(csvText, {
                     header: false,
                     skipEmptyLines: true,

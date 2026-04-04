@@ -9,6 +9,7 @@ import {
     proposalsDraftSeason,
     homeCarouselStandingsSeason,
 } from '../utils/seasonLifecycle';
+import { fetchGoogleSheetCsvText } from '../utils/fetchGoogleSheetCsv';
 import Papa from 'papaparse';
 import Footer from '../components/Footer';
 
@@ -17,24 +18,11 @@ import Footer from '../components/Footer';
 const NEWS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=197415613&single=true&output=csv';
 
 const fetchWithProxy = async (url) => {
-    try {
-        const response = await fetch(url);
-        if (response.ok) return await response.text();
-        throw new Error(`Direct fetch status: ${response.status}`);
-    } catch (e) {
-        console.warn('⚠️ Falha no fetch direto, tentando via proxy:', e.message);
-        const proxyUrl = "https://corsproxy.io/?";
-        try {
-            const response = await fetch(proxyUrl + encodeURIComponent(url));
-            if (!response.ok) throw new Error(`Proxy error! status: ${response.status}`);
-            const text = await response.text();
-            if (!text || text.trim().length === 0) throw new Error('Resposta vazia do proxy');
-            return text;
-        } catch (proxyError) {
-            console.error('❌ Erro fatal ao buscar planilha:', proxyError);
-            throw proxyError;
-        }
+    const text = await fetchGoogleSheetCsvText(url, { timeoutMs: 15000 });
+    if (!text || !text.trim()) {
+        throw new Error('Não foi possível carregar o CSV (planilha / proxies).');
     }
+    return text;
 };
 
 // --- ÍCONES ---

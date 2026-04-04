@@ -22,6 +22,7 @@ import {
     isPreSeasonMode,
 } from '../utils/seasonLifecycle';
 import { gerarObjetivosPorEquipe } from '../utils/powerRankingObjectives';
+import { fetchGoogleSheetCsvText } from '../utils/fetchGoogleSheetCsv';
 
 // --- CONFIGURAÇÃO ---
 // CADASTRO MLF1 (gid=1844400629)
@@ -62,33 +63,10 @@ const getCountryAbbreviation = (gpName) => {
 };
 
 const fetchWithProxy = async (url) => {
-    const proxyUrl = "https://corsproxy.io/?";
-    try {
-        const response = await fetch(proxyUrl + encodeURIComponent(url));
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const text = await response.text();
-        if (!text || text.trim().length === 0) {
-            throw new Error('Resposta vazia do proxy');
-        }
-        // Verificar se não é HTML (erro de proxy)
-        if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
-            throw new Error('Proxy retornou HTML ao invés de CSV');
-        }
-        return text;
-    } catch (error) {
-        console.warn('⚠️ Planilha via proxy indisponível (ex.: 403). Usando apenas dados do Supabase.', error?.message || error);
-        // Tentar buscar direto (pode funcionar em alguns ambientes sem CORS)
-        try {
-            const directResponse = await fetch(url);
-            if (directResponse.ok) {
-                const text = await directResponse.text();
-                if (text?.trim() && !text.trim().startsWith("<!DOCTYPE") && !text.trim().startsWith("<html")) return text;
-            }
-        } catch (_) { /* ignorar */ }
-        return null; // Permite que o chamador use apenas dados do Supabase
-    }
+    const text = await fetchGoogleSheetCsvText(url, { timeoutMs: 15000 });
+    if (text && text.trim()) return text;
+    console.warn('⚠️ Planilha indisponível (CORS/proxy). Usando apenas dados do Supabase quando existirem.');
+    return null;
 };
 
 // --- HELPERS VISUAIS ---

@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Papa from 'papaparse';
 import { supabase } from '../supabaseClient';
-
-const PROXY_URL = "https://corsproxy.io/?";
+import { fetchGoogleSheetCsvText } from '../utils/fetchGoogleSheetCsv';
 
 const LINKS = {
     // Data Carreira (gid=321791996) - USADO PARA CLASSIFICAÇÃO DO GRID CARREIRA
@@ -30,38 +29,6 @@ const LINKS = {
 
 // Timeout para requisições (8 segundos)
 const FETCH_TIMEOUT = 8000;
-
-// Função de fetch com timeout para evitar travamentos
-const fetchWithTimeout = async (url, timeout = FETCH_TIMEOUT) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
-    try {
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        return response;
-    } catch (error) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-            console.warn(`⏱️ Timeout na requisição: ${url.substring(0, 50)}...`);
-        }
-        throw error;
-    }
-};
-
-// Função segura para fetch: em erro de rede/timeout ou resposta !ok (ex.: 403), retorna objeto que devolve texto vazio
-const safeFetch = async (url, timeout = FETCH_TIMEOUT) => {
-    try {
-        const response = await fetchWithTimeout(url, timeout);
-        if (!response.ok) {
-            console.warn(`⚠️ Resposta ${response.status} ao buscar planilha (ex.: proxy 403). Usando dados em cache/Supabase.`);
-            return { ok: false, text: async () => '' };
-        }
-        return response;
-    } catch {
-        return { ok: false, text: async () => '' };
-    }
-};
 
 // Cache global para evitar recarregar dados
 const cacheData = {
@@ -149,6 +116,10 @@ export const useLeagueData = () => {
                 }
                 // Função auxiliar para parsear CSV
                 const parseCSV = (text) => new Promise(resolve => {
+                    if (!text || !String(text).trim()) {
+                        resolve([]);
+                        return;
+                    }
                     Papa.parse(text, { header: false, skipEmptyLines: true, complete: (res) => resolve(res.data.slice(1)) });
                 });
 
@@ -198,10 +169,10 @@ export const useLeagueData = () => {
                     console.log('📡 Buscando dados faltantes do Google Sheets...');
                     const fallbackPromises = [];
                     
-                    if (needsCarreira) fallbackPromises.push(safeFetch(PROXY_URL + encodeURIComponent(LINKS.carreira)).then(r => r.text()).then(parseCSV).then(d => { rowsC = d; }));
-                    if (needsLight) fallbackPromises.push(safeFetch(PROXY_URL + encodeURIComponent(LINKS.light)).then(r => r.text()).then(parseCSV).then(d => { rowsL = d; }));
-                    if (needsTracks) fallbackPromises.push(safeFetch(PROXY_URL + encodeURIComponent(LINKS.tracks)).then(r => r.text()).then(parseCSV).then(d => { rowsT = d; }));
-                    if (needsPR) fallbackPromises.push(safeFetch(PROXY_URL + encodeURIComponent(LINKS.pr)).then(r => r.text()).then(parseCSV).then(d => { rowsPR = d; }));
+                    if (needsCarreira) fallbackPromises.push(fetchGoogleSheetCsvText(LINKS.carreira, { timeoutMs: FETCH_TIMEOUT }).then(parseCSV).then(d => { rowsC = d; }));
+                    if (needsLight) fallbackPromises.push(fetchGoogleSheetCsvText(LINKS.light, { timeoutMs: FETCH_TIMEOUT }).then(parseCSV).then(d => { rowsL = d; }));
+                    if (needsTracks) fallbackPromises.push(fetchGoogleSheetCsvText(LINKS.tracks, { timeoutMs: FETCH_TIMEOUT }).then(parseCSV).then(d => { rowsT = d; }));
+                    if (needsPR) fallbackPromises.push(fetchGoogleSheetCsvText(LINKS.pr, { timeoutMs: FETCH_TIMEOUT }).then(parseCSV).then(d => { rowsPR = d; }));
                     
                     await Promise.allSettled(fallbackPromises);
                 }
@@ -209,9 +180,9 @@ export const useLeagueData = () => {
                 // PASSO 3: Drafts e grids auxiliares — precisam estar preenchidos antes do setData;
                 // sem await, carrossel da Home (pré-temporada) recebia listas vazias e só o cache em visitas seguintes trazia nomes.
                 await Promise.allSettled([
-                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.gridsT20)).then(r => r.text()).then(parseCSV).then((d) => { rowsG20 = d; cacheData.rawGridsT20 = d; }),
-                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.draftCarreira)).then(r => r.text()).then(parseCSV).then((d) => { rowsDC = d; cacheData.draftCarreira = d; }),
-                    safeFetch(PROXY_URL + encodeURIComponent(LINKS.draftLight)).then(r => r.text()).then(parseCSV).then((d) => { rowsDL = d; cacheData.draftLight = d; }),
+                    fetchGoogleSheetCsvText(LINKS.gridsT20, { timeoutMs: FETCH_TIMEOUT }).then(parseCSV).then((d) => { rowsG20 = d; cacheData.rawGridsT20 = d; }),
+                    fetchGoogleSheetCsvText(LINKS.draftCarreira, { timeoutMs: FETCH_TIMEOUT }).then(parseCSV).then((d) => { rowsDC = d; cacheData.draftCarreira = d; }),
+                    fetchGoogleSheetCsvText(LINKS.draftLight, { timeoutMs: FETCH_TIMEOUT }).then(parseCSV).then((d) => { rowsDL = d; cacheData.draftLight = d; }),
                 ]).catch(() => {});
                 const trackMap = {};
                 

@@ -6,6 +6,7 @@ import { useLeagueData } from '../hooks/useLeagueData';
 import '../index.css';
 import { gerarObjetivosPorEquipe } from '../utils/powerRankingObjectives';
 import { fetchSeasonLifecycleConfig, canEditPowerRanking, phaseLabelPt } from '../utils/seasonLifecycle';
+import { fetchGoogleSheetCsvText } from '../utils/fetchGoogleSheetCsv';
 
 // Cores dos pilares
 const COLORS = {
@@ -31,7 +32,6 @@ function calcularPowerRankingParaPersistencia(stats, faltas = 0) {
     return Math.max(0, prBase - (faltas || 0));
 }
 
-const PROXY_URL = 'https://corsproxy.io/?';
 const DRAFT_URLS = {
     carreira: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=914372939&single=true&output=csv',
     light: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=905408135&single=true&output=csv',
@@ -1809,8 +1809,8 @@ export default function AdminPowerRanking() {
                     const url = DRAFT_URLS[gridKey];
                     if (!url) return {};
                     try {
-                        const response = await fetch(`${PROXY_URL}${url}`);
-                        const csvText = await response.text();
+                        const csvText = await fetchGoogleSheetCsvText(url, { timeoutMs: 15000 });
+                        if (!csvText || !csvText.trim()) return {};
                         return await new Promise((resolve) => {
                             Papa.parse(csvText, {
                                 header: false,

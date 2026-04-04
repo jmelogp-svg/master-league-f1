@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { fetchGoogleSheetCsvText } from '../utils/fetchGoogleSheetCsv';
 
 /**
  * Parser CSV robusto que lida com campos entre aspas
@@ -64,33 +65,23 @@ export function usePilotosData() {
                 const sheetId = '2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM';
                 const gid = '1844400629';
                 const baseUrl = `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?gid=${gid}&single=true&output=csv`;
-                const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
-
                 const carreiraBaseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1379467380&single=true&output=csv';
                 const lightBaseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1962038690&single=true&output=csv';
-                const carreiraUrl = `https://corsproxy.io/?${encodeURIComponent(carreiraBaseUrl)}`;
-                const lightUrl = `https://corsproxy.io/?${encodeURIComponent(lightBaseUrl)}`;
 
-                const [cadastroRes, carreiraRes, lightRes] = await Promise.all([
-                    fetch(url),
-                    fetch(carreiraUrl),
-                    fetch(lightUrl)
+                const [cadastroCsv, carreiraCsv, lightCsv] = await Promise.all([
+                    fetchGoogleSheetCsvText(baseUrl, { timeoutMs: 15000 }),
+                    fetchGoogleSheetCsvText(carreiraBaseUrl, { timeoutMs: 15000 }),
+                    fetchGoogleSheetCsvText(lightBaseUrl, { timeoutMs: 15000 }),
                 ]);
 
-                if (!cadastroRes.ok || !carreiraRes.ok || !lightRes.ok) {
+                if (!cadastroCsv?.trim() || !carreiraCsv?.trim() || !lightCsv?.trim()) {
                     const errors = [];
-                    if (!cadastroRes.ok) errors.push(`Cadastro: HTTP ${cadastroRes.status}`);
-                    if (!carreiraRes.ok) errors.push(`Carreira: HTTP ${carreiraRes.status}`);
-                    if (!lightRes.ok) errors.push(`Light: HTTP ${lightRes.status}`);
+                    if (!cadastroCsv?.trim()) errors.push('Cadastro: vazio');
+                    if (!carreiraCsv?.trim()) errors.push('Carreira: vazio');
+                    if (!lightCsv?.trim()) errors.push('Light: vazio');
                     console.error('❌ Erros ao carregar planilhas:', errors);
                     throw new Error(`Erro ao carregar planilhas: ${errors.join(', ')}`);
                 }
-
-                const [cadastroCsv, carreiraCsv, lightCsv] = await Promise.all([
-                    cadastroRes.text(),
-                    carreiraRes.text(),
-                    lightRes.text()
-                ]);
                 
                 // Verificar se alguma resposta é HTML (erro do proxy)
                 const csvs = [cadastroCsv, carreiraCsv, lightCsv];
@@ -366,20 +357,8 @@ export function useCalendarioT20() {
                 if (!rows || rows.length === 0) {
                     console.log('📅 Tentando carregar calendário do Google Sheets...');
                     const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv';
-                    const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
-
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-                    const response = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-
-                    if (!response.ok) throw new Error(`Erro HTTP ${response.status}`);
-
-                    const csv = await response.text();
-                    if (csv.trim().startsWith('<!DOCTYPE') || csv.trim().startsWith('<html')) {
-                        throw new Error('Proxy retornou HTML');
-                    }
+                    const csv = await fetchGoogleSheetCsvText(baseUrl, { timeoutMs: 15000 });
+                    if (!csv?.trim()) throw new Error('Calendário CSV vazio');
                     rows = csv.split('\n').map(line => parseCSVLine(line));
                     console.log('📅 Calendário carregado do Google Sheets:', rows.length, 'linhas');
                 }
