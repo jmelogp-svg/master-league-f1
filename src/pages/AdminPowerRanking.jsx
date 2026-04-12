@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Papa from 'papaparse';
 import { supabase } from '../supabaseClient';
 import { usePowerRankingCache, usePowerRankingLightCache } from '../hooks/useSupabaseCache';
@@ -7,6 +8,7 @@ import '../index.css';
 import { gerarObjetivosPorEquipe } from '../utils/powerRankingObjectives';
 import { fetchSeasonLifecycleConfig, canEditPowerRanking, phaseLabelPt } from '../utils/seasonLifecycle';
 import { fetchGoogleSheetCsvText } from '../utils/fetchGoogleSheetCsv';
+import { buildStatsUpsertForMotorhome, displayPilarInt } from '../utils/powerRankingMotorhome';
 
 // Cores dos pilares
 const COLORS = {
@@ -19,25 +21,15 @@ const COLORS = {
     HISTORICO: '#475569' // Cinza escuro
 };
 
-// Fórmula oficial do Power Ranking: sempre usar ao persistir no banco (evita gravar 0 quando pilares estão preenchidos)
-function calcularPowerRankingParaPersistencia(stats, faltas = 0) {
-    const perf = Number(stats?.performance) || 60;
-    const race = Number(stats?.racecraft) || 60;
-    const over = Number(stats?.overall) || 60;
-    const cond = Number(stats?.conduta) ?? 100;
-    const hist = Number(stats?.historico) || 60;
-    const prBase = Math.ceil(
-        (perf * 0.30) + (race * 0.25) + (over * 0.20) + (cond * 0.15) + (hist * 0.10)
-    );
-    return Math.max(0, prBase - (faltas || 0));
-}
-
 const DRAFT_URLS = {
     carreira: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=914372939&single=true&output=csv',
     light: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=905408135&single=true&output=csv',
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function AdminPowerRanking() {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [pilotos, setPilotos] = useState([]);
     const [condutaData, setCondutaData] = useState({}); // { piloto_id: { round: {...} } }
@@ -47,6 +39,39 @@ export default function AdminPowerRanking() {
     const [seasonCtx, setSeasonCtx] = useState(null);
     const [saving, setSaving] = useState({}); // { piloto_id_round: true/false }
     const [isPublishing, setIsPublishing] = useState(false);
+    const [hasSupabaseSession, setHasSupabaseSession] = useState(null);
+
+    const fetchActiveAuthUser = useCallback(async () => {
+        const { data: sessionRes, error: sessionErr } = await supabase.auth.getSession();
+        if (sessionErr) throw sessionErr;
+        if (sessionRes?.session?.user) return sessionRes.session.user;
+
+        const { data: userRes, error: userErr } = await supabase.auth.getUser();
+        if (userErr) {
+            const msg = userErr?.message || '';
+            if (/auth session missing/i.test(msg)) return null;
+            throw userErr;
+        }
+        return userRes?.user || null;
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        const refreshSessionState = async () => {
+            try {
+                const user = await fetchActiveAuthUser();
+                if (!cancelled) setHasSupabaseSession(Boolean(user));
+            } catch {
+                if (!cancelled) setHasSupabaseSession(false);
+            }
+        };
+        refreshSessionState();
+        window.addEventListener('focus', refreshSessionState);
+        return () => {
+            cancelled = true;
+            window.removeEventListener('focus', refreshSessionState);
+        };
+    }, [fetchActiveAuthUser]);
 
     const handleRecalcularTudo = () => {
         if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) {
@@ -742,8 +767,15 @@ export default function AdminPowerRanking() {
         // Mapeamento de nomes antigos para nomes atuais (para lidar com mudanças de nome)
         // Formato: { 'nome_antigo_normalizado': 'nome_atual' }
         const nomesAntigosParaAtuais = {
-            'egon drews': 'Egon Jackson',
-            'egondrews': 'Egon Jackson'
+            // Alias bidirecionais para preservar histórico entre temporadas.
+            'egon drews': 'Egon Drews',
+            'egondrews': 'Egon Drews',
+            'egon jackson': 'Egon Drews',
+            'egonjackson': 'Egon Drews',
+            'rafael martins': 'Rafa Martins',
+            'rafaelmartins': 'Rafa Martins',
+            'rafa martins': 'Rafa Martins',
+            'rafamartins': 'Rafa Martins',
         };
         
         // Função para normalizar nome (mesma usada em outros lugares)
@@ -1015,8 +1047,15 @@ export default function AdminPowerRanking() {
 
         // Mapeamento de nomes antigos para nomes atuais (mesmo usado no histórico)
         const nomesAntigosParaAtuaisPR = {
-            'egon drews': 'Egon Jackson',
-            'egondrews': 'Egon Jackson'
+            // Alias bidirecionais para preservar histórico entre temporadas.
+            'egon drews': 'Egon Drews',
+            'egondrews': 'Egon Drews',
+            'egon jackson': 'Egon Drews',
+            'egonjackson': 'Egon Drews',
+            'rafael martins': 'Rafa Martins',
+            'rafaelmartins': 'Rafa Martins',
+            'rafa martins': 'Rafa Martins',
+            'rafamartins': 'Rafa Martins',
         };
         
         // Função para converter nome antigo para nome atual
@@ -1349,8 +1388,14 @@ export default function AdminPowerRanking() {
         
         // Mapeamento de nomes antigos para nomes atuais
         const nomesAntigosParaAtuais = {
-            'egon drews': 'Egon Jackson',
-            'egondrews': 'Egon Jackson'
+            'egon drews': 'Egon Drews',
+            'egondrews': 'Egon Drews',
+            'egon jackson': 'Egon Drews',
+            'egonjackson': 'Egon Drews',
+            'rafael martins': 'Rafa Martins',
+            'rafaelmartins': 'Rafa Martins',
+            'rafa martins': 'Rafa Martins',
+            'rafamartins': 'Rafa Martins',
         };
         
         const converterNomeParaAtual = (nomeNaPlanilha) => {
@@ -1460,8 +1505,14 @@ export default function AdminPowerRanking() {
         
         // Mapeamento de nomes antigos para nomes atuais
         const nomesAntigosParaAtuais = {
-            'egon drews': 'Egon Jackson',
-            'egondrews': 'Egon Jackson'
+            'egon drews': 'Egon Drews',
+            'egondrews': 'Egon Drews',
+            'egon jackson': 'Egon Drews',
+            'egonjackson': 'Egon Drews',
+            'rafael martins': 'Rafa Martins',
+            'rafaelmartins': 'Rafa Martins',
+            'rafa martins': 'Rafa Martins',
+            'rafamartins': 'Rafa Martins',
         };
         
         const converterNomeParaAtual = (nomeNaPlanilha) => {
@@ -2388,7 +2439,16 @@ export default function AdminPowerRanking() {
                     if (nomeRaw && season === String(selectedSeason) && !isNaN(totalPR) && totalPR > 0) {
                         const nomeAtual = (row[0] || '').toString().trim(); 
                         // Tentar converter se for nome antigo conhecido
-                        const nomesAntigos = { 'egon drews': 'Egon Jackson', 'egondrews': 'Egon Jackson' };
+                        const nomesAntigos = {
+                            'egon drews': 'Egon Drews',
+                            'egondrews': 'Egon Drews',
+                            'egon jackson': 'Egon Drews',
+                            'egonjackson': 'Egon Drews',
+                            'rafael martins': 'Rafa Martins',
+                            'rafaelmartins': 'Rafa Martins',
+                            'rafa martins': 'Rafa Martins',
+                            'rafamartins': 'Rafa Martins',
+                        };
                         const nNorm = nomeAtual.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
                         const nomeFinal = nomesAntigos[nNorm] || nomeAtual;
                         prTotaisS20[nomeFinal] = Math.max(prTotaisS20[nomeFinal] || 0, totalPR);
@@ -2481,7 +2541,8 @@ export default function AdminPowerRanking() {
 
                 // --- PILAR 4: OVERALL (Soma metas) ---
                 const obj = objetivosData[nome] || {};
-                let over = (obj.objetivo1 || 0) + (obj.objetivo2 || 0) + (obj.objetivo3 || 0) + (obj.objetivo4 || 0) + (obj.objetivo5 || 0) + (obj.objetivo6 || 0);
+                // Objetivo 6 é informativo/estratégico (campeões/equipes favoritas) e não entra no OVERALL.
+                let over = (obj.objetivo1 || 0) + (obj.objetivo2 || 0) + (obj.objetivo3 || 0) + (obj.objetivo4 || 0) + (obj.objetivo5 || 0);
                 
                 // Se não tem PR na temporada atual (ainda não correu), setar base 60
                 if (totalS20 === 0) over = 60;
@@ -2655,35 +2716,62 @@ export default function AdminPowerRanking() {
         if (seasonCtx != null && !canEditPowerRanking(seasonCtx, selectedSeason)) return;
 
         try {
+            const user = await fetchActiveAuthUser();
+            if (!user) {
+                setHasSupabaseSession(false);
+                return;
+            }
+            setHasSupabaseSession(true);
+
+            const skippedPilotos = [];
             const statsToUpsert = pilotos.map(p => {
+                const pilotoId = String(p?.id || '').trim();
+                if (!UUID_RE.test(pilotoId)) {
+                    skippedPilotos.push(p?.nome || pilotoId || 'Piloto sem ID');
+                    return null;
+                }
                 const stats = dadosPilares[p.nome];
                 if (!stats) return null;
                 const faltas = stats.faltas !== undefined ? stats.faltas : calcularFaltasPorResultados(p);
-                const powerRanking = calcularPowerRankingParaPersistencia(stats, faltas);
-                
-                return {
-                    piloto_id: p.id,
+                return buildStatsUpsertForMotorhome({
+                    piloto_id: pilotoId,
                     season: selectedSeason,
-                    performance: stats.performance ?? 0,
-                    racecraft: stats.racecraft ?? 0,
-                    conduta: stats.conduta ?? 0,
-                    overall: stats.overall ?? 0,
-                    historico: stats.historico ?? 0,
-                    power_ranking: powerRanking,
-                    updated_at: new Date().toISOString()
-                };
+                    stats,
+                    faltas,
+                });
             }).filter(Boolean);
 
             if (statsToUpsert.length > 0) {
-                await supabase
-                    .from('power_ranking_stats')
-                    .upsert(statsToUpsert, { onConflict: 'piloto_id, season' });
+                const { error: rpcErr } = await supabase.rpc('publish_power_ranking_stats_upsert', {
+                    p_rows: statsToUpsert,
+                });
+                if (rpcErr) throw rpcErr;
                 console.log('🔄 Sincronização automática com Motorhome concluída.');
+                if (skippedPilotos.length > 0) {
+                    console.warn(
+                        `[PR Motorhome] ${skippedPilotos.length} piloto(s) sem UUID válido ignorado(s) na publicação automática.`,
+                        skippedPilotos,
+                    );
+                }
             }
         } catch (err) {
-            console.warn('Erro na sincronização automática:', err);
+            const msg = err?.message || '';
+            if (/auth session missing/i.test(msg)) {
+                setHasSupabaseSession(false);
+                return;
+            }
+            const isRls =
+                err?.code === '42501' || /row-level security|violates row-level security/i.test(msg);
+            if (isRls) {
+                console.error(
+                    '[PR Motorhome] Falha ao publicar (RLS ou RPC). Rode scripts/fix_power_ranking_stats_rls_steward.sql (função publish_power_ranking_stats_upsert) e confira steward.',
+                    err,
+                );
+            } else {
+                console.warn('Erro na sincronização automática:', err);
+            }
         }
-    }, [pilotos, selectedSeason, calcularFaltasPorResultados, seasonCtx]);
+    }, [pilotos, selectedSeason, calcularFaltasPorResultados, seasonCtx, fetchActiveAuthUser]);
 
     // Auto-save: sempre que pilaresData mudar, sincronizar com o banco após 2 segundos de inatividade
     useEffect(() => {
@@ -2707,23 +2795,55 @@ export default function AdminPowerRanking() {
         
         setIsPublishing(true);
         try {
+            const user = await fetchActiveAuthUser();
+            if (!user) {
+                setHasSupabaseSession(false);
+                const goLogin = window.confirm(
+                    '❌ Sessão do Supabase não encontrada.\n\n' +
+                    'Para publicar no Motorhome, faça login em /login com a conta steward.\n\n' +
+                    'Deseja abrir a tela de login agora?',
+                );
+                if (goLogin) navigate('/login');
+                return;
+            }
+            setHasSupabaseSession(true);
+
+            const loginEmail = (user.email || user.user_metadata?.email || '').trim();
+            const loginUid = (user.id || '').trim();
+
+            // Pré-checagem explícita para evitar erro genérico na RPC principal.
+            const { data: isSteward, error: stewardErr } = await supabase.rpc('auth_is_steward_for_rls');
+            if (stewardErr) {
+                throw new Error(
+                    `Falha ao validar permissão steward (${stewardErr.code || 'sem-codigo'}): ${stewardErr.message || 'erro desconhecido'}`,
+                );
+            }
+            if (!isSteward) {
+                alert(
+                    '❌ Seu login atual não está autorizado como steward.\n\n' +
+                    `Usuário logado: ${loginEmail || '(sem e-mail)'}\n` +
+                    `UID: ${loginUid || '(sem UID)'}\n\n` +
+                    'Verifique se este mesmo e-mail está em pilotos.email com is_steward = true e faça logout/login.',
+                );
+                return;
+            }
+
+            const skippedPilotos = [];
             const statsToUpsert = pilotos.map(p => {
+                const pilotoId = String(p?.id || '').trim();
+                if (!UUID_RE.test(pilotoId)) {
+                    skippedPilotos.push(p?.nome || pilotoId || 'Piloto sem ID');
+                    return null;
+                }
                 const stats = pilaresData[p.nome];
                 if (!stats) return null;
                 const faltas = stats.faltas !== undefined ? stats.faltas : calcularFaltasPorResultados(p);
-                const powerRanking = calcularPowerRankingParaPersistencia(stats, faltas);
-                
-                return {
-                    piloto_id: p.id,
+                return buildStatsUpsertForMotorhome({
+                    piloto_id: pilotoId,
                     season: selectedSeason,
-                    performance: stats.performance ?? 0,
-                    racecraft: stats.racecraft ?? 0,
-                    conduta: stats.conduta ?? 0,
-                    overall: stats.overall ?? 0,
-                    historico: stats.historico ?? 0,
-                    power_ranking: powerRanking,
-                    updated_at: new Date().toISOString()
-                };
+                    stats,
+                    faltas,
+                });
             }).filter(Boolean);
 
             if (statsToUpsert.length === 0) {
@@ -2731,17 +2851,40 @@ export default function AdminPowerRanking() {
                 return;
             }
 
-            // Realizar o upsert em lotes ou de uma vez
-            const { error } = await supabase
-                .from('power_ranking_stats')
-                .upsert(statsToUpsert, { onConflict: 'piloto_id, season' });
+            const { error } = await supabase.rpc('publish_power_ranking_stats_upsert', {
+                p_rows: statsToUpsert,
+            });
 
             if (error) throw error;
 
-            alert('✅ Pontuações publicadas com sucesso! Agora elas aparecerão no Motorhome dos pilotos.');
+            if (skippedPilotos.length > 0) {
+                alert(
+                    `✅ Pontuações publicadas com sucesso para ${statsToUpsert.length} piloto(s).\n\n` +
+                    `${skippedPilotos.length} piloto(s) foram ignorados por não terem cadastro com UUID válido em pilotos:\n` +
+                    skippedPilotos.slice(0, 8).join(', ') +
+                    (skippedPilotos.length > 8 ? '...' : ''),
+                );
+            } else {
+                alert('✅ Pontuações publicadas com sucesso! Agora elas aparecerão no Motorhome dos pilotos.');
+            }
         } catch (err) {
             console.error('Erro ao publicar no Motorhome:', err);
-            alert('❌ Erro ao publicar: ' + (err.message || 'Erro desconhecido'));
+            const msg = err.message || 'Erro desconhecido';
+            const code = err.code;
+            const isRls =
+                code === '42501'
+                || /row-level security|violates row-level security|Steward necessário/i.test(msg);
+            if (isRls) {
+                alert(
+                    '❌ Publicação recusada (permissão steward ou RPC ausente).\n\n' +
+                    '1) No Supabase → SQL Editor, rode o script completo scripts/fix_power_ranking_stats_rls_steward.sql (cria a RPC publish_power_ranking_stats_upsert).\n' +
+                    '2) Confirme is_steward = true e e-mail em pilotos = e-mail do login no Auth.\n' +
+                    '3) Faça logout/login no site após mudanças no banco.\n\n' +
+                    `Detalhe técnico: [${code || 'sem-codigo'}] ${msg}`
+                );
+            } else {
+                alert(`❌ Erro ao publicar: [${code || 'sem-codigo'}] ${msg}`);
+            }
         } finally {
             setIsPublishing(false);
         }
@@ -3075,6 +3218,40 @@ export default function AdminPowerRanking() {
                     }}>
                         🔒 <strong>Somente leitura</strong> — temporada congelada, fase pré-temporada ou temporada diferente da
                         atual do site (T{seasonCtx?.currentSeason ?? '—'}). Ajuste a temporada no seletor ou altere a fase em <strong>ADM → Temporada</strong>.
+                    </div>
+                )}
+                {hasSupabaseSession === false && (
+                    <div style={{
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        border: '1px solid rgba(239, 68, 68, 0.45)',
+                        color: '#fecaca',
+                        padding: '12px 16px',
+                        borderRadius: 8,
+                        marginBottom: 16,
+                        fontSize: 14,
+                        display: 'flex',
+                        gap: 12,
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                    }}>
+                        <span>
+                            ⚠️ Sem sessão Supabase ativa neste navegador. O painel admin local funciona, mas publicar no Motorhome exige login em <strong>/login</strong>.
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => navigate('/login')}
+                            style={{
+                                padding: '6px 12px',
+                                borderRadius: 6,
+                                border: '1px solid rgba(254, 202, 202, 0.7)',
+                                background: 'transparent',
+                                color: '#fee2e2',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Ir para Login
+                        </button>
                     </div>
                 )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', marginBottom: 16 }}>
@@ -3413,15 +3590,18 @@ export default function AdminPowerRanking() {
                                             case 'piloto':
                                                 return piloto.nome;
                                             case 'power_ranking':
-                                                return (pilares.power_ranking !== undefined) ? pilares.power_ranking.toString() : '-';
+                                                return (pilares.power_ranking !== undefined && pilares.power_ranking !== null)
+                                                    ? String(displayPilarInt('power_ranking', pilares.power_ranking))
+                                                    : '-';
                                             case 'performance':
-                                                return (pilares.performance && pilares.performance > 0) ? Math.ceil(pilares.performance).toString() : '-';
+                                                return (pilares.performance && pilares.performance > 0)
+                                                    ? String(displayPilarInt('performance', pilares.performance))
+                                                    : '-';
                                             case 'pr_races':
                                                 // PR RACES: mostrar o PR total da temporada atual
                                                 return prTotal > 0 ? prTotal.toFixed(2) : '-';
                                             case 'conduta':
-                                                const valConduta = pilares.conduta !== undefined ? pilares.conduta : 0;
-                                                return Math.ceil(valConduta).toString();
+                                                return String(displayPilarInt('conduta', pilares.conduta));
                                             case 'envio_foto':
                                                 // ENVIO DE FOTO: apenas um checkbox (usar R01 como referência)
                                                 return 'SINGLE_CHECKBOX';
@@ -3449,7 +3629,9 @@ export default function AdminPowerRanking() {
                                                 const punicoesIncidentesVal = Math.max(0, totalPunicoesVal - descontoDefesaVal);
                                                 return punicoesIncidentesVal > 0 ? punicoesIncidentesVal.toString() : '0';
                                             case 'racecraft':
-                                                return (pilares.racecraft && pilares.racecraft > 0) ? Math.ceil(pilares.racecraft).toString() : '-';
+                                                return (pilares.racecraft && pilares.racecraft > 0)
+                                                    ? String(displayPilarInt('racecraft', pilares.racecraft))
+                                                    : '-';
                                             case 'corrida':
                                                 // CORRIDA: RITMO DE CORRIDA (percentual 0-100 da tela Telemetria como número simples)
                                                 const ritmoCorridaCorrida = buscarTelemetria('ritmoCorrida');
@@ -3468,7 +3650,7 @@ export default function AdminPowerRanking() {
                                                 return posRScore !== undefined ? posRScore.toString() : '-';
                                             case 'overall':
                                                 const valOverall = pilares.overall || 0;
-                                                return valOverall > 0 ? Math.ceil(valOverall).toString() : '0';
+                                                return valOverall > 0 ? String(displayPilarInt('overall', pilares.overall)) : '0';
                                             case 'objetivo1':
                                             case 'objetivo2':
                                             case 'objetivo3':
@@ -3486,9 +3668,7 @@ export default function AdminPowerRanking() {
                                                     </div>
                                                 );
                                             case 'historico':
-                                                // Mostrar pontuação normalizada de 60-100 (arredondada para cima)
-                                                const valHistorico = pilares.historico || 60;
-                                                return Math.ceil(valHistorico).toString();
+                                                return String(displayPilarInt('historico', pilares.historico));
                                             case 'historia':
                                                 // Mostrar o valor bruto da média ponderada (para referência)
                                                 const valBrutoHistoria = historicoBrutoData[piloto.nome] || 0;

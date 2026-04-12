@@ -573,8 +573,14 @@ export default function AdminPowerRanking() {
         // Mapeamento de nomes antigos para nomes atuais (para lidar com mudanças de nome)
         // Formato: { 'nome_antigo_normalizado': 'nome_atual' }
         const nomesAntigosParaAtuais = {
-            'egon drews': 'Egon Jackson',
-            'egondrews': 'Egon Jackson'
+            'egon drews': 'Egon Drews',
+            'egondrews': 'Egon Drews',
+            'egon jackson': 'Egon Drews',
+            'egonjackson': 'Egon Drews',
+            'rafael martins': 'Rafa Martins',
+            'rafaelmartins': 'Rafa Martins',
+            'rafa martins': 'Rafa Martins',
+            'rafamartins': 'Rafa Martins',
         };
         
         // Função para normalizar nome (mesma usada em outros lugares)
@@ -846,8 +852,14 @@ export default function AdminPowerRanking() {
 
         // Mapeamento de nomes antigos para nomes atuais (mesmo usado no histórico)
         const nomesAntigosParaAtuaisPR = {
-            'egon drews': 'Egon Jackson',
-            'egondrews': 'Egon Jackson'
+            'egon drews': 'Egon Drews',
+            'egondrews': 'Egon Drews',
+            'egon jackson': 'Egon Drews',
+            'egonjackson': 'Egon Drews',
+            'rafael martins': 'Rafa Martins',
+            'rafaelmartins': 'Rafa Martins',
+            'rafa martins': 'Rafa Martins',
+            'rafamartins': 'Rafa Martins',
         };
         
         // Função para converter nome antigo para nome atual
@@ -1176,8 +1188,14 @@ export default function AdminPowerRanking() {
         
         // Mapeamento de nomes antigos para nomes atuais
         const nomesAntigosParaAtuais = {
-            'egon drews': 'Egon Jackson',
-            'egondrews': 'Egon Jackson'
+            'egon drews': 'Egon Drews',
+            'egondrews': 'Egon Drews',
+            'egon jackson': 'Egon Drews',
+            'egonjackson': 'Egon Drews',
+            'rafael martins': 'Rafa Martins',
+            'rafaelmartins': 'Rafa Martins',
+            'rafa martins': 'Rafa Martins',
+            'rafamartins': 'Rafa Martins',
         };
         
         const converterNomeParaAtual = (nomeNaPlanilha) => {
@@ -1880,7 +1898,16 @@ export default function AdminPowerRanking() {
                     if (nomeRaw && season === String(selectedSeason) && !isNaN(totalPR) && totalPR > 0) {
                         const nomeAtual = (row[0] || '').toString().trim(); 
                         // Tentar converter se for nome antigo conhecido
-                        const nomesAntigos = { 'egon drews': 'Egon Jackson', 'egondrews': 'Egon Jackson' };
+                        const nomesAntigos = {
+                            'egon drews': 'Egon Drews',
+                            'egondrews': 'Egon Drews',
+                            'egon jackson': 'Egon Drews',
+                            'egonjackson': 'Egon Drews',
+                            'rafael martins': 'Rafa Martins',
+                            'rafaelmartins': 'Rafa Martins',
+                            'rafa martins': 'Rafa Martins',
+                            'rafamartins': 'Rafa Martins',
+                        };
                         const nNorm = nomeAtual.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
                         const nomeFinal = nomesAntigos[nNorm] || nomeAtual;
                         prTotaisS20[nomeFinal] = Math.max(prTotaisS20[nomeFinal] || 0, totalPR);

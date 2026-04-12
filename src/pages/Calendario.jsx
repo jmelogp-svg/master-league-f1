@@ -1,744 +1,565 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, Gauge } from 'lucide-react';
+import Footer from '../components/Footer';
 import { useLeagueData } from '../hooks/useLeagueData';
-import { getTeamLogo } from '../utils/classificacaoUtils';
+import './Calendario.css';
 
-function Calendario() {
-    const { rawCarreira, rawLight, tracks, datesCarreira, datesLight, seasons, loading } = useLeagueData();
-    const [selectedSeason, setSelectedSeason] = useState(0);
-    const [gridType, setGridType] = useState('carreira');
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+const etapas = [
+    {
+        etapa: 'E1',
+        gp: 'Bahrein',
+        circuito: 'Bahrain International Circuit',
+        dataLight: '13 de Abril',
+        dataCarreira: '16 de Abril',
+        desempenhoLight: 'Real',
+        desempenhoCarreira: 'Real',
+        isSprint: false,
+        flag: 'https://flagcdn.com/w80/bh.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Bahrain.png',
+    },
+    {
+        etapa: 'E2',
+        gp: 'Arábia Saudita',
+        circuito: 'Jeddah Corniche Circuit',
+        dataLight: '20 de Abril',
+        dataCarreira: '23 de Abril',
+        desempenhoLight: 'Igual',
+        desempenhoCarreira: 'Real',
+        isSprint: false,
+        flag: 'https://flagcdn.com/w80/sa.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/SaudiArabia.png',
+    },
+    {
+        etapa: 'E3',
+        gp: 'Imola',
+        circuito: 'Autodromo Enzo e Dino Ferrari',
+        dataLight: '27 de Abril',
+        dataCarreira: '30 de Abril',
+        desempenhoLight: 'Real',
+        desempenhoCarreira: 'Real',
+        isSprint: false,
+        flag: 'https://flagcdn.com/w80/it.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/EmiliaRomagna.png',
+    },
+    {
+        etapa: 'E4',
+        gp: 'Miami',
+        circuito: 'Miami International Autodrome',
+        dataLight: '04 de Maio',
+        dataCarreira: '07 de Maio',
+        desempenhoLight: 'Igual',
+        desempenhoCarreira: 'Real',
+        isSprint: true,
+        flag: 'https://flagcdn.com/w80/us.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Miami.png',
+    },
+    {
+        etapa: 'E5',
+        gp: 'Brasil',
+        circuito: 'Interlagos',
+        dataLight: '11 de Maio',
+        dataCarreira: '14 de Maio',
+        desempenhoLight: 'Real',
+        desempenhoCarreira: 'Real',
+        isSprint: false,
+        flag: 'https://flagcdn.com/w80/br.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Brazil.png',
+    },
+    {
+        etapa: 'E6',
+        gp: 'Canadá',
+        circuito: 'Circuit Gilles-Villeneuve',
+        dataLight: '18 de Maio',
+        dataCarreira: '21 de Maio',
+        desempenhoLight: 'Igual',
+        desempenhoCarreira: 'Real',
+        isSprint: false,
+        flag: 'https://flagcdn.com/w80/ca.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Canada.png',
+    },
+    {
+        etapa: 'E7',
+        gp: 'Las Vegas',
+        circuito: 'Las Vegas Strip Circuit',
+        dataLight: '25 de Maio',
+        dataCarreira: '28 de Maio',
+        desempenhoLight: 'Real',
+        desempenhoCarreira: 'Real',
+        isSprint: false,
+        flag: 'https://flagcdn.com/w80/us.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/LasVegas.png',
+    },
+    {
+        etapa: 'E8',
+        gp: 'Japão',
+        circuito: 'Suzuka International Racing Course',
+        dataLight: '01 de Junho',
+        dataCarreira: '04 de Junho',
+        desempenhoLight: 'Igual',
+        desempenhoCarreira: 'Real',
+        isSprint: true,
+        flag: 'https://flagcdn.com/w80/jp.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Japan.png',
+    },
+];
 
-    useEffect(() => {
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    }, []);
+const CIRCUIT_ASSET_FALLBACKS = {
+    'ABU DHABI': {
+        flag: 'https://flagcdn.com/w80/ae.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/YasMarina.png',
+    },
+    AUSTRIA: {
+        flag: 'https://flagcdn.com/w80/at.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Austria.png',
+    },
+    TEXAS: {
+        flag: 'https://flagcdn.com/w80/us.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Austin.png',
+    },
+    SPAIN: {
+        flag: 'https://flagcdn.com/w80/es.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Spain.png',
+    },
+    QATAR: {
+        flag: 'https://flagcdn.com/w80/qa.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Qatar.png',
+    },
+    MEXICO: {
+        flag: 'https://flagcdn.com/w80/mx.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Mexico.png',
+    },
+    AUSTRALIA: {
+        flag: 'https://flagcdn.com/w80/au.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Australia.png',
+    },
+    CHINA: {
+        flag: 'https://flagcdn.com/w80/cn.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/China.png',
+    },
+    BAHREIN: {
+        flag: 'https://flagcdn.com/w80/bh.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Bahrain.png',
+    },
+    'ARABIA SAUDITA': {
+        flag: 'https://flagcdn.com/w80/sa.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/SaudiArabia.png',
+    },
+    IMOLA: {
+        flag: 'https://flagcdn.com/w80/it.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/EmiliaRomagna.png',
+    },
+    MIAMI: {
+        flag: 'https://flagcdn.com/w80/us.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Miami.png',
+    },
+    BRASIL: {
+        flag: 'https://flagcdn.com/w80/br.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Brazil.png',
+    },
+    CANADA: {
+        flag: 'https://flagcdn.com/w80/ca.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Canada.png',
+    },
+    'LAS VEGAS': {
+        flag: 'https://flagcdn.com/w80/us.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/LasVegas.png',
+    },
+    JAPAO: {
+        flag: 'https://flagcdn.com/w80/jp.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Japan.png',
+    },
+};
 
-    useEffect(() => {
-        const handleResize = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+const DISPLAY_NAME_ALIASES = {
+    'egon jackson': 'Egon Drews',
+    'egon drews': 'Egon Drews',
+    'rafael martins': 'Rafa Martins',
+    'rafa martins': 'Rafa Martins',
+};
 
-    useEffect(() => { 
-        if (!loading && seasons.length > 0 && selectedSeason === 0) {
-            setSelectedSeason(seasons[0]); 
-        } 
-    }, [seasons, loading]);
+function normalizeKey(value) {
+    return (value || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toUpperCase();
+}
 
-    const getCalendar = () => {
-        const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
-        const datesMap = gridType === 'carreira' ? datesCarreira : datesLight;
-        const raceMap = new Map();
+function canonicalDisplayName(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return '';
+    const key = raw
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return DISPLAY_NAME_ALIASES[key] || raw;
+}
 
-        rawData.forEach(row => {
-            const s = parseInt(row[3]);
-            if (s !== parseInt(selectedSeason)) return;
-
-            const r = parseInt(row[4]);
-            if (!isNaN(r) && !raceMap.has(r)) {
-                const gpName = row[5];
-                const normalizedGP = gpName?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
-                const trackData = tracks[normalizedGP] || {};
-                
-                // Busca a data no mapa de datas (chave: season-round)
-                const dateKey = `${s}-${r}`;
-                const correctDate = datesMap[dateKey] || row[0];
-                
-                // Determinar bandeira: usar a do trackData ou fallback para EUA se for Texas, Miami ou Las Vegas
-                let flag = trackData.flag || null;
-                
-                // Se não tem bandeira, verificar se é um circuito dos EUA
-                if (!flag) {
-                    // Verificar tanto o nome original quanto o normalizado
-                    const gpNameUpper = normalizedGP || '';
-                    const gpNameOriginal = (gpName || '').toUpperCase();
-                    
-                    // Verificar múltiplas variações possíveis (case-insensitive)
-                    const isUSCircuit = 
-                        gpNameUpper.includes('TEXAS') || 
-                        gpNameOriginal.includes('TEXAS') ||
-                        gpNameUpper.includes('MIAMI') || 
-                        gpNameOriginal.includes('MIAMI') ||
-                        gpNameUpper.includes('LAS VEGAS') || 
-                        gpNameUpper.includes('LASVEGAS') ||
-                        gpNameUpper.includes('VEGAS') || 
-                        gpNameOriginal.includes('VEGAS') ||
-                        gpNameOriginal.includes('LAS VEGAS') ||
-                        gpNameOriginal.includes('AUSTIN'); // Austin também é Texas
-                    
-                    if (isUSCircuit) {
-                        flag = 'https://flagcdn.com/w40/us.png';
-                        console.log(`✅ Bandeira EUA aplicada para: "${gpName}" (normalized: "${normalizedGP}")`);
-                    }
-                }
-                
-                // Debug: log quando não encontrar bandeira
-                if (!flag && gpName) {
-                    console.warn(`⚠️ Bandeira não encontrada para: "${gpName}" (normalized: "${normalizedGP}")`);
-                }
-                
-                raceMap.set(r, { 
-                    round: r, 
-                    date: correctDate, 
-                    gp: gpName,
-                    flag: flag,
-                    circuitName: trackData.circuitName,
-                    circuitMap: trackData.circuit,
-                    winner: null, 
-                    winnerTeam: null,
-                    status: 'pending'
-                });
-            }
-
-            if (parseInt(row[8]) === 1) {
-                const race = raceMap.get(r);
-                if (race) {
-                    race.winner = row[9];
-                    race.winnerTeam = row[10];
-                    race.status = 'done';
-                }
-            }
-        });
-
-        const races = Array.from(raceMap.values()).sort((a, b) => a.round - b.round);
-        return races;
-    };
-
-    const parseDate = (dateStr) => {
-        if (!dateStr) return 0;
-        
-        // Remove espaços
-        dateStr = dateStr.trim();
-        
-        // Tenta dd/mm/yyyy ou dd/mm/yy
-        if (dateStr.includes('/')) {
-            const parts = dateStr.split('/');
-            if (parts.length === 3) {
-                const [d, m, y] = parts;
-                const year = parseInt(y) < 100 ? 2000 + parseInt(y) : parseInt(y);
-                try {
-                    return new Date(year, parseInt(m) - 1, parseInt(d)).getTime();
-                } catch (e) {
-                    return 0;
-                }
-            }
-        }
-        
-        // Tenta formato ISO (yyyy-mm-dd)
-        if (dateStr.includes('-')) {
-            try {
-                return new Date(dateStr).getTime();
-            } catch (e) {
-                return 0;
-            }
-        }
-        
-        // Tenta qualquer outro formato
-        try {
-            return new Date(dateStr).getTime();
-        } catch (e) {
-            return 0;
-        }
-    };
-
-    const DriverImage = ({ name, season, style }) => {
-        const cleanName = name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').toLowerCase() : "pilotoshadow";
-        // Prioriza temporada primeiro, depois SML
-        const seasonSrc = `/pilotos/${gridType}/s${season}/${cleanName}.png`;
-        const smlSrc = `/pilotos/SML/${cleanName}.png`;
-        const shadowSrc = '/pilotos/pilotoshadow.png';
-        
-        const [imgSrc, setImgSrc] = useState(seasonSrc);
-        
-        useEffect(() => {
-            setImgSrc(seasonSrc);
-        }, [gridType, season, cleanName]);
-        
-        const handleError = () => {
-            if (imgSrc.includes(`/s${season}/`)) {
-                setImgSrc(smlSrc);
-            } else if (imgSrc.includes('/SML/')) {
-                setImgSrc(shadowSrc);
-            }
-        };
-        
-        return <img src={imgSrc} style={{...style, borderRadius: '8px'}} alt={name} onError={handleError} />;
-    };
-
-    if (loading) {
-        return (
-            <div style={{
-                minHeight: '100vh', 
-                background: 'var(--bg-dark-main)', 
-                color: 'white', 
-                padding: isMobile ? '60px 20px' : '100px 20px', 
-                textAlign: 'center',
-                fontSize: isMobile ? '0.9rem' : '1rem'
-            }}>
-                Carregando calendário...
-            </div>
-        );
+function parseDateLabel(rawDate) {
+    if (!rawDate) return 'Data não definida';
+    const s = String(rawDate).trim();
+    const slash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (slash) {
+        const day = slash[1].padStart(2, '0');
+        const month = slash[2].padStart(2, '0');
+        const yy = slash[3].slice(-2);
+        return `${day}/${month}/${yy}`;
     }
+    const iso = new Date(s);
+    if (!Number.isNaN(iso.getTime())) {
+        return iso.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit',
+        });
+    }
+    return s;
+}
 
-    const races = getCalendar();
+const performanceByRoundS21 = {
+    light: { 1: 'Real', 2: 'Igual', 3: 'Real', 4: 'Igual', 5: 'Real', 6: 'Igual', 7: 'Real', 8: 'Igual' },
+    carreira: { 1: 'Real', 2: 'Real', 3: 'Real', 4: 'Real', 5: 'Real', 6: 'Real', 7: 'Real', 8: 'Real' },
+};
 
-    return (
-        <div className="calendario-page" style={{
-            minHeight: '100vh', 
-            background: 'var(--bg-dark-main)', 
-            color: 'white', 
-            padding: isMobile ? '60px 12px 30px' : '80px 20px 40px', 
-            fontFamily: "'Montserrat', sans-serif"
-        }}>
-            <div style={{maxWidth: '1400px', margin: '0 auto'}}>
-                {/* Header */}
-                <div className="calendario-header" style={{
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: isMobile ? 'flex-start' : 'center', 
-                    marginBottom: isMobile ? '30px' : '50px', 
-                    flexWrap: 'wrap', 
-                    gap: isMobile ? '16px' : '20px',
-                    flexDirection: isMobile ? 'column' : 'row'
-                }}>
-                    <div>
-                        <h1 style={{
-                            fontSize: isMobile ? '2rem' : '3rem', 
-                            fontWeight: '900', 
-                            fontStyle: 'italic', 
-                            marginBottom: '5px',
-                            lineHeight: '1.1'
-                        }}>
-                            ETAPAS
-                        </h1>
-                        <p style={{
-                            color: '#94A3B8', 
-                            fontSize: isMobile ? '0.85rem' : '1rem', 
-                            margin: 0, 
-                            fontStyle: 'italic', 
-                            fontWeight: '700'
-                        }}>
-                            {gridType === 'carreira' ? 'GRID CARREIRA' : 'GRID LIGHT'}
-                        </p>
-                    </div>
-                    <div className="calendario-controls" style={{
-                        display: 'flex', 
-                        gap: isMobile ? '10px' : '15px', 
-                        alignItems: 'center', 
-                        flexWrap: 'wrap',
-                        width: isMobile ? '100%' : 'auto'
-                    }}>
-                        <div style={{display: 'flex', gap: isMobile ? '8px' : '10px', flex: isMobile ? 1 : 'auto'}}>
-                            <button 
-                                onClick={() => setGridType('carreira')}
-                                style={{
-                                    padding: isMobile ? '10px 16px' : '10px 20px',
-                                    background: gridType === 'carreira' ? 'var(--carreira-wine)' : 'rgba(255,255,255,0.1)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontWeight: '700',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    fontSize: isMobile ? '0.8rem' : '0.9rem',
-                                    flex: isMobile ? 1 : 'auto'
-                                }}
-                            >
-                                CARREIRA
-                            </button>
-                            <button 
-                                onClick={() => setGridType('light')}
-                                style={{
-                                    padding: isMobile ? '10px 16px' : '10px 20px',
-                                    background: gridType === 'light' ? 'var(--light-blue)' : 'rgba(255,255,255,0.1)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontWeight: '700',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    fontSize: isMobile ? '0.8rem' : '0.9rem',
-                                    flex: isMobile ? 1 : 'auto'
-                                }}
-                            >
-                                LIGHT
-                            </button>
+function getTemplateRacesForSeason(gridType, seasonNum) {
+    // T21 possui calendário oficial fixo; usamos como base para garantir exibição de todas as etapas.
+    if (seasonNum !== 21) return [];
+    return etapas.map((item, index) => ({
+        etapa: item.etapa || `E${index + 1}`,
+        round: index + 1,
+        gp: item.gp,
+        circuito: item.circuito,
+        dataLabel: gridType === 'carreira' ? item.dataCarreira : item.dataLight,
+        desempenho: gridType === 'carreira' ? item.desempenhoCarreira : item.desempenhoLight,
+        isSprint: Boolean(item.isSprint),
+        flag: item.flag || null,
+        mapa: item.mapa || null,
+        winner: null,
+        winnerTeam: null,
+    }));
+}
+
+function WinnerAvatar({ name, gridKey, season }) {
+    const cleanName = (name || 'pilotoshadow')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, '')
+        .toLowerCase();
+    const seasonSrc = `/pilotos/${gridKey}/s${season}/${cleanName}.png`;
+    const smlSrc = `/pilotos/SML/${cleanName}.png`;
+    const shadowSrc = '/pilotos/pilotoshadow.png';
+    const [src, setSrc] = useState(seasonSrc);
+
+    useEffect(() => {
+        setSrc(seasonSrc);
+    }, [seasonSrc]);
+
+    const handleError = () => {
+        if (src !== smlSrc && src !== shadowSrc) {
+            setSrc(smlSrc);
+            return;
+        }
+        if (src === smlSrc) setSrc(shadowSrc);
+    };
+
+    return <img className="cal-winner-photo" src={src} alt={name || 'Vencedor'} onError={handleError} />;
+}
+
+function winnerShortName(name) {
+    const full = canonicalDisplayName(name);
+    if (!full) return '';
+    const parts = full.split(/\s+/).filter(Boolean);
+    const first = parts[0] || '';
+    const last = parts.length > 1 ? parts[parts.length - 1] : '';
+    if (!first) return '';
+    if (!last) return `${first[0].toUpperCase()}.`;
+    return `${first[0].toUpperCase()}. ${last}`;
+}
+
+function performanceLabel(value) {
+    const v = String(value || '').trim().toLowerCase();
+    if (v === 'real') return 'DES. REAL';
+    if (v === 'igual') return 'DES. IGUAL';
+    return 'DES. N/D';
+}
+
+function getCircuitFallback(gpRaw) {
+    const key = normalizeKey(gpRaw)
+        .replace('Á', 'A')
+        .replace('É', 'E')
+        .replace('Í', 'I')
+        .replace('Ó', 'O')
+        .replace('Ú', 'U');
+    const byExact = CIRCUIT_ASSET_FALLBACKS[key];
+    if (byExact) return byExact;
+    if (key.includes('ARABIA')) return CIRCUIT_ASSET_FALLBACKS['ARABIA SAUDITA'];
+    if (key.includes('VEGAS')) return CIRCUIT_ASSET_FALLBACKS['LAS VEGAS'];
+    if (key.includes('JAPAO') || key.includes('JAPAN')) return CIRCUIT_ASSET_FALLBACKS.JAPAO;
+    if (key.includes('CANADA')) return CIRCUIT_ASSET_FALLBACKS.CANADA;
+    return { flag: null, map: null };
+}
+
+const GridColumn = ({ title, tone, gridKey, season, races, loading }) => (
+    <section className={`cal-grid-col ${tone}`}>
+        <header className="cal-grid-col-header">
+            <h2>{title}</h2>
+            <span className="cal-pill">{races.length} etapa(s)</span>
+        </header>
+
+        {loading ? (
+            <div className="cal-empty">Carregando...</div>
+        ) : races.length === 0 ? (
+            <div className="cal-empty">Sem etapas nesta temporada.</div>
+        ) : (
+            <div className="cal-grid-cards">
+                {races.map((etapa) => (
+                    <article key={`${title}-${etapa.etapa}`} className="cal-card">
+                        <div className="cal-card-top">
+                            {etapa.isSprint && <span className="cal-sprint">SPRINT</span>}
                         </div>
-                        <select 
-                            value={selectedSeason} 
-                            onChange={(e) => setSelectedSeason(parseInt(e.target.value))}
-                            style={{
-                                padding: isMobile ? '10px 12px' : '10px 16px',
-                                background: 'rgba(255,255,255,0.1)',
-                                color: 'white',
-                                border: '1px solid rgba(255,255,255,0.2)',
-                                borderRadius: '8px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                fontSize: isMobile ? '0.8rem' : '0.9rem',
-                                fontFamily: "'Montserrat', sans-serif",
-                                flex: isMobile ? 1 : 'auto',
-                                minWidth: isMobile ? '120px' : 'auto'
-                            }}
-                        >
-                            {seasons.map(year => (
-                                <option key={year} value={year} style={{background: '#0f172a', color: 'white'}}>
-                                    T{year}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
 
-                {/* Aviso para Grid Light - Temporada anterior a 16 */}
-                {gridType === 'light' && parseInt(selectedSeason) < 16 && (
-                    <div style={{
-                        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0.1) 100%)',
-                        border: '2px solid var(--light-blue)',
-                        borderRadius: '12px',
-                        padding: isMobile ? '16px' : '24px',
-                        marginBottom: isMobile ? '24px' : '32px',
-                        textAlign: 'center',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: isMobile ? '12px' : '16px'
-                    }}>
-                        <p style={{
-                            fontSize: isMobile ? '0.9rem' : '1.1rem', 
-                            fontWeight: '700', 
-                            color: '#06B6D4', 
-                            margin: 0
-                        }}>
-                            ⚠️ Grid Light iniciou na Temporada 16
-                        </p>
-                        <button
-                            onClick={() => setSelectedSeason(16)}
-                            style={{
-                                padding: isMobile ? '10px 20px' : '10px 24px',
-                                background: 'var(--light-blue)',
-                                color: '#0F172A',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                fontSize: isMobile ? '0.85rem' : '0.95rem'
-                            }}
-                            onMouseEnter={(e) => e.target.style.opacity = '0.9'}
-                            onMouseLeave={(e) => e.target.style.opacity = '1'}
-                        >
-                            Ir para Temporada 16
-                        </button>
-                    </div>
-                )}
-
-                {/* Grid de Corridas - Responsivo */}
-                {races.length > 0 ? (
-                    <div className="calendario-grid" style={{
-                        display: 'grid', 
-                        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(500px, 1fr))', 
-                        gap: isMobile ? '16px' : '24px', 
-                        paddingBottom: isMobile ? '30px' : '40px'
-                    }}>
-                        {races.map((race, idx) => {
-                            return (
-                                <div 
-                                    key={idx}
-                                    className="calendario-card"
-                                    style={{
-                                        background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.7) 100%)',
-                                        border: '1px solid rgba(6, 182, 212, 0.2)',
-                                        borderRadius: isMobile ? '12px' : '16px',
-                                        borderLeft: gridType === 'carreira' ? '6px solid var(--carreira-wine)' : '6px solid var(--light-blue)',
-                                        padding: '0',
-                                        display: 'flex',
-                                        flexDirection: 'row',
-                                        transition: 'all 0.3s ease',
-                                        cursor: 'pointer',
-                                        overflow: 'hidden',
-                                        minHeight: isMobile ? '200px' : '280px'
-                                    }} 
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(51, 65, 85, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)';
-                                        e.currentTarget.style.borderColor = '#06B6D4';
-                                        e.currentTarget.style.transform = 'translateY(-8px)';
-                                        e.currentTarget.style.boxShadow = '0 20px 40px rgba(6, 182, 212, 0.2)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.7) 100%)';
-                                        e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = 'none';
-                                    }}
-                                >
-                                    {/* Lado Esquerdo - Info da corrida com mapa como marca d'água */}
-                                    <div className="calendario-info" style={{
-                                        flex: isMobile ? 1.8 : 1.5, 
-                                        padding: isMobile ? '16px' : '28px', 
-                                        display: 'flex', 
-                                        flexDirection: 'column', 
-                                        justifyContent: 'space-between', 
-                                        position: 'relative', 
-                                        overflow: 'hidden',
-                                        minWidth: 0
-                                    }}>
-                                        {/* Background do mapa da pista - Marca d'água centralizada */}
-                                        {race.circuitMap && (
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: '50%',
-                                                left: '50%',
-                                                transform: 'translate(-50%, -50%)',
-                                                width: '120%',
-                                                height: '120%',
-                                                opacity: 0.08,
-                                                backgroundSize: 'contain',
-                                                backgroundPosition: 'center',
-                                                backgroundRepeat: 'no-repeat',
-                                                backgroundImage: `url(${race.circuitMap})`
-                                            }}></div>
-                                        )}
-
-                                        {/* Conteúdo */}
-                                        <div style={{position: 'relative', zIndex: 2}}>
-                                            {/* Bandeira e Round */}
-                                            <div style={{
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                gap: isMobile ? '8px' : '16px', 
-                                                marginBottom: isMobile ? '10px' : '18px'
-                                            }}>
-                                                {(() => {
-                                                    // Garantir que Texas, Miami e Las Vegas sempre tenham bandeira dos EUA
-                                                    let flagUrl = race.flag;
-                                                    if (!flagUrl) {
-                                                        const gpNameUpper = (race.gp || '').toUpperCase();
-                                                        if (gpNameUpper.includes('TEXAS') || gpNameUpper.includes('MIAMI') || 
-                                                            gpNameUpper.includes('VEGAS') || gpNameUpper.includes('AUSTIN')) {
-                                                            flagUrl = 'https://flagcdn.com/w40/us.png';
-                                                            console.log(`🔧 Bandeira EUA aplicada no render para: ${race.gp}`);
-                                                        }
-                                                    }
-                                                    
-                                                    return flagUrl ? (
-                                                        <img 
-                                                            src={flagUrl}
-                                                            alt={`Bandeira ${race.gp}`}
-                                                            className="calendario-flag"
-                                                            style={{
-                                                                width: isMobile ? '48px' : '64px', 
-                                                                height: isMobile ? '32px' : '42px', 
-                                                                borderRadius: '6px', 
-                                                                border: '2px solid rgba(255,255,255,0.3)', 
-                                                                objectFit: 'cover',
-                                                                flexShrink: 0,
-                                                                display: 'block',
-                                                                minWidth: isMobile ? '48px' : '64px',
-                                                                minHeight: isMobile ? '32px' : '42px',
-                                                                backgroundColor: 'rgba(255,255,255,0.05)',
-                                                                imageRendering: 'crisp-edges'
-                                                            }}
-                                                            onError={(e) => {
-                                                                console.error(`❌ Erro ao carregar bandeira: ${flagUrl} para ${race.gp}`);
-                                                                // Tentar fallback para EUA se for Texas, Miami ou Las Vegas
-                                                                const gpNameUpper = (race.gp || '').toUpperCase();
-                                                                if (gpNameUpper.includes('TEXAS') || gpNameUpper.includes('MIAMI') || 
-                                                                    gpNameUpper.includes('VEGAS') || gpNameUpper.includes('AUSTIN')) {
-                                                                    if (e.target.src !== 'https://flagcdn.com/w40/us.png') {
-                                                                        e.target.src = 'https://flagcdn.com/w40/us.png';
-                                                                        console.log(`🔄 Tentando fallback EUA para: ${race.gp}`);
-                                                                    } else {
-                                                                        // Se já tentou EUA e falhou, mostrar placeholder
-                                                                        e.target.style.opacity = '0.5';
-                                                                        e.target.style.backgroundColor = 'rgba(148, 163, 184, 0.2)';
-                                                                        e.target.style.border = '2px dashed rgba(148, 163, 184, 0.4)';
-                                                                    }
-                                                                } else {
-                                                                    // Não esconder, apenas mostrar placeholder
-                                                                    e.target.style.opacity = '0.5';
-                                                                    e.target.style.backgroundColor = 'rgba(148, 163, 184, 0.2)';
-                                                                    e.target.style.border = '2px dashed rgba(148, 163, 184, 0.4)';
-                                                                }
-                                                            }}
-                                                            onLoad={() => {
-                                                                // Garantir que a imagem seja visível quando carregar
-                                                                const img = document.querySelector(`img[alt="Bandeira ${race.gp}"]`);
-                                                                if (img) {
-                                                                    img.style.opacity = '1';
-                                                                    img.style.backgroundColor = 'transparent';
-                                                                }
-                                                            }}
-                                                            loading="eager"
-                                                        />
-                                                    ) : (
-                                                        <div style={{
-                                                            width: isMobile ? '48px' : '64px', 
-                                                            height: isMobile ? '32px' : '42px', 
-                                                            borderRadius: '6px', 
-                                                            border: '2px dashed rgba(148, 163, 184, 0.4)', 
-                                                            backgroundColor: 'rgba(148, 163, 184, 0.1)',
-                                                            flexShrink: 0,
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            fontSize: isMobile ? '0.5rem' : '0.6rem',
-                                                            color: '#94A3B8'
-                                                        }}>
-                                                            🏁
-                                                        </div>
-                                                    );
-                                                })()}
-                                                <p className="calendario-round" style={{
-                                                    fontSize: isMobile ? '0.65rem' : '0.85rem', 
-                                                    color: '#94A3B8', 
-                                                    textTransform: 'uppercase', 
-                                                    letterSpacing: isMobile ? '1px' : '2px', 
-                                                    margin: 0, 
-                                                    fontWeight: '800',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
-                                                    ROUND {race.round}
-                                                </p>
-                                            </div>
-
-                                            {/* Nome do GP */}
-                                            <h3 className="calendario-gp-name" style={{
-                                                fontSize: isMobile ? '1.1rem' : '2rem', 
-                                                fontWeight: '900', 
-                                                margin: '0 0 8px 0', 
-                                                color: 'white', 
-                                                lineHeight: '1.1',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: isMobile ? 2 : 3,
-                                                WebkitBoxOrient: 'vertical'
-                                            }}>
-                                                {race.gp}
-                                            </h3>
-
-                                            {/* Nome do Circuito */}
-                                            {race.circuitName && (
-                                                <p className="calendario-circuit" style={{
-                                                    fontSize: isMobile ? '0.75rem' : '1rem', 
-                                                    color: '#06B6D4', 
-                                                    margin: '0 0 10px 0', 
-                                                    fontWeight: '700',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
-                                                    🏁 {race.circuitName}
-                                                </p>
-                                            )}
-
-                                            {/* Data */}
-                                            <p className="calendario-date" style={{
-                                                fontSize: isMobile ? '0.8rem' : '1.1rem', 
-                                                fontWeight: '700', 
-                                                margin: '0 0 12px 0', 
-                                                color: '#94A3B8'
-                                            }}>
-                                                🗓️ {new Date(parseDate(race.date)).toLocaleDateString('pt-BR', {
-                                                    day: '2-digit',
-                                                    month: '2-digit',
-                                                    year: '2-digit'
-                                                })}
-                                            </p>
-
-                                            {/* Equipe do Vencedor */}
-                                            {race.winnerTeam && race.winner && race.status === 'done' && (
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: isMobile ? '8px' : '10px',
-                                                    marginTop: '4px'
-                                                }}>
-                                                    {getTeamLogo(race.winnerTeam) && (
-                                                        <img 
-                                                            src={getTeamLogo(race.winnerTeam)}
-                                                            alt={race.winnerTeam}
-                                                            style={{
-                                                                width: isMobile ? '20px' : '24px',
-                                                                height: isMobile ? '20px' : '24px',
-                                                                objectFit: 'contain',
-                                                                flexShrink: 0
-                                                            }}
-                                                            onError={(e) => e.target.style.display = 'none'}
-                                                        />
-                                                    )}
-                                                    <p style={{
-                                                        fontSize: isMobile ? '0.75rem' : '0.9rem',
-                                                        color: '#06B6D4',
-                                                        margin: 0,
-                                                        fontWeight: '700',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap'
-                                                    }}>
-                                                        {race.winnerTeam}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Accent bar */}
-                                        <span style={{
-                                            display: 'inline-block',
-                                            width: isMobile ? '40px' : '50px',
-                                            height: isMobile ? '4px' : '5px',
-                                            background: gridType === 'carreira' ? 'var(--carreira-wine)' : 'var(--light-blue)',
-                                            borderRadius: '2px',
-                                            marginTop: isMobile ? '12px' : '16px'
-                                        }}></span>
+                        <div className="cal-card-body">
+                            <div className="cal-card-left">
+                                <div className="cal-card-main">
+                                    <img
+                                        className="cal-flag"
+                                        src={etapa.flag || etapa.flagFallback || '/team-logos/logo-ml.png'}
+                                        alt={`Bandeira ${etapa.gp}`}
+                                        onError={(e) => {
+                                            if (etapa.flagFallback && e.currentTarget.src !== etapa.flagFallback) {
+                                                e.currentTarget.src = etapa.flagFallback;
+                                                return;
+                                            }
+                                            e.currentTarget.src = '/team-logos/logo-ml.png';
+                                        }}
+                                    />
+                                    <div className="cal-gp-info">
+                                        <h3>{etapa.gp}</h3>
+                                        <p>{etapa.circuito}</p>
                                     </div>
+                                </div>
 
-                                    {/* Lado Direito - Card 3x4 com Vencedor */}
-                                    <div className="calendario-winner" style={{
-                                        flex: isMobile ? 1 : 1,
-                                        padding: isMobile ? '12px' : '20px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'center',
-                                        alignItems: 'center',
-                                        textAlign: 'center',
-                                        flexShrink: 0,
-                                        minWidth: isMobile ? '100px' : 'auto'
-                                    }}>
-                                        <p style={{
-                                            fontSize: isMobile ? '0.55rem' : '0.65rem', 
-                                            color: '#FFD700', 
-                                            textTransform: 'uppercase', 
-                                            letterSpacing: isMobile ? '1px' : '1.5px', 
-                                            margin: '0 0 8px 0', 
-                                            fontWeight: '800'
-                                        }}>
-                                            🏆 VENCEDOR
-                                        </p>
-                                        
-                                        {race.winner && race.status === 'done' ? (
-                                            <div style={{
-                                                display: 'flex', 
-                                                flexDirection: 'column', 
-                                                alignItems: 'center', 
-                                                gap: isMobile ? '8px' : '12px', 
-                                                width: '100%'
-                                            }}>
-                                                {/* Card 3x4 para a foto */}
-                                                <div className="calendario-winner-photo" style={{
-                                                    position: 'relative',
-                                                    width: isMobile ? '70px' : '120px',
-                                                    aspectRatio: '3/4',
-                                                    border: '2px solid rgba(6, 182, 212, 0.4)',
-                                                    borderRadius: '8px',
-                                                    overflow: 'hidden',
-                                                    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, transparent 100%)',
-                                                    boxShadow: gridType === 'carreira' 
-                                                        ? '0 0 20px rgba(157, 29, 73, 0.3)' 
-                                                        : '0 0 20px rgba(6, 182, 212, 0.3)',
-                                                    flexShrink: 0
-                                                }}>
-                                                    <DriverImage 
-                                                        name={race.winner} 
-                                                        season={selectedSeason}
-                                                        style={{width: '100%', height: '100%', objectFit: 'cover'}}
-                                                    />
-                                                </div>
-                                                
-                                                {/* Info do Piloto - Nome e Sobrenome em duas linhas */}
-                                                <div style={{width: '100%', textAlign: 'center'}}>
-                                                    {(() => {
-                                                        const nameParts = race.winner.trim().split(' ');
-                                                        const firstName = nameParts[0] || '';
-                                                        const lastName = nameParts.slice(1).join(' ') || '';
-                                                        
-                                                        return (
-                                                            <>
-                                                                <p style={{
-                                                                    fontSize: isMobile ? '0.75rem' : '0.95rem', 
-                                                                    fontWeight: '900', 
-                                                                    margin: '0', 
-                                                                    color: '#FFD700', 
-                                                                    lineHeight: '1.1',
-                                                                    overflow: 'hidden',
-                                                                    textOverflow: 'ellipsis',
-                                                                    whiteSpace: 'nowrap'
-                                                                }}>
-                                                                    {firstName}
-                                                                </p>
-                                                                {lastName && (
-                                                                    <p style={{
-                                                                        fontSize: isMobile ? '0.75rem' : '0.95rem', 
-                                                                        fontWeight: '900', 
-                                                                        margin: '2px 0 0 0', 
-                                                                        color: '#FFD700', 
-                                                                        lineHeight: '1.1',
-                                                                        overflow: 'hidden',
-                                                                        textOverflow: 'ellipsis',
-                                                                        whiteSpace: 'nowrap'
-                                                                    }}>
-                                                                        {lastName}
-                                                                    </p>
-                                                                )}
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            </div>
+                                <div className="cal-card-meta">
+                                    <div className="cal-meta-item">
+                                        <CalendarDays size={16} />
+                                        <span>{etapa.dataLabel}</span>
+                                    </div>
+                                    <div className="cal-meta-item">
+                                        <Gauge size={16} />
+                                        <span>{performanceLabel(etapa.desempenho)}</span>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <aside className="cal-winner">
+                                <div className="cal-side-visual">
+                                    <div className="cal-side-map-wrap">
+                                        {etapa.mapa ? (
+                                            <img
+                                                className="cal-side-map"
+                                                src={etapa.mapa}
+                                                alt={`Mapa ${etapa.gp}`}
+                                                onError={(e) => {
+                                                    if (etapa.mapFallback && e.currentTarget.src !== etapa.mapFallback) {
+                                                        e.currentTarget.src = etapa.mapFallback;
+                                                        return;
+                                                    }
+                                                    e.currentTarget.src = '/team-logos/logo-ml.png';
+                                                }}
+                                            />
                                         ) : (
-                                            <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'}}>
-                                                <div style={{
-                                                    width: isMobile ? '70px' : '120px',
-                                                    aspectRatio: '3/4',
-                                                    border: '2px solid rgba(6, 182, 212, 0.2)',
-                                                    borderRadius: '8px',
-                                                    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, transparent 100%)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    color: '#94A3B8'
-                                                }}>
-                                                    <p style={{
-                                                        fontSize: isMobile ? '0.65rem' : '0.8rem', 
-                                                        fontWeight: '700', 
-                                                        margin: 0
-                                                    }}>
-                                                        {race.status === 'done' ? 'Realizado' : 'Pendente'}
-                                                    </p>
-                                                </div>
-                                            </div>
+                                            <img
+                                                className="cal-side-map"
+                                                src={etapa.mapFallback || '/team-logos/logo-ml.png'}
+                                                alt={`Mapa ${etapa.gp}`}
+                                                onError={(e) => {
+                                                    e.currentTarget.src = '/team-logos/logo-ml.png';
+                                                }}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="cal-side-winner-wrap">
+                                        {etapa.winner ? (
+                                            <>
+                                                <p className="cal-winner-label">Vencedor</p>
+                                                <WinnerAvatar name={canonicalDisplayName(etapa.winner)} gridKey={gridKey} season={season} />
+                                                <p className="cal-winner-short">{winnerShortName(etapa.winner)}</p>
+                                            </>
+                                        ) : (
+                                            <p className="cal-winner-empty">Sem vencedor</p>
                                         )}
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <div style={{
-                        textAlign: 'center', 
-                        padding: isMobile ? '60px 20px' : '80px 20px', 
-                        color: '#94A3B8'
-                    }}>
-                        <p style={{
-                            fontSize: isMobile ? '1rem' : '1.2rem', 
-                            marginBottom: '10px'
-                        }}>
-                            📅 Nenhuma corrida encontrada
-                        </p>
-                        <p style={{
-                            fontSize: isMobile ? '0.85rem' : '0.95rem'
-                        }}>
-                            Temporada {selectedSeason} - {gridType === 'carreira' ? 'Grid Carreira' : 'Grid Light'}
-                        </p>
-                    </div>
-                )}
+                            </aside>
+                        </div>
+                    </article>
+                ))}
             </div>
-        </div>
+        )}
+    </section>
+);
+
+function Calendario() {
+    const { rawCarreira, rawLight, tracks, datesCarreira, datesLight, seasons, loading } = useLeagueData();
+    const [selectedSeason, setSelectedSeason] = useState(21);
+
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
+
+    useEffect(() => {
+        if (!loading && seasons?.length > 0) {
+            const hasCurrent = seasons.includes(21);
+            setSelectedSeason((prev) => {
+                if (prev && seasons.includes(prev)) return prev;
+                return hasCurrent ? 21 : seasons[0];
+            });
+        }
+    }, [loading, seasons]);
+
+    const seasonsSorted = useMemo(
+        () => [...(seasons || [])].sort((a, b) => b - a),
+        [seasons],
+    );
+
+    const buildGridRaces = useMemo(
+        () => (gridType) => {
+            const raw = gridType === 'carreira' ? rawCarreira : rawLight;
+            const datesMap = gridType === 'carreira' ? datesCarreira : datesLight;
+            const races = new Map();
+            const seasonNum = Number(selectedSeason);
+            if (!Array.isArray(raw) || !Number.isFinite(seasonNum)) return [];
+
+            const templateRaces = getTemplateRacesForSeason(gridType, seasonNum);
+            templateRaces.forEach((race) => {
+                races.set(race.round, race);
+            });
+
+            raw.forEach((row) => {
+                const rowSeason = parseInt(row?.[3] || '0', 10);
+                const round = parseInt(row?.[4] || '0', 10);
+                if (rowSeason !== seasonNum || !Number.isFinite(round) || round < 1) return;
+
+                const gpRaw = (row?.[5] || '').toString().trim();
+                const gpKey = normalizeKey(gpRaw);
+                const track = tracks?.[gpKey] || {};
+                const dateKey = `${seasonNum}-${round}`;
+                const dateRaw = datesMap?.[dateKey] || row?.[0] || '';
+                const desempenho =
+                    seasonNum === 21
+                        ? performanceByRoundS21[gridType]?.[round] || 'N/D'
+                        : 'N/D';
+
+                if (!races.has(round)) {
+                    const fallback = getCircuitFallback(gpRaw);
+                    races.set(round, {
+                        etapa: `E${round}`,
+                        round,
+                        gp: gpRaw || `Etapa ${round}`,
+                        circuito: track?.circuitName || gpRaw || `Etapa ${round}`,
+                        dataLabel: parseDateLabel(dateRaw),
+                        desempenho,
+                        isSprint: false,
+                        flag: track?.flag || fallback.flag || null,
+                        mapa: track?.circuit || fallback.map || null,
+                        flagFallback: fallback.flag || null,
+                        mapFallback: fallback.map || null,
+                        winner: null,
+                        winnerTeam: null,
+                    });
+                }
+                const current = races.get(round);
+                const fallback = getCircuitFallback(gpRaw || current.gp);
+                // Se existir template da etapa, apenas enriquecemos com dados reais quando disponíveis.
+                if (gpRaw) current.gp = gpRaw;
+                if (track?.circuitName) current.circuito = track.circuitName;
+                if (track?.flag) current.flag = track.flag;
+                if (!current.flag && fallback.flag) current.flag = fallback.flag;
+                current.flagFallback = fallback.flag || current.flagFallback || null;
+                if (track?.circuit) current.mapa = track.circuit;
+                if (!current.mapa && fallback.map) current.mapa = fallback.map;
+                current.mapFallback = fallback.map || current.mapFallback || null;
+                if (dateRaw) current.dataLabel = parseDateLabel(dateRaw);
+
+                const modeloRaw = String(row?.[2] || '').toLowerCase();
+                if (modeloRaw.includes('sprint')) {
+                    current.isSprint = true;
+                }
+
+                const posRaw = String(row?.[8] || '').trim().toLowerCase();
+                const isWinner =
+                    parseInt(posRaw, 10) === 1
+                    || posRaw === '1º'
+                    || posRaw === 'p1';
+                if (isWinner) {
+                    const current = races.get(round);
+                    const winnerName = (row?.[9] || '').toString().trim();
+                    if (winnerName) {
+                        current.winner = winnerName;
+                        current.winnerTeam = (row?.[10] || '').toString().trim() || null;
+                    }
+                }
+            });
+
+            return [...races.values()].sort((a, b) => a.round - b.round);
+        },
+        [rawCarreira, rawLight, datesCarreira, datesLight, tracks, selectedSeason],
+    );
+
+    const lightRaces = useMemo(() => buildGridRaces('light'), [buildGridRaces]);
+    const carreiraRaces = useMemo(() => buildGridRaces('carreira'), [buildGridRaces]);
+
+    return (
+        <main className="cal-page">
+            <section className="cal-hero">
+                <p className="cal-kicker">Master League F1</p>
+                <h1>Calendário da Temporada {selectedSeason}</h1>
+            </section>
+
+            <section className="cal-season-filter">
+                <label htmlFor="season-select">Temporada</label>
+                <select
+                    id="season-select"
+                    value={selectedSeason}
+                    onChange={(e) => setSelectedSeason(Number(e.target.value))}
+                >
+                    {seasonsSorted.map((season) => (
+                        <option key={season} value={season}>
+                            T{season}
+                        </option>
+                    ))}
+                </select>
+            </section>
+
+            <section className="cal-grids-layout">
+                <GridColumn
+                    title="Grid Light"
+                    tone="light"
+                    gridKey="light"
+                    season={selectedSeason}
+                    races={lightRaces}
+                    loading={loading}
+                />
+                <GridColumn
+                    title="Grid Carreira"
+                    tone="carreira"
+                    gridKey="carreira"
+                    season={selectedSeason}
+                    races={carreiraRaces}
+                    loading={loading}
+                />
+            </section>
+
+            <section className="cal-notes">
+                <p><strong>Sprint:</strong> etapas com qualy de volta única.</p>
+                <p><strong>F1:</strong> etapas em semana de evento da F1 real.</p>
+            </section>
+            <Footer />
+        </main>
     );
 }
 
