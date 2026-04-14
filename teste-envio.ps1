@@ -1,7 +1,8 @@
 $body = @{
     email = 'jmelogp@gmail.com'
-    whatsapp = '551981850516'
+    whatsapp = '5551983433940'
     nomePiloto = 'Julio Melo'
+    forceApi = 'twilio'
 } | ConvertTo-Json
 
 $headers = @{
@@ -23,7 +24,7 @@ try {
     if ($response.success) {
         Write-Host ""
         Write-Host "🎉 Código enviado com sucesso!" -ForegroundColor Cyan
-        Write-Host "📱 Verifique seu WhatsApp: 551981850516" -ForegroundColor Cyan
+        Write-Host "📱 Verifique seu WhatsApp: 5551983433940" -ForegroundColor Cyan
     }
 } catch {
     Write-Host "❌ ERRO!" -ForegroundColor Red

@@ -1979,8 +1979,8 @@ export default function AdminPowerRanking() {
                         if (data.pontos_descontados) cond -= data.pontos_descontados;
                     });
                 }
-                // Faltas W.O. (-2 cada)
-                cond -= (calcularFaltasPorResultados(piloto) * 2);
+                // Faltas W.O. (-3 cada)
+                cond -= (calcularFaltasPorResultados(piloto) * 3);
                 
                 // Análises (Metade do valor exibido)
                 const punicaoIncidentes = buscarPunicoes(nome);

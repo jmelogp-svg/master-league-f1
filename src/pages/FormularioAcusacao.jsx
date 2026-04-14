@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { usePilotosData, useCalendarioT20, canSubmitAcusacao, calcLightDate } from '../hooks/useAnalises';
+import { usePilotosData, useCalendarioTemporada, canSubmitAcusacao, calcLightDate } from '../hooks/useAnalises';
+import { useLeagueData } from '../hooks/useLeagueData';
 import { notifyAdminNewAccusation, notifyAccusedDefenseRequest, notifyAccusatorAnalysisOpened } from '../utils/emailService';
 import { getVideoEmbedUrl } from '../utils/videoEmbed';
 import CustomAlert from '../components/CustomAlert';
@@ -10,12 +11,23 @@ import '../index.css';
 import './FormularioAcusacaoDefesa.css';
 
 // Temporada atual
-const TEMPORADA_ATUAL = 20;
+const TEMPORADA_ATUAL = 21;
+
+const ETAPAS_FIXAS_T21 = [
+    { round: 1, circuit: 'Bahrein', dateCarreira: '16/04/26', dateLight: '13/04/26' },
+    { round: 2, circuit: 'Arábia Saudita', dateCarreira: '23/04/26', dateLight: '20/04/26' },
+    { round: 3, circuit: 'Imola', dateCarreira: '30/04/26', dateLight: '27/04/26' },
+    { round: 4, circuit: 'Miami', dateCarreira: '07/05/26', dateLight: '04/05/26' },
+    { round: 5, circuit: 'Brasil', dateCarreira: '14/05/26', dateLight: '11/05/26' },
+    { round: 6, circuit: 'Canadá', dateCarreira: '21/05/26', dateLight: '18/05/26' },
+    { round: 7, circuit: 'Las Vegas', dateCarreira: '28/05/26', dateLight: '25/05/26' },
+    { round: 8, circuit: 'Japão', dateCarreira: '04/06/26', dateLight: '01/06/26' },
+];
 
 /**
  * Gera código único para o lance
  * Formato: STW-{Grid}{Temporada}{Ordem}
- * Exemplo: STW-L2001 (Light, T20, 1º envio)
+ * Exemplo: STW-L2101 (Light, T21, 1º envio)
  */
 async function gerarCodigoLance(grid, temporada) {
     try {
@@ -56,7 +68,8 @@ function FormularioAcusacao() {
     const navigate = useNavigate();
     const { showAlert, showConfirm, alertState } = useCustomAlert();
     const { pilotos: pilotosInscritos, loading: loadingPilotos } = usePilotosData();
-    const { etapas: etapasRaw, loading: loadingCalendario } = useCalendarioT20();
+    const { etapas: etapasRaw, loading: loadingCalendario } = useCalendarioTemporada(TEMPORADA_ATUAL);
+    const { rawCarreira, rawLight, draftCarreira, draftLight, loading: loadingLeagueData } = useLeagueData();
     
     const [pilotoLogado, setPilotoLogado] = useState(null);
     const [selectedGrid, setSelectedGrid] = useState(null);
@@ -74,7 +87,153 @@ function FormularioAcusacao() {
         .replace(/\s+/g, ' ')
         .trim();
 
-    const etapasCalendario = (etapasRaw || [])
+    const nomesElegiveisPorGrid = useMemo(() => {
+        const collectFromClassificacao = (rows) => {
+            const ordered = [];
+            const seen = new Set();
+            (rows || []).forEach((row) => {
+                const season = parseInt(String(row?.[3] ?? '').trim(), 10);
+                if (season !== TEMPORADA_ATUAL) return;
+                const nome = (row?.[9] || '').toString().trim();
+                if (!nome || nome === '-') return;
+                const key = normalizeName(nome);
+                if (!key || seen.has(key)) return;
+                seen.add(key);
+                ordered.push(nome);
+            });
+            return ordered;
+        };
+
+        const collectFromDraft = (rows) => {
+            const ordered = [];
+            const seen = new Set();
+            (rows || []).forEach((row) => {
+                const nome = (row?.[0] || '').toString().trim();
+                if (!nome || nome === 'Piloto' || nome === 'NOME' || nome === 'Nome' || nome.includes('#')) return;
+                const rowSeason = parseInt(String(row?.[2] ?? '').trim(), 10);
+                if (rowSeason !== TEMPORADA_ATUAL) return;
+                const key = normalizeName(nome);
+                if (!key || seen.has(key)) return;
+                seen.add(key);
+                ordered.push(nome);
+            });
+            return ordered;
+        };
+
+        const mergeOrderedUnique = (primary, fallback) => {
+            const out = [];
+            const seen = new Set();
+            [...primary, ...fallback].forEach((nome) => {
+                const key = normalizeName(nome);
+                if (!key || seen.has(key)) return;
+                seen.add(key);
+                out.push(nome);
+            });
+            return out;
+        };
+
+        return {
+            carreira: mergeOrderedUnique(
+                collectFromClassificacao(rawCarreira),
+                collectFromDraft(draftCarreira),
+            ),
+            light: mergeOrderedUnique(
+                collectFromClassificacao(rawLight),
+                collectFromDraft(draftLight),
+            ),
+        };
+    }, [rawCarreira, rawLight, draftCarreira, draftLight]);
+
+    const buildEtapasFromResultados = (rows) => {
+        const etapasMap = new Map();
+        (rows || []).forEach((row) => {
+            const season = parseInt(String(row?.[3] ?? '').trim(), 10);
+            if (season !== TEMPORADA_ATUAL) return;
+
+            const roundRaw = String(row?.[4] ?? '').trim();
+            const roundMatch = roundRaw.match(/\d+/);
+            const round = roundMatch ? parseInt(roundMatch[0], 10) : NaN;
+            if (!Number.isFinite(round) || round <= 0) return;
+
+            if (!etapasMap.has(round)) {
+                etapasMap.set(round, {
+                    round,
+                    date: String(row?.[0] ?? '').trim(),
+                    circuit: String(row?.[5] ?? '').trim() || `Etapa ${round}`,
+                });
+            }
+        });
+        return Array.from(etapasMap.values()).sort((a, b) => a.round - b.round);
+    };
+
+    const etapasResultadosTemporada = useMemo(() => {
+        const primaryRows = effectiveGrid === 'light' ? rawLight : rawCarreira;
+        const secondaryRows = effectiveGrid === 'light' ? rawCarreira : rawLight;
+        const primaryEtapas = buildEtapasFromResultados(primaryRows);
+        if (primaryEtapas.length > 0) return primaryEtapas;
+        return buildEtapasFromResultados(secondaryRows);
+    }, [effectiveGrid, rawCarreira, rawLight]);
+
+    const etapasBase = useMemo(() => {
+        const map = new Map();
+
+        // 1) Para T21, usar calendário oficial fixo com 8 etapas.
+        if (TEMPORADA_ATUAL === 21) {
+            ETAPAS_FIXAS_T21.forEach((etapa) => {
+                map.set(etapa.round, {
+                    round: etapa.round,
+                    circuit: etapa.circuit,
+                    // Guarda a data-base (Carreira). O ajuste para Light é aplicado uma única vez abaixo.
+                    date: etapa.dateCarreira,
+                });
+            });
+        }
+
+        // 2) Base do calendário dinâmico (útil para outras temporadas ou ajustes)
+        (etapasRaw || []).forEach((etapa) => {
+            const round = parseInt(String(etapa?.round ?? '').trim(), 10);
+            if (!Number.isFinite(round) || round <= 0) return;
+            if (!map.has(round)) {
+                map.set(round, {
+                    round,
+                    date: String(etapa?.date ?? '').trim(),
+                    circuit: String(etapa?.circuit ?? '').trim() || `Etapa ${round}`,
+                });
+            }
+        });
+
+        // 3) Complementar com resultados (útil quando calendário vier parcial)
+        (etapasResultadosTemporada || []).forEach((etapa) => {
+            const round = parseInt(String(etapa?.round ?? '').trim(), 10);
+            if (!Number.isFinite(round) || round <= 0) return;
+            const current = map.get(round);
+            if (!current) {
+                map.set(round, {
+                    round,
+                    date: String(etapa?.date ?? '').trim(),
+                    circuit: String(etapa?.circuit ?? '').trim() || `Etapa ${round}`,
+                });
+                return;
+            }
+            // Preserva calendário, mas preenche vazio com resultado.
+            if (!current.date && etapa?.date) current.date = String(etapa.date).trim();
+            if ((!current.circuit || current.circuit === `Etapa ${round}`) && etapa?.circuit) {
+                current.circuit = String(etapa.circuit).trim();
+            }
+            map.set(round, current);
+        });
+
+        // 4) Garantir as 8 etapas no formulário (R01..R08), mesmo sem realizadas.
+        for (let round = 1; round <= 8; round++) {
+            if (!map.has(round)) {
+                map.set(round, { round, date: '-', circuit: `Etapa ${round}` });
+            }
+        }
+
+        return Array.from(map.values()).sort((a, b) => a.round - b.round);
+    }, [etapasRaw, etapasResultadosTemporada, effectiveGrid]);
+
+    const etapasCalendario = (etapasBase || [])
         .filter((etapa, index, self) =>
             index === self.findIndex(e => e.round === etapa.round)
         )
@@ -206,16 +365,39 @@ function FormularioAcusacao() {
             return;
         }
 
-        const pilotosDoGrid = pilotosInscritos
-            .filter(p => {
-                const gridPiloto = (p.grid || '').toLowerCase();
-                return gridPiloto === gridParaFiltrar.toLowerCase() && normalizeName(p.nome) !== normalizeName(pilotoLogado.nome);
+        const nomesBase = gridParaFiltrar.toLowerCase() === 'light'
+            ? nomesElegiveisPorGrid.light
+            : nomesElegiveisPorGrid.carreira;
+
+        const pilotosInscritosMap = new Map();
+        (pilotosInscritos || []).forEach((p) => {
+            const key = normalizeName(p.nome);
+            if (!key || pilotosInscritosMap.has(key)) return;
+            pilotosInscritosMap.set(key, p);
+        });
+
+        const pilotosDoGrid = (nomesBase || [])
+            .filter((nome) => normalizeName(nome) !== normalizeName(pilotoLogado.nome))
+            .map((nome) => {
+                const key = normalizeName(nome);
+                const cadastro = pilotosInscritosMap.get(key);
+                if (cadastro) return cadastro;
+                return {
+                    nome,
+                    gamertag: '',
+                    whatsapp: '',
+                    email: '',
+                    grid: gridParaFiltrar.toLowerCase(),
+                    fotoNome: nome.toLowerCase()
+                        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                        .replace(/\s+/g, ''),
+                };
             })
-            .sort((a, b) => a.nome.localeCompare(b.nome));
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
 
         console.log('👥 Pilotos do grid', gridParaFiltrar, ':', pilotosDoGrid.length, pilotosDoGrid.map(p => p.nome));
         setPilotosGrid(pilotosDoGrid);
-    }, [pilotoLogado, pilotosInscritos, loadingPilotos, selectedGrid]);
+    }, [pilotoLogado, pilotosInscritos, loadingPilotos, selectedGrid, nomesElegiveisPorGrid]);
 
     // Grids em que o piloto aparece na base (pode ter 1 ou 2)
     const gridsDoPiloto = pilotoLogado ? Array.from(new Set(
@@ -450,7 +632,7 @@ Aguarde análise dos Stewards.`
     };
 
     // Só mostrar loading se ainda estiver carregando dados essenciais
-    if (loadingPage || (loadingPilotos && pilotosInscritos.length === 0)) {
+    if (loadingPage || (loadingPilotos && pilotosInscritos.length === 0) || loadingLeagueData) {
         return (
             <div style={{ 
                 minHeight: '100vh', 

@@ -108,6 +108,17 @@ export function motorhomePowerRankingSeason(ctx) {
 }
 
 /**
+ * Temporada para `/powerranking` (cards) e leitura de `power_ranking_stats` nessa página.
+ * Sempre `current_season`: o admin publica com o mesmo critério (selectedSeason padrão = atual).
+ * `motorhomePowerRankingSeason` continua em Dashboard/Hall, onde em pré-temporada faz sentido
+ * priorizar a última encerrada — mas isso gerava T20 na página pública com dados gravados em T21.
+ */
+export function powerRankingPublicCardsSeason(ctx) {
+    if (!ctx) return 20;
+    return ctx.currentSeason;
+}
+
+/**
  * Temporada para buscar propostas / draft (pré-temporada olha para a próxima).
  */
 export function proposalsDraftSeason(ctx) {
@@ -152,4 +163,28 @@ export function phaseLabelPt(phase) {
         default:
             return 'Temporada em andamento';
     }
+}
+
+/**
+ * Limpa checklist e nota persistida do pilar Conduta do Power Ranking para uma temporada
+ * (ao abrir temporada nova: flags por etapa, descontos manuais, etc.).
+ * Não altera temporadas anteriores.
+ */
+export async function resetPowerRankingCondutaForSeason(season) {
+    const s = parseInt(String(season), 10);
+    if (!Number.isFinite(s) || s < 1) {
+        return { ok: false, reason: 'invalid_season' };
+    }
+    const { error: delErr } = await supabase.from('power_ranking_conduta').delete().eq('season', s);
+    if (delErr) {
+        throw new Error(`Não foi possível limpar a conduta (checklist) da T${s}: ${delErr.message}`);
+    }
+    const { error: upErr } = await supabase
+        .from('power_ranking_stats')
+        .update({ conduta: 100, updated_at: new Date().toISOString() })
+        .eq('season', s);
+    if (upErr) {
+        console.warn('[resetPowerRankingCondutaForSeason] power_ranking_stats:', upErr.message);
+    }
+    return { ok: true, season: s };
 }

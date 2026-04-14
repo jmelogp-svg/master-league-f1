@@ -5,6 +5,7 @@ import {
     defaultSeasonContext,
     SEASON_PHASE,
     phaseLabelPt,
+    resetPowerRankingCondutaForSeason,
 } from '../utils/seasonLifecycle';
 import { importAllDraftPilotos } from '../utils/importDraftPilotos';
 
@@ -215,6 +216,7 @@ export default function AdminSeasonLifecyclePanel() {
 
         setBusy(true);
         setErr('');
+        let condutaResetSeason = null;
         try {
             const before = { ...ctx };
             let patch = {};
@@ -246,6 +248,7 @@ export default function AdminSeasonLifecyclePanel() {
             } else if (action === 'mudar') {
                 if (before.phase !== SEASON_PHASE.PRE_SEASON) throw new Error('Antes, ative a pré-temporada.');
                 const nextS = before.lastClosedSeason + 1;
+                condutaResetSeason = nextS;
                 patch.season_phase = SEASON_PHASE.OPEN;
                 patch.current_season = String(nextS);
                 patch.phase_updated_at = nowIso();
@@ -257,6 +260,7 @@ export default function AdminSeasonLifecyclePanel() {
                     throw new Error('“Abrir temporada” só aplica com fase Encerrada ou Pré-temporada.');
                 }
                 const nextS = before.lastClosedSeason + 1;
+                condutaResetSeason = nextS;
                 patch.season_phase = SEASON_PHASE.OPEN;
                 patch.current_season = String(nextS);
                 patch.phase_updated_at = nowIso();
@@ -286,9 +290,17 @@ export default function AdminSeasonLifecyclePanel() {
 
             await persistContext(patch, { ...event });
 
+            if (condutaResetSeason != null) {
+                await resetPowerRankingCondutaForSeason(condutaResetSeason);
+            }
+
             setConfirmModal(null);
             await reload();
-            alert('Transição registrada com sucesso.');
+            alert(
+                condutaResetSeason != null
+                    ? `Transição registrada com sucesso. Conduta do Power Ranking (T${condutaResetSeason}) foi zerada para a temporada nova.`
+                    : 'Transição registrada com sucesso.',
+            );
         } catch (e) {
             setErr(e.message || String(e));
             alert('Erro: ' + (e.message || e));
@@ -396,7 +408,7 @@ export default function AdminSeasonLifecyclePanel() {
                         openConfirm({
                             action: 'mudar',
                             title: 'Mudar temporada',
-                            body: `Ativar a nova temporada T${ctx.lastClosedSeason + 1} (em andamento). Inscrições do site serão alinhadas a esta temporada.`,
+                            body: `Ativar a nova temporada T${ctx.lastClosedSeason + 1} (em andamento). Inscrições do site serão alinhadas a esta temporada. A checklist e a nota persistida do pilar Conduta do Power Ranking desta temporada serão zeradas (base 100).`,
                         })
                     }
                 >
@@ -418,7 +430,7 @@ export default function AdminSeasonLifecyclePanel() {
                         openConfirm({
                             action: 'abrir',
                             title: 'Abrir temporada (atalho)',
-                            body: `Pula ou confirma abertura direta da próxima temporada T${ctx.lastClosedSeason + 1}. Use se não quiser passar pela pré-temporada. Alinha inscrições (app_config).`,
+                            body: `Pula ou confirma abertura direta da próxima temporada T${ctx.lastClosedSeason + 1}. Use se não quiser passar pela pré-temporada. Alinha inscrições (app_config). A conduta do Power Ranking (checklist + nota T${ctx.lastClosedSeason + 1}) será zerada.`,
                         })
                     }
                 >

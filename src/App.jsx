@@ -78,6 +78,7 @@ function App() {
                     <Route path="/regulamento" element={<Regulamento />} />
                     <Route path="/telemetria" element={<Telemetria />} />
                     <Route path="/etapas" element={<Calendario />} />
+                    <Route path="/calendario" element={<Calendario />} />
                     <Route path="/analises" element={<ConsultarAnalises />} />
                     <Route path="/acusacao" element={<FormularioAcusacao />} />
                     <Route path="/defesa" element={<FormularioDefesa />} />

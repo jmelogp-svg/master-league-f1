@@ -104,7 +104,7 @@ export default function AdminPowerRanking() {
     
     const { data: rawPRCarreira, loading: loadingPRCarreira } = usePowerRankingCache(selectedSeason);
     const { data: rawPRLight, loading: loadingPRLight } = usePowerRankingLightCache(selectedSeason);
-    const { rawCarreira, rawLight } = useLeagueData();
+    const { rawCarreira, rawLight, draftCarreira, draftLight } = useLeagueData();
     const loadingPR = loadingPRCarreira || loadingPRLight;
     const [prData, setPrData] = useState({}); // { nome_piloto: { total, performance, conduta, racecraft, overall, historico } }
     const [pilaresData, setPilaresData] = useState({}); // { nome_piloto: { performance, conduta, racecraft, overall, historico } }
@@ -305,6 +305,21 @@ export default function AdminPowerRanking() {
                         }
                     }
                 });
+
+                // 3.1 Complementar com o draft da temporada selecionada:
+                // garante presença no painel mesmo sem corrida registrada na etapa 1.
+                const addDraftPilotos = (rows, gridKey) => {
+                    (rows || []).forEach((row) => {
+                        const nome = (row?.[0] || '').toString().trim();
+                        if (!nome || nome === 'Piloto' || nome === 'NOME' || nome === 'Nome' || nome.includes('#')) return;
+                        const season = parseInt(String(row?.[2] ?? '').trim(), 10);
+                        if (season !== parseInt(selectedSeason, 10)) return;
+                        pilotosPorGrid[gridKey].add(nome);
+                    });
+                };
+
+                addDraftPilotos(draftCarreira, 'carreira');
+                addDraftPilotos(draftLight, 'light');
                 
 
                 // Função auxiliar para busca flexível (tenta diferentes variações)
@@ -458,7 +473,7 @@ export default function AdminPowerRanking() {
         };
 
         carregarPilotosPorClassificacao();
-    }, [selectedSeason, rawCarreira, rawLight]);
+    }, [selectedSeason, rawCarreira, rawLight, draftCarreira, draftLight]);
 
     // Carregar dados de conduta
     useEffect(() => {
@@ -2520,8 +2535,8 @@ export default function AdminPowerRanking() {
                         if (data.pontos_descontados) cond -= data.pontos_descontados;
                     });
                 }
-                // Faltas W.O. (-2 cada)
-                cond -= (calcularFaltasPorResultados(piloto) * 2);
+                // Faltas W.O. (-3 cada)
+                cond -= (calcularFaltasPorResultados(piloto) * 3);
                 
                 // Análises (Metade do valor exibido)
                 const punicaoIncidentes = buscarPunicoes(nome);
@@ -2543,9 +2558,9 @@ export default function AdminPowerRanking() {
                 const obj = objetivosData[nome] || {};
                 // Objetivo 6 é informativo/estratégico (campeões/equipes favoritas) e não entra no OVERALL.
                 let over = (obj.objetivo1 || 0) + (obj.objetivo2 || 0) + (obj.objetivo3 || 0) + (obj.objetivo4 || 0) + (obj.objetivo5 || 0);
-                
-                // Se não tem PR na temporada atual (ainda não correu), setar base 60
-                if (totalS20 === 0) over = 60;
+                // OVERALL sempre respeita piso 60, mas não deve ser travado em 60
+                // para pilotos sem PR na etapa (ex.: faltantes com objetivos válidos).
+                over = Math.max(60, over);
 
                 // --- PILAR 5: HISTÓRICO (60-100) = 40% HISTÓRIA + 30% TEMPORADAS + 30% CORRIDAS ---
                 let hbNorm = 60;
@@ -2570,9 +2585,9 @@ export default function AdminPowerRanking() {
                     (finalCond * 0.15) + 
                     (finalHist * 0.10)
                 );
-                // Cada falta (W.O.) do piloto tira 1 ponto do Power Ranking final
+                // Cada falta (W.O.) do piloto tira 2 pontos do Power Ranking final
                 const faltas = calcularFaltasPorResultados(piloto);
-                const prFinal = Math.max(0, prCalculado - faltas);
+                const prFinal = Math.max(0, prCalculado - (faltas * 2));
 
                 updated[nome] = {
                     performance: finalPerf,

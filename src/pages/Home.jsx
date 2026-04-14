@@ -325,6 +325,13 @@ function Home() {
         return repairUtf8Mojibake(step1);
     };
 
+    // Planilha draft: coluna M (índice 12) contém a equipe fallback.
+    const draftTeamFromRow = (row) => {
+        const teamRaw = row?.[12];
+        if (teamRaw == null || teamRaw === '') return '';
+        return repairUtf8Mojibake(String(teamRaw)).trim();
+    };
+
     // Extrai número seguro de string (ex: "Etapa 8" => 8)
     const extrairNumero = (str) => {
         if (str === null || str === undefined) return 0;
@@ -880,7 +887,8 @@ function Home() {
                 if (!name || name === 'Piloto' || name === 'NOME' || name === 'Nome' || name.includes('#')) return;
                 const rowSeason = parseInt(String(row[2] ?? '').trim(), 10);
                 if (!Number.isFinite(need) || rowSeason !== need) return;
-                list.push({ name, team: 'Master League', points: 0, bestPosition: Infinity, isDraft: true });
+                const draftTeam = draftTeamFromRow(row);
+                list.push({ name, team: draftTeam || 'Master League', points: 0, bestPosition: Infinity, isDraft: true });
             });
             return list;
         };
@@ -894,6 +902,18 @@ function Home() {
             setSeasonDriversLightFull(sortedLightPre);
             return;
         }
+
+        const mergeDraftIntoTotals = (totalsMap, draftRows) => {
+            fromDraftBySeason(draftRows).forEach((draftDriver) => {
+                if (!totalsMap[draftDriver.name]) {
+                    totalsMap[draftDriver.name] = { ...draftDriver };
+                }
+            });
+        };
+
+        // Sempre complementar com draft da temporada para exibir faltantes nas tabelas.
+        mergeDraftIntoTotals(totals, draftCarreira);
+        mergeDraftIntoTotals(totalsLight, draftLight);
         
         // Subtrair pontos perdidos em punições para cada piloto (antes de ordenar)
         // Usando punições específicas do carrossel (T20 fixo por grid)
@@ -934,15 +954,6 @@ function Home() {
         
         let sorted = Object.values(totals).sort(sortDrivers);
         let sortedLightFull = Object.values(totalsLight).sort(sortDrivers);
-
-        // FALLBACK: classificação vazia — mesmo critério de SEASON na coluna C dos drafts.
-        if (sorted.length === 0 && draftCarreira && draftCarreira.length > 0) {
-            fromDraftBySeason(draftCarreira).forEach((d) => sorted.push(d));
-        }
-
-        if (sortedLightFull.length === 0 && draftLight && draftLight.length > 0) {
-            fromDraftBySeason(draftLight).forEach((d) => sortedLightFull.push(d));
-        }
 
         setTopDrivers(sorted.slice(0, 3));
         setTopDriversLight(sortedLightFull.slice(0, 3));
@@ -1124,11 +1135,14 @@ function Home() {
 
     const getDrivers = () => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
+        const draftRows = gridType === 'carreira' ? draftCarreira : draftLight;
         const totals = {};
+        const targetSeason = parseInt(selectedSeason);
         rawData.forEach(row => {
-            const s = parseInt(row[3]); if (s !== parseInt(selectedSeason)) return;
+            const s = parseInt(row[3]); if (s !== targetSeason) return;
             const name = row[9]; const team = row[10]; if (!name) return;
-            if (!totals[name]) totals[name] = { name, team, points: 0, bestPosition: Infinity };
+            if (!totals[name]) totals[name] = { name, team: team || 'Sem equipe', points: 0, bestPosition: Infinity };
+            else if ((!totals[name].team || totals[name].team === 'Sem equipe') && team) totals[name].team = team;
             
             // Rastrear melhor posição (menor número = melhor)
             const racePos = parseInt(row[8]);
@@ -1164,6 +1178,20 @@ function Home() {
                 totals[name].points += p;
             } else { if (racePos >= 1 && racePos <= 10) totals[name].points += POINTS_RACE[racePos - 1]; if (sprintPos >= 1 && sprintPos <= 8) totals[name].points += POINTS_SPRINT[sprintPos - 1]; }
         });
+
+        // Complementar com inscritos do draft da temporada (inclui faltantes sem corrida).
+        (draftRows || []).forEach((row) => {
+            const name = sanitizeDraftPilotName(row?.[0]);
+            if (!name || name === 'Piloto' || name === 'NOME' || name === 'Nome' || name.includes('#')) return;
+            const rowSeason = parseInt(String(row?.[2] ?? '').trim(), 10);
+            if (rowSeason !== targetSeason) return;
+            const draftTeam = draftTeamFromRow(row);
+            if (!totals[name]) {
+                totals[name] = { name, team: draftTeam || 'Sem equipe', points: 0, bestPosition: Infinity };
+            } else if ((!totals[name].team || totals[name].team === 'Sem equipe') && draftTeam) {
+                totals[name].team = draftTeam;
+            }
+        });
         
         // Subtrair pontos perdidos em punições para cada piloto (permite valores negativos)
         Object.keys(totals).forEach(nomePiloto => {
@@ -1195,7 +1223,8 @@ function Home() {
         drivers.forEach(d => {
             // Ignorar equipes "Reserva"
             const teamName = d.team || '';
-            if (!teamName || teamName.toLowerCase().trim() === 'reserva') return;
+            const teamNameNormalized = teamName.toLowerCase().trim();
+            if (!teamNameNormalized || teamNameNormalized === 'reserva' || teamNameNormalized === 'sem equipe' || teamNameNormalized === '-') return;
             
             if (!teams[teamName]) {
                 teams[teamName] = { team: teamName, points: 0, driversList: [], pontosPerdidos: 0 };

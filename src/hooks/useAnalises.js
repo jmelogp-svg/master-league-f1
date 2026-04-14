@@ -316,11 +316,10 @@ function normalizeRow(row) {
 }
 
 /**
- * Hook para buscar etapas do calendário da T20
- * Usa Supabase cache primeiro, com fallback para Google Sheets
- * No site publicado: timeout + fallback garantem etapas mesmo com rede/CORS falhando
+ * Hook para buscar etapas do calendário por temporada.
+ * Usa Supabase cache primeiro, com fallback para Google Sheets.
  */
-export function useCalendarioT20() {
+export function useCalendarioTemporada(temporada = 20) {
     // Inicializar já com 8 etapas fallback: no site publicado o select nunca fica vazio
     const [etapas, setEtapas] = useState(() => getFallbackEtapas());
     const [loading, setLoading] = useState(true);
@@ -338,7 +337,7 @@ export function useCalendarioT20() {
                     const { data: cacheData, error: cacheError } = await supabase
                         .from('calendario_cache')
                         .select('*')
-                        .eq('season', 20)
+                        .eq('season', temporada)
                         .order('last_synced_at', { ascending: false })
                         .limit(1);
 
@@ -406,9 +405,16 @@ export function useCalendarioT20() {
             setError('timeout');
             console.warn('📅 Calendário: timeout, usando 8 etapas fallback');
         });
-    }, []);
+    }, [temporada]);
 
     return { etapas, loading, error };
+}
+
+/**
+ * Compatibilidade com chamadas legadas.
+ */
+export function useCalendarioT20() {
+    return useCalendarioTemporada(20);
 }
 
 /**

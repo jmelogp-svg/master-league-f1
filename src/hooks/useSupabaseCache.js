@@ -94,7 +94,9 @@ export function useSupabaseCache(tableName, options = {}) {
                     const record = supabaseData[0];
                     const dataToValidate = record?.data;
                     const isValid = validateData(dataToValidate);
-                    console.log(`🔍 Validação de dados para ${tableName}:`, isValid ? 'VÁLIDO' : 'INVÁLIDO - usando fallback');
+                    if (import.meta.env.DEV) {
+                        console.log(`🔍 Validação de dados para ${tableName}:`, isValid ? 'VÁLIDO' : 'INVÁLIDO — fallback');
+                    }
                     if (!isValid) {
                         shouldUseFallback = true;
                     } else {
@@ -118,7 +120,9 @@ export function useSupabaseCache(tableName, options = {}) {
                         const processedData = parseData(record.data);
                         
                         if (isMounted.current) {
-                            console.log(`✅ Usando dados do SUPABASE para ${tableName}`);
+                            if (import.meta.env.DEV) {
+                                console.log(`✅ Usando dados do SUPABASE para ${tableName}`);
+                            }
                             setData(processedData);
                             setSource('supabase');
                             setLoading(false);
@@ -135,6 +139,11 @@ export function useSupabaseCache(tableName, options = {}) {
                         return;
                     } else {
                         shouldUseFallback = true; // Cache expirado, usar fallback
+                        if (import.meta.env.DEV) {
+                            console.info(
+                                `[cache] ${tableName}: registro no Supabase válido porém antigo (~${age.toFixed(1)} min; limite ${cacheMaxAge} min) — buscando planilha`,
+                            );
+                        }
                     }
                 }
             } else {
@@ -174,7 +183,9 @@ export function useSupabaseCache(tableName, options = {}) {
                         const processedData = parseData({ rows, metadata: { rowCount: rows.length } });
                         
                         if (isMounted.current) {
-                            console.log(`✅ Usando dados do GOOGLE SHEETS (fallback) para ${tableName}`);
+                            if (import.meta.env.DEV) {
+                                console.log(`✅ Usando dados do GOOGLE SHEETS (fallback) para ${tableName}`);
+                            }
                             setData(processedData);
                             setSource('sheets');
                             setLoading(false);
@@ -303,7 +314,8 @@ export function usePowerRankingCache(season = 20) {
 
     return useSupabaseCache('power_ranking_cache', {
         filter: { grid: 'carreira' },
-        cacheMaxAge: 15,
+        // PR muda pouco entre syncs; 15 min gerava fallback constante à planilha e ruído no console.
+        cacheMaxAge: 720,
         fallbackUrl,
         parseData: (data) => data.rows || [],
         validateData: (data) => {
@@ -325,7 +337,7 @@ export function usePowerRankingLightCache(season = 20) {
 
     return useSupabaseCache('power_ranking_cache', {
         filter: { grid: 'light' },
-        cacheMaxAge: 15,
+        cacheMaxAge: 720,
         fallbackUrl,
         parseData: (data) => data.rows || [],
         validateData: (data) => {

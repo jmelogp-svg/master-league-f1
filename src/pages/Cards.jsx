@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { displayPilarInt } from '../utils/powerRankingMotorhome';
 import './Cards.css';
 
 // Componente para exibir foto do piloto
@@ -147,7 +148,7 @@ function Cards() {
         power_ranking: 60
     };
 
-    const powerRanking = Math.ceil(stats.power_ranking || 0);
+    const powerRanking = displayPilarInt('power_ranking', stats.power_ranking);
 
     return (
         <div className="ea-container">
@@ -179,19 +180,19 @@ function Cards() {
 
                         <div className="card-stat-row overall stat-overall">
                             <span className="label"></span>
-                            <span className="value">{Math.ceil(stats.overall || 60)}</span>
+                            <span className="value">{displayPilarInt('overall', stats.overall)}</span>
                         </div>
                         <div className="card-stat-row stat-performance">
                             <span className="label"></span>
-                            <span className="value">{Math.ceil(stats.performance || 0)}</span>
+                            <span className="value">{displayPilarInt('performance', stats.performance)}</span>
                         </div>
                         <div className="card-stat-row stat-racecraft">
                             <span className="label"></span>
-                            <span className="value">{Math.ceil(stats.racecraft || 0)}</span>
+                            <span className="value">{displayPilarInt('racecraft', stats.racecraft)}</span>
                         </div>
                         <div className="card-stat-row stat-conduta">
                             <span className="label"></span>
-                            <span className="value">{Math.ceil(stats.conduta || 0)}</span>
+                            <span className="value">{displayPilarInt('conduta', stats.conduta)}</span>
                         </div>
                         <div className="card-stat-row stat-historico">
                             <span className="label"></span>
@@ -200,7 +201,7 @@ function Cards() {
 
                     {/* Valor do Histórico alinhado à direita no banner */}
                     <div className="historico-value">
-                        {Math.ceil(stats.historico || 0)}
+                        {displayPilarInt('historico', stats.historico)}
                     </div>
 
                     {/* Bloco de Nome (Esquerda) */}

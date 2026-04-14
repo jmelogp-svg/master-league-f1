@@ -117,20 +117,21 @@ const lobbyConfig = [
     { config: 'Setup do Carro', valor: 'Travado (Pré-Definidos)' },
     { config: 'Bandeiras', valor: 'Ligado' },
     { config: 'Telemetria', valor: 'Pública (Aberta)' },
-    { config: 'Safety Car', valor: 'Modo Reduzido / Freq. Padrão' },
+    { config: 'Safety Car', valor: 'Padrão' },
+    { config: 'Bandeira Vermelha', valor: 'Padrão' },
     { config: 'Modo Imersivo', valor: 'Volta de formação, SC, Box' }
 ];
 
 // ========== CALENDÁRIO DA TEMPORADA ==========
 const calendarData = [
-    { etapa: 1, modelo: 'Qualy 18"', dataCarreira: '15/01/26', circuito: 'Abu Dhabi', pais: 'AE', flag: '🇦🇪' },
-    { etapa: 2, modelo: 'Qualy 18"', dataCarreira: '22/01/26', circuito: 'Áustria', pais: 'AT', flag: '🇦🇹' },
-    { etapa: 3, modelo: 'Sprint', dataCarreira: '29/01/26', circuito: 'Texas', pais: 'US', flag: '🇺🇸' },
-    { etapa: 4, modelo: 'Qualy 18"', dataCarreira: '05/02/26', circuito: 'Espanha', pais: 'ES', flag: '🇪🇸' },
-    { etapa: 5, modelo: 'Qualy 18"', dataCarreira: '12/02/26', circuito: 'Catar', pais: 'QA', flag: '🇶🇦' },
-    { etapa: 6, modelo: 'Sprint', dataCarreira: '26/02/26', circuito: 'México', pais: 'MX', flag: '🇲🇽' },
-    { etapa: 7, modelo: 'Qualy 18"', dataCarreira: '05/03/26', circuito: 'Austrália', pais: 'AU', flag: '🇦🇺' },
-    { etapa: 8, modelo: 'Qualy 18"', dataCarreira: '12/03/26', circuito: 'China', pais: 'CN', flag: '🇨🇳' }
+    { etapa: 1, modelo: 'Qualy 18"', dataCarreira: '16/04/26', circuito: 'Bahrein', pais: 'BH', flag: '🇧🇭', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
+    { etapa: 2, modelo: 'Qualy 18"', dataCarreira: '23/04/26', circuito: 'Arábia Saudita', pais: 'SA', flag: '🇸🇦', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
+    { etapa: 3, modelo: 'Qualy 18"', dataCarreira: '30/04/26', circuito: 'Imola', pais: 'IT', flag: '🇮🇹', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
+    { etapa: 4, modelo: 'Sprint', dataCarreira: '07/05/26', circuito: 'Miami', pais: 'US', flag: '🇺🇸', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
+    { etapa: 5, modelo: 'Qualy 18"', dataCarreira: '14/05/26', circuito: 'Brasil', pais: 'BR', flag: '🇧🇷', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
+    { etapa: 6, modelo: 'Qualy 18"', dataCarreira: '21/05/26', circuito: 'Canadá', pais: 'CA', flag: '🇨🇦', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
+    { etapa: 7, modelo: 'Qualy 18"', dataCarreira: '28/05/26', circuito: 'Las Vegas', pais: 'US', flag: '🇺🇸', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
+    { etapa: 8, modelo: 'Sprint', dataCarreira: '04/06/26', circuito: 'Japão', pais: 'JP', flag: '🇯🇵', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' }
 ];
 
 // Função para calcular data do Grid Light (3 dias antes)
@@ -138,56 +139,56 @@ const calendarData = [
 // Mapeamento do nome do circuito e mapa da pista
 // Usando flagcdn.com que é mais confiável e não tem problemas de CORS
 const circuitInfo = {
-    "Abu Dhabi": {
-        nome: "Yas Marina Circuit",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/YasMarina.png",
-        bandeira: "https://flagcdn.com/w40/ae.png"
+    "Bahrein": {
+        nome: "Bahrain International Circuit",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Bahrain.png",
+        bandeira: "https://flagcdn.com/w40/bh.png"
     },
-    "Áustria": {
-        nome: "Red Bull Ring",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Austria.png",
-        bandeira: "https://flagcdn.com/w40/at.png"
+    "Arábia Saudita": {
+        nome: "Jeddah Corniche Circuit",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/SaudiArabia.png",
+        bandeira: "https://flagcdn.com/w40/sa.png"
     },
-    "Texas": {
-        nome: "Circuit of The Americas",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Austin.png",
+    "Imola": {
+        nome: "Autodromo Enzo e Dino Ferrari",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/EmiliaRomagna.png",
+        bandeira: "https://flagcdn.com/w40/it.png"
+    },
+    "Miami": {
+        nome: "Miami International Autodrome",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Miami.png",
         bandeira: "https://flagcdn.com/w40/us.png"
     },
-    "Espanha": {
-        nome: "Circuit de Barcelona-Catalunya",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Spain.png",
-        bandeira: "https://flagcdn.com/w40/es.png"
+    "Brasil": {
+        nome: "Interlagos",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Brazil.png",
+        bandeira: "https://flagcdn.com/w40/br.png"
     },
-    "Catar": {
-        nome: "Losail International Circuit",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Qatar.png",
-        bandeira: "https://flagcdn.com/w40/qa.png"
+    "Canadá": {
+        nome: "Circuit Gilles-Villeneuve",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Canada.png",
+        bandeira: "https://flagcdn.com/w40/ca.png"
     },
-    "México": {
-        nome: "Autódromo Hermanos Rodríguez",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Mexico.png",
-        bandeira: "https://flagcdn.com/w40/mx.png"
+    "Las Vegas": {
+        nome: "Las Vegas Strip Circuit",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/LasVegas.png",
+        bandeira: "https://flagcdn.com/w40/us.png"
     },
-    "Austrália": {
-        nome: "Albert Park Circuit",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Australia.png",
-        bandeira: "https://flagcdn.com/w40/au.png"
-    },
-    "China": {
-        nome: "Shanghai International Circuit",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/China.png",
-        bandeira: "https://flagcdn.com/w40/cn.png"
+    "Japão": {
+        nome: "Suzuka International Racing Course",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Japan.png",
+        bandeira: "https://flagcdn.com/w40/jp.png"
     }
 };
 const flagsByCircuit = {
-    "Abu Dhabi": "https://flagcdn.com/w40/ae.png",
-    "Áustria": "https://flagcdn.com/w40/at.png",
-    "Texas": "https://flagcdn.com/w40/us.png",
-    "Espanha": "https://flagcdn.com/w40/es.png",
-    "Catar": "https://flagcdn.com/w40/qa.png",
-    "México": "https://flagcdn.com/w40/mx.png",
-    "Austrália": "https://flagcdn.com/w40/au.png",
-    "China": "https://flagcdn.com/w40/cn.png"
+    "Bahrein": "https://flagcdn.com/w40/bh.png",
+    "Arábia Saudita": "https://flagcdn.com/w40/sa.png",
+    "Imola": "https://flagcdn.com/w40/it.png",
+    "Miami": "https://flagcdn.com/w40/us.png",
+    "Brasil": "https://flagcdn.com/w40/br.png",
+    "Canadá": "https://flagcdn.com/w40/ca.png",
+    "Las Vegas": "https://flagcdn.com/w40/us.png",
+    "Japão": "https://flagcdn.com/w40/jp.png"
 };
 const calcLightDate = (carreiraDate) => {
     const [day, month, year] = carreiraDate.split('/');
@@ -200,8 +201,8 @@ const calcLightDate = (carreiraDate) => {
 };
 
 const technicalRules = [
-    { id: 1, title: 'Desempenho', detail: 'Grid Light trabalha com performance igual; Grid Carreira roda com performance real.' },
-    { id: 2, title: 'Setup & Assistências', detail: 'Setup padrão pré-definido. Traçado automático, câmbio automático e ABS/tração completos são permitidos. Pit stop e largada permanecem manuais.' },
+    { id: 1, title: 'Desempenho', detail: 'Grid Carreira roda com performance real. Grid Light alterna entre performance real e igual, conforme definido para cada etapa.' },
+    { id: 2, title: 'Setup & Assistências', detail: 'Grid Carreira com setup aberto; Grid Light com setup padrão pré-definido. Traçado automático, câmbio automático e ABS/tração completos são permitidos. Pit stop e largada permanecem manuais.' },
     { id: 3, title: 'Telemetria', detail: 'Uso aberto obrigatório. Telemetria fechada gera perda automática de Pontos de Conduta.' }
 ];
 
@@ -238,7 +239,7 @@ const draftPriority = [
 // Promoção Obrigatória do Grid Light
 const promotionRule = {
     title: 'Promoção Obrigatória',
-    description: 'Os 3 primeiros colocados do Grid Light ao final da temporada NÃO poderão mais competir nesse grid. Deverão obrigatoriamente seguir para o Grid Carreira na temporada seguinte.'
+    description: 'Os 3 primeiros colocados do Grid Light ao final da temporada NÃO poderão mais competir nesse grid. Deverão obrigatoriamente seguir para o Grid Carreira na temporada seguinte. Também poderá haver promoção na metade da temporada em casos de abandono de grid ou excesso de faltas.'
 };
 
 // Reservas
@@ -352,25 +353,25 @@ Sistema de Convites: Apenas os hosts recebem o convite inicial. Pilotos devem en
 Lista de Presença: É obrigatória a resposta à lista de presença. A ausência de resposta acarreta perda de Pontos de Conduta.`,
         tables: [
             {
-                title: 'Calendário Grid Light - Temporada 20',
-                headers: ['Etapa', 'Data', 'Circuito'],
+                title: 'Calendário Grid Light - Temporada 21',
+                headers: ['Etapa', 'Data', 'Circuito', 'Desempenho'],
                 rows: calendarData.map((item) => {
                     const isSprint = item.modelo === 'Sprint';
                     const isQualy = item.modelo === 'Qualy 18"';
                     const info = circuitInfo[item.circuito] || {};
                     const etapa = item.circuito + (isSprint ? ' **' : isQualy ? ' *' : '');
-                    return [etapa, calcLightDate(item.dataCarreira), info.nome || item.circuito];
+                    return [etapa, calcLightDate(item.dataCarreira), info.nome || item.circuito, item.desempenhoLight || 'Igual'];
                 })
             },
             {
-                title: 'Calendário Grid Carreira - Temporada 20',
-                headers: ['Etapa', 'Data', 'Circuito'],
+                title: 'Calendário Grid Carreira - Temporada 21',
+                headers: ['Etapa', 'Data', 'Circuito', 'Desempenho'],
                 rows: calendarData.map((item) => {
                     const isSprint = item.modelo === 'Sprint';
                     const isQualy = item.modelo === 'Qualy 18"';
                     const info = circuitInfo[item.circuito] || {};
                     const etapa = item.circuito + (isSprint ? ' **' : isQualy ? ' *' : '');
-                    return [etapa, item.dataCarreira, info.nome || item.circuito];
+                    return [etapa, item.dataCarreira, info.nome || item.circuito, item.desempenhoCarreira || 'Real'];
                 })
             }
         ],
@@ -390,7 +391,7 @@ Assistência de Box - Não
 Linha - Somente nas curvas
 Assistência de DRS/ERS - Não
 Combustível - Difícil
-Largada - Manuel
+Largada - Manual
 Previsão do Tempo - Aproximada
 Modo de Recuperação - Nenhuma
 Liberação de box insegura - Sim
@@ -404,10 +405,13 @@ Parque Fechado - Sim
 Dano ao veículo - Moderado (Asa Frontal)
 Frequência do Dano - Padrão
 Fantasma (Ghost) - Desligado
-Corde nas curvas - Rígido
+Corte nas curvas - Rígido
 Temperatura do pneu - Simulação
+Setup do Carro - Grid Carreira Aberto / Grid Light Travado (Pré-Definidos)
 Bandeiras - Ligado
-Safety Car - Reduzido
+Telemetria - Pública (Aberta)
+Safety Car - Padrão
+Bandeira Vermelha - Padrão
 Modo Imersivo - Volta de formação, SC e Box`
     },
     {
@@ -447,11 +451,13 @@ Etapa com Sprint: Haverá um qualy antes da Sprint e outro qualy antes da corrid
         keywords: ['setup', 'assistência', 'telemetria', 'performance', 'câmbio', 'abs', 'tração'],
         content: `3.1. Desempenho e Setup
 
-Grid Light: Desempenho IGUAL em todas as etapas.
+Grid Light: Desempenho alternado entre REAL e IGUAL (conforme etapa definida pela administração).
 
 Grid Carreira: Desempenho REAL em todas as etapas.
 
-Setup: Padrão (Pré-Definido).
+Setup Grid Carreira: ABERTO.
+
+Setup Grid Light: Padrão (Pré-Definido).
 
 3.2. Assistências e Configurações
 
@@ -503,18 +509,19 @@ Realizada via site/app ou whatsapp com propostas e contratos.`,
                 headers: ['Ordem', 'Critério'],
                 rows: [
                     ['1º', 'Power Ranking - Temporada anterior'],
-                    ['2º', 'Pilotos Promovidos do Grid Light'],
-                    ['3º', 'Pilotos Antigos (Retorno)'],
-                    ['4º', 'Novatos (Por ordem alfabética)']
+                    ['2º', 'Pilotos que já disputaram o Grid Carreira na temporada anterior'],
+                    ['3º', 'Pilotos promovidos do Grid Light'],
+                    ['4º', 'Pilotos com ranking histórico alto'],
+                    ['5º', 'Pilotos novatos (por ordem alfabética)']
                 ]
             },
             {
                 title: 'Prioridade Grid Light',
                 headers: ['Ordem', 'Critério'],
                 rows: [
-                    ['1º', 'Pontuação Temporada Anterior'],
-                    ['2º', 'Pilotos Antigos (Retorno)'],
-                    ['3º', 'Novatos (Por ordem alfabética)']
+                    ['1º', 'Melhor pontuação na temporada anterior'],
+                    ['2º', 'Pilotos antigos na liga'],
+                    ['3º', 'Pilotos novatos (por ordem alfabética)']
                 ]
             }
         ],
@@ -536,7 +543,13 @@ Todas as categorias correm com os carros de F1.
 
 5.4. Substituição por Ausências
 
-Caso de ausência em duas etapas sem aviso ou justificativa, a liga terá direito de substituir o piloto após a quarta etapa e o colocar como reserva no grid.`
+Caso de ausência em duas etapas sem aviso ou justificativa, a liga terá direito de substituir o piloto após a quarta etapa e o colocar como reserva no grid.
+
+5.5. Promoção Obrigatória
+
+Os 3 primeiros colocados do Grid Light ao final da temporada NÃO poderão mais competir nesse grid e deverão obrigatoriamente seguir para o Grid Carreira na temporada seguinte.
+
+Também poderá haver promoção de pilotos na metade da temporada em casos de abandono de grid ou excesso de faltas.`
     },
     {
         id: 'punicoes',
@@ -646,7 +659,7 @@ Peso de cada pilar na nota final (Power Ranking):`,
                     ['Base', '100 pontos.'],
                     ['Foto não enviada', '-5 (uma vez por temporada).'],
                     ['Por etapa', 'Lista de presença não respondida: -1; Numeração errada: -1; Telemetria fechada: -1; Pontos descontados manuais (conforme aplicado).'],
-                    ['Faltas W.O.', '-2 por falta.'],
+                    ['Faltas W.O.', '-3 por falta.'],
                     ['Punições (análises)', 'Metade do valor exibido de defesa faltante (5 pts por defesa não enviada) + metade do valor exibido de punições de incidentes.'],
                     ['Advertências', '-1 por advertência.']
                 ]
@@ -683,7 +696,7 @@ Peso de cada pilar na nota final (Power Ranking):`,
                 headers: ['Fórmula / Regra', 'Descrição'],
                 rows: [
                     ['Cálculo pelos pilares', 'PR = (Performance × 0,30) + (Racecraft × 0,25) + (Overall × 0,20) + (Conduta × 0,15) + (Histórico × 0,10)'],
-                    ['Desconto por faltas (W.O.)', 'Cada falta do piloto (ausência em etapa) desconta 1 ponto no número final do Power Ranking. Ex.: nota 95 com 2 faltas = Power Ranking final 93.']
+                    ['Desconto por faltas (W.O.)', 'Cada falta do piloto (ausência em etapa) desconta 2 pontos no número final do Power Ranking. Ex.: nota 95 com 2 faltas = Power Ranking final 91.']
                 ]
             }
         ]
@@ -692,7 +705,7 @@ Peso de cada pilar na nota final (Power Ranking):`,
         id: 'infracoes',
         title: '11. Infrações Críticas',
         keywords: ['infração', 'falta', 'wo', 'ausência', 'foto', 'formulário'],
-        content: `As seguintes ações reduzem automaticamente Pontos de Conduta e Overall:
+        content: `As seguintes ações reduzem automaticamente Pontos de Conduta e Power Ranking:
 
 • Não enviar foto oficial solicitada pelo campeonato
 • Faltar a etapas (W.O.) sem justificativa
@@ -1147,12 +1160,12 @@ const Regulamento = () => {
                             <article className="reg-calendar-card">
                                 <h3>Grid Light</h3>
                                 <p className="reg-calendar-sub">Segundas-feiras • 20:15h</p>
-                                <p>Performance igual em todas as etapas; foco em evolução e acesso ao Grid Carreira.</p>
+                                <p>Performance alternada entre real e igual por etapa; setup pré-definido e foco em evolução para acesso ao Grid Carreira.</p>
                             </article>
                             <article className="reg-calendar-card">
                                 <h3>Grid Carreira</h3>
                                 <p className="reg-calendar-sub">Quintas-feiras • 20:15h</p>
-                                <p>Performance real, pilotos de elite e pontos decisivos para o Power Ranking.</p>
+                                <p>Performance real, setup aberto e pontos decisivos para o Power Ranking.</p>
                             </article>
                         </div>
 
@@ -1160,13 +1173,14 @@ const Regulamento = () => {
 
                         <div className="reg-calendar-tables">
                             <div className="reg-calendar-table-wrapper">
-                                <h3 className="reg-calendar-table-title">📅 Calendário Grid Light - Temporada 20</h3>
+                                <h3 className="reg-calendar-table-title">📅 Calendário Grid Light - Temporada 21</h3>
                                 <table className="reg-calendar-table">
                                     <thead>
                                         <tr>
                                             <th>Etapa</th>
                                             <th>Data</th>
                                             <th>Circuito</th>
+                                            <th>Desempenho</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1197,6 +1211,7 @@ const Regulamento = () => {
                                                             <span className="circuit-name" style={{ marginLeft: '12px' }}>{info.nome || item.circuito}</span>
                                                         </div>
                                                     </td>
+                                                    <td className="calendar-performance">{item.desempenhoLight || 'Igual'}</td>
                                                 </tr>
                                             );
                                         })}
@@ -1209,13 +1224,14 @@ const Regulamento = () => {
                             </div>
 
                             <div className="reg-calendar-table-wrapper">
-                                <h3 className="reg-calendar-table-title">📅 Calendário Grid Carreira - Temporada 20</h3>
+                                <h3 className="reg-calendar-table-title">📅 Calendário Grid Carreira - Temporada 21</h3>
                                 <table className="reg-calendar-table">
                                     <thead>
                                         <tr>
                                             <th>Etapa</th>
                                             <th>Data</th>
                                             <th>Circuito</th>
+                                            <th>Desempenho</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1246,6 +1262,7 @@ const Regulamento = () => {
                                                             <span className="circuit-name" style={{ marginLeft: '12px' }}>{info.nome || item.circuito}</span>
                                                         </div>
                                                     </td>
+                                                    <td className="calendar-performance">{item.desempenhoCarreira || 'Real'}</td>
                                                 </tr>
                                             );
                                         })}
@@ -1359,14 +1376,15 @@ const Regulamento = () => {
                                 <h2>Configurações técnicas &amp; Numeração</h2>
                                 <p>Setup, assistências e telemetria seguem regras claras para manter a competitividade.</p>
                             </div>
-                            <span className="reg-mini-pill">Pré-definido • Manual • Transparente</span>
+                            <span className="reg-mini-pill">Carreira: Aberto • Light: Pré-definido</span>
                         </div>
                         <div className="reg-tech-grid">
                             <article className="reg-tech-card">
                                 <h3>3.1. Desempenho e Setup</h3>
-                                <p><strong>Grid Light:</strong> Desempenho IGUAL em todas as etapas.</p>
+                                <p><strong>Grid Light:</strong> Desempenho alternado entre REAL e IGUAL (conforme etapa definida pela administração).</p>
                                 <p><strong>Grid Carreira:</strong> Desempenho REAL em todas as etapas.</p>
-                                <p><strong>Setup:</strong> Padrão (Pré-Definido).</p>
+                                <p><strong>Setup Grid Carreira:</strong> ABERTO.</p>
+                                <p><strong>Setup Grid Light:</strong> Padrão (Pré-Definido).</p>
                             </article>
                             <article className="reg-tech-card">
                                 <h3>3.2. Assistências e Configurações</h3>
@@ -1485,6 +1503,7 @@ const Regulamento = () => {
                                 <h4 style={{marginTop: 0, marginBottom: '12px', color: '#06b6d4'}}>5.3. Mudanças de Grid</h4>
                                 <p>Piloto que ficar nas últimas posições no grid carreira não é obrigado a ir pro Light mas a administração poderá analisar o pedido.</p>
                                 <p>Mudanças de grid durante a temporada serão analisadas pela administração.</p>
+                                <p><strong>Poderá haver promoção de pilotos na metade da temporada por abandono de grid ou excesso de faltas.</strong></p>
                                 <p style={{marginTop: '12px', fontWeight: '700', color: '#facc15'}}><strong>Todas as categorias correm com os carros de F1.</strong></p>
                             </div>
                         </div>
@@ -1547,6 +1566,7 @@ const Regulamento = () => {
                                 <h4 style={{marginTop: 0, marginBottom: '12px', color: '#F59E0B'}}>6.3. Retirada de Punições de Bug</h4>
                                 <p><strong>❌ Não serão aceitas solicitações de retirada de punições de bug que tenham sido pagas no box durante a corrida.</strong></p>
                                 <p><strong>❌ Não serão aceitas solicitações de retirada de punições de bug ocorridas durante a sessão classificatória (qualificação).</strong></p>
+                                <p><strong>❌ Bug de posição por abandono do lobby antes da bandeirada final não é retirado; vale a posição final validada na transmissão.</strong></p>
                             </div>
                         </div>
                     </section>
@@ -1681,7 +1701,7 @@ const Regulamento = () => {
                                 <AlertTriangle className="reg-icon alert" />
                                 <div>
                                     <h2>Infrações críticas</h2>
-                                    <p>Ações que reduzem Pontos de Conduta e Overall.</p>
+                                    <p>Ações que reduzem Pontos de Conduta e Power Ranking.</p>
                                 </div>
                             </div>
                             <div className="conduct-list">

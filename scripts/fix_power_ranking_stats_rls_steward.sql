@@ -1,34 +1,16 @@
--- Criar tabela POWER_RANKING_STATS
--- Armazena os resultados calculados dos pilares e a média ponderada final
--- Esta tabela serve como fonte de verdade para o Dashboard do piloto
+-- =============================================================================
+-- RLS em power_ranking_stats: "new row violates row-level security policy"
+-- =============================================================================
+-- A política original compara pilotos.email = auth.jwt()->>'email' (case-sensitive)
+-- e só stewards. Falhas comuns:
+--   - E-mail no Auth com caixa diferente do cadastro em pilotos
+--   - E-mail só em user_metadata (alguns provedores OAuth)
+--   - is_steward = false para o piloto com esse e-mail
+-- Este script recria a política de escrita usando função STABLE + SECURITY DEFINER
+-- (lê pilotos sem depender de RLS recursiva) e comparação case-insensitive.
+-- Rode no Supabase: SQL Editor → New query → colar → Run.
+-- =============================================================================
 
-CREATE TABLE IF NOT EXISTS power_ranking_stats (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    piloto_id UUID NOT NULL REFERENCES pilotos(id) ON DELETE CASCADE,
-    season INTEGER NOT NULL,
-    
-    -- Valores dos Pilares (0-100)
-    performance DECIMAL(5,2) DEFAULT 0,
-    racecraft DECIMAL(5,2) DEFAULT 0,
-    conduta DECIMAL(5,2) DEFAULT 0,
-    overall DECIMAL(5,2) DEFAULT 0,
-    historico DECIMAL(5,2) DEFAULT 0,
-    
-    -- Resultado Final (Média Ponderada)
-    power_ranking INTEGER DEFAULT 0,
-    
-    updated_at TIMESTAMP DEFAULT NOW(),
-    
-    UNIQUE(piloto_id, season) -- Um registro por piloto por temporada
-);
-
--- Índices para busca rápida
-CREATE INDEX IF NOT EXISTS idx_pr_stats_piloto_season ON power_ranking_stats(piloto_id, season);
-
--- Habilitar RLS
-ALTER TABLE power_ranking_stats ENABLE ROW LEVEL SECURITY;
-
--- Função usada na política de escrita (e-mail case-insensitive; fallback user_metadata).
 CREATE OR REPLACE FUNCTION public.auth_is_steward_for_rls()
 RETURNS boolean
 LANGUAGE sql
@@ -36,6 +18,9 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
+  -- A) pilotos.id = auth.uid() (cadastro amarrado ao Auth) — não depende de e-mail.
+  -- B) auth.users.email = pilotos.email (fonte oficial do login).
+  -- C) JWT / user_metadata (fallback).
   SELECT EXISTS (
     SELECT 1
     FROM public.pilotos p
@@ -72,29 +57,36 @@ REVOKE ALL ON FUNCTION public.auth_is_steward_for_rls() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.auth_is_steward_for_rls() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.auth_is_steward_for_rls() TO anon;
 
+-- Garantir que o papel da API possa escrever (RLS ainda filtra por steward).
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.power_ranking_stats TO authenticated;
 GRANT SELECT ON TABLE public.power_ranking_stats TO anon;
 
--- Stewards: políticas separadas (melhor com upsert do que FOR ALL TO authenticated).
-CREATE POLICY pr_stats_steward_insert ON power_ranking_stats
+-- FOR ALL + TO authenticated costuma falhar em upsert (INSERT ... ON CONFLICT UPDATE) em alguns setups.
+DROP POLICY IF EXISTS pr_stats_admin_all ON public.power_ranking_stats;
+DROP POLICY IF EXISTS pr_stats_steward_insert ON public.power_ranking_stats;
+DROP POLICY IF EXISTS pr_stats_steward_update ON public.power_ranking_stats;
+DROP POLICY IF EXISTS pr_stats_steward_delete ON public.power_ranking_stats;
+
+CREATE POLICY pr_stats_steward_insert ON public.power_ranking_stats
     FOR INSERT
     WITH CHECK (public.auth_is_steward_for_rls());
 
-CREATE POLICY pr_stats_steward_update ON power_ranking_stats
+CREATE POLICY pr_stats_steward_update ON public.power_ranking_stats
     FOR UPDATE
     USING (public.auth_is_steward_for_rls())
     WITH CHECK (public.auth_is_steward_for_rls());
 
-CREATE POLICY pr_stats_steward_delete ON power_ranking_stats
+CREATE POLICY pr_stats_steward_delete ON public.power_ranking_stats
     FOR DELETE
     USING (public.auth_is_steward_for_rls());
 
--- Policy: Todos podem ler (para o Dashboard)
-CREATE POLICY pr_stats_read ON power_ranking_stats
-    FOR SELECT
-    USING (true);
+COMMENT ON FUNCTION public.auth_is_steward_for_rls() IS
+  'RLS power_ranking_stats: steward se pilotos.id=auth.uid() OU e-mail pilotos = auth.users/JWT (case-insensitive).';
 
--- Publicação pelo admin via RPC (evita RLS direto no upsert do PostgREST)
+-- -----------------------------------------------------------------------------
+-- RPC de publicação (contorna RLS na escrita: roda como dono da função/tabela).
+-- O app chama supabase.rpc('publish_power_ranking_stats_upsert', { p_rows: [...] }).
+-- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.publish_power_ranking_stats_upsert(p_rows jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -111,13 +103,21 @@ BEGIN
   END IF;
 
   IF p_rows IS NULL OR jsonb_typeof(p_rows) <> 'array' THEN
-    RAISE EXCEPTION 'p_rows deve ser um array JSON';
+    RAISE EXCEPTION 'p_rows deve ser um array JSON de objetos power_ranking_stats';
   END IF;
 
   FOR i IN 0 .. COALESCE(jsonb_array_length(p_rows), 0) - 1 LOOP
     el := p_rows->i;
     INSERT INTO public.power_ranking_stats (
-      piloto_id, season, performance, racecraft, conduta, overall, historico, power_ranking, updated_at
+      piloto_id,
+      season,
+      performance,
+      racecraft,
+      conduta,
+      overall,
+      historico,
+      power_ranking,
+      updated_at
     )
     VALUES (
       (el->>'piloto_id')::uuid,
@@ -143,11 +143,9 @@ END;
 $$;
 
 ALTER FUNCTION public.publish_power_ranking_stats_upsert(jsonb) OWNER TO postgres;
+
 REVOKE ALL ON FUNCTION public.publish_power_ranking_stats_upsert(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.publish_power_ranking_stats_upsert(jsonb) TO authenticated;
 
--- Comentários
-COMMENT ON TABLE power_ranking_stats IS 'Resultados consolidados do Power Ranking para exibição no Motorhome';
-
--- Sincronize a temporada exibida / congelamento com scripts/create_season_lifecycle.sql
--- (app_config: current_season, season_phase, last_closed_season).
+COMMENT ON FUNCTION public.publish_power_ranking_stats_upsert(jsonb) IS
+  'Publica linhas em power_ranking_stats (upsert). Steward obrigatório; escrita ignora RLS da tabela.';

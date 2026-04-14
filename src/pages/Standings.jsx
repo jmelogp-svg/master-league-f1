@@ -89,6 +89,30 @@ const DriverModal = ({ driver, gridType, season, onClose, teamColor, teamLogo })
     );
 };
 
+const collectDraftNamesForSeason = (rows, season) => {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const seasonNum = parseInt(String(season), 10);
+    if (!Number.isFinite(seasonNum)) return [];
+
+    const seen = new Set();
+    const list = [];
+
+    rows.forEach((row) => {
+        const name = (row?.[0] || '').toString().trim();
+        if (!name || name === 'Piloto' || name === 'NOME' || name === 'Nome' || name.includes('#')) return;
+
+        const rowSeason = parseInt(String(row?.[2] ?? '').trim(), 10);
+        if (rowSeason !== seasonNum) return;
+
+        const key = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        list.push(name);
+    });
+
+    return list;
+};
+
 // --- COMPONENTE STANDINGS (ANTIGA HOME) ---
 function Standings() {
     useEffect(() => {
@@ -97,7 +121,7 @@ function Standings() {
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, []);
 
-    const { rawCarreira, rawLight, tracks, seasons, loading } = useLeagueData();
+    const { rawCarreira, rawLight, draftCarreira, draftLight, tracks, seasons, loading } = useLeagueData();
     const [searchParams] = useSearchParams();
     const gridFromURL = searchParams.get('grid');
     const [gridType, setGridType] = useState(gridFromURL === 'light' ? 'light' : 'carreira');
@@ -472,12 +496,13 @@ function Standings() {
     // MEMOIZADO: getDrivers só recalcula quando os dados de entrada mudam
     const drivers = useMemo(() => {
         const rawData = gridType === 'carreira' ? rawCarreira : rawLight;
-        if (!rawData || rawData.length === 0) return [];
+        const draftRows = gridType === 'carreira' ? draftCarreira : draftLight;
+        const sourceRows = Array.isArray(rawData) ? rawData : [];
         
         const totals = {};
         const targetSeason = parseInt(selectedSeason);
         
-        rawData.forEach(row => {
+        sourceRows.forEach(row => {
             const s = parseInt(row[3]); 
             if (s !== targetSeason) return;
             const name = row[9]; 
@@ -485,7 +510,9 @@ function Standings() {
             if (!name) return;
             
             if (!totals[name]) {
-                totals[name] = { name, team, points: 0, bestPosition: Infinity };
+                totals[name] = { name, team: team || 'Sem equipe', points: 0, bestPosition: Infinity };
+            } else if ((!totals[name].team || totals[name].team === 'Sem equipe') && team) {
+                totals[name].team = team;
             }
             
             // Rastrear melhor posição (menor número = melhor)
@@ -527,6 +554,13 @@ function Standings() {
                 totals[name].points += p;
             }
         });
+
+        const draftNames = collectDraftNamesForSeason(draftRows, targetSeason);
+        draftNames.forEach((name) => {
+            if (!totals[name]) {
+                totals[name] = { name, team: 'Sem equipe', points: 0, bestPosition: Infinity };
+            }
+        });
         
         // Subtrair pontos perdidos em punições para cada piloto
         Object.keys(totals).forEach(nomePiloto => {
@@ -557,7 +591,7 @@ function Standings() {
         });
 
         return sorted.map((d, i) => ({ ...d, pos: i + 1, pontosPerdidos: d.pontosPerdidos || 0 }));
-    }, [gridType, rawCarreira, rawLight, selectedSeason, punicoes, normalizeNomePiloto]);
+    }, [gridType, rawCarreira, rawLight, draftCarreira, draftLight, selectedSeason, punicoes, normalizeNomePiloto]);
     
     // Manter compatibilidade com código existente
     const getDrivers = useCallback(() => drivers, [drivers]);
@@ -581,7 +615,8 @@ function Standings() {
         const teams = {};
         drivers.forEach(d => {
             // Ignorar equipes "Reserva"
-            if (!d.team || d.team.toLowerCase().trim() === 'reserva') return;
+            const teamName = (d.team || '').toLowerCase().trim();
+            if (!teamName || teamName === 'reserva' || teamName === 'sem equipe' || teamName === '-') return;
             
             if (!teams[d.team]) {
                 teams[d.team] = { team: d.team, points: 0, driversList: [] };

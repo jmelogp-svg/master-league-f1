@@ -53,7 +53,7 @@ function Navbar() {
                 <button className={`nav-link-btn ${getActive('drivers')}`} onClick={() => handleHomeNav('drivers')}>CLASSIFICAÇÃO</button>
                 
                 {/* Botões de Páginas */}
-                <Link to="/etapas" className={`nav-link-btn ${getActiveRoute('/etapas')}`} onClick={() => setIsMenuOpen(false)}>ETAPAS</Link>
+                <Link to="/etapas" className={`nav-link-btn ${getActiveRoute('/etapas')}`} onClick={() => setIsMenuOpen(false)}>CALENDÁRIO</Link>
                 <Link to="/analises" className={`nav-link-btn ${getActiveRoute('/analises')}`} onClick={() => setIsMenuOpen(false)}>ANÁLISES</Link>
                 <Link to="/telemetria" className={`nav-link-btn ${getActiveRoute('/telemetria')}`} onClick={() => setIsMenuOpen(false)}>TELEMETRIA</Link>
                 <Link to="/regulamento" className={`nav-link-btn ${getActiveRoute('/regulamento')}`} onClick={() => setIsMenuOpen(false)}>REGULAMENTO</Link>
