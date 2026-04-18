@@ -1038,6 +1038,92 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     font-size: 0.82rem;
     font-weight: 600;
 }
+.highlight-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(2, 6, 23, 0.88);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.highlight-lightbox-content {
+    position: relative;
+    width: min(1200px, 96vw);
+    max-height: 92vh;
+    background: rgba(2, 6, 23, 0.96);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+}
+.highlight-lightbox-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    background: rgba(2, 6, 23, 0.75);
+    color: #f8fafc;
+    font-size: 1.6rem;
+    line-height: 1;
+    z-index: 2;
+}
+.highlight-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    background: rgba(2, 6, 23, 0.72);
+    color: #f8fafc;
+    font-size: 2rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+.highlight-lightbox-nav.prev {
+    left: 10px;
+}
+.highlight-lightbox-nav.next {
+    right: 10px;
+}
+.highlight-lightbox-image {
+    width: 100%;
+    max-height: calc(92vh - 70px);
+    object-fit: contain;
+    display: block;
+    background: #020617;
+}
+.highlight-lightbox-caption {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    background: rgba(2, 6, 23, 0.95);
+}
+.highlight-lightbox-caption strong {
+    color: #f8fafc;
+    font-size: 0.95rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.highlight-lightbox-caption span {
+    color: #cbd5e1;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
 .news-feed-grid { 
     display: grid; 
     grid-template-columns: repeat(2, 1fr); 
@@ -1327,6 +1413,22 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .gp-highlights-footer {
         flex-direction: column;
         align-items: flex-start;
+    }
+    .highlight-lightbox {
+        padding: 10px;
+    }
+    .highlight-lightbox-content {
+        width: 100%;
+        max-height: 94vh;
+        border-radius: 10px;
+    }
+    .highlight-lightbox-image {
+        max-height: calc(94vh - 72px);
+    }
+    .highlight-lightbox-nav {
+        width: 36px;
+        height: 36px;
+        font-size: 1.7rem;
     }
     .news-feed-grid { 
         grid-template-columns: 1fr; 

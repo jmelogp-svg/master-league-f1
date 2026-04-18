@@ -335,6 +335,7 @@ function Home() {
     const [selectedRound, setSelectedRound] = useState(0);
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
+    const [selectedHighlightIndex, setSelectedHighlightIndex] = useState(null);
 
     // Regra única para responsividade: "mobile" = até 768px; "PC" = acima disso
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -363,6 +364,32 @@ function Home() {
     const scrollRefLight = useRef(null);
     const [isPaused, setIsPaused] = useState(false);
     const [isPausedLight, setIsPausedLight] = useState(false);
+
+    useEffect(() => {
+        if (selectedHighlightIndex === null) return undefined;
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') setSelectedHighlightIndex(null);
+            if (event.key === 'ArrowRight') {
+                setSelectedHighlightIndex((idx) => {
+                    if (idx === null) return idx;
+                    return (idx + 1) % HOME_BAHREIN_CARDS.length;
+                });
+            }
+            if (event.key === 'ArrowLeft') {
+                setSelectedHighlightIndex((idx) => {
+                    if (idx === null) return idx;
+                    return (idx - 1 + HOME_BAHREIN_CARDS.length) % HOME_BAHREIN_CARDS.length;
+                });
+            }
+        };
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', onKeyDown);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [selectedHighlightIndex]);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
     
@@ -869,9 +896,11 @@ function Home() {
                 }
             }
             if (!preSeason && s === carouselSheetSeason) {
-                const name = row[9];
-                if (name) {
-                    if (!totals[name]) totals[name] = { name, team: row[10], points: 0, bestPosition: Infinity };
+                const name = repairUtf8Mojibake(String(row[9] || '')).trim();
+                const team = repairUtf8Mojibake(String(row[10] || '')).trim();
+                const key = normalizeNomePiloto(name);
+                if (name && key) {
+                    if (!totals[key]) totals[key] = { name, team, points: 0, bestPosition: Infinity };
                     const racePos = parseInt(row[8]);
                     const sprintPos = parseInt(row[7]);
                     let p = 0;
@@ -885,12 +914,14 @@ function Home() {
                     if (sprintPos >= 1 && sprintPos <= 8) {
                         p += POINTS_SPRINT[sprintPos - 1];
                     }
-                    totals[name].points += p;
-                    if (racePos >= 1 && racePos < totals[name].bestPosition) {
-                        totals[name].bestPosition = racePos;
+                    totals[key].points += p;
+                    if (!totals[key].name && name) totals[key].name = name;
+                    if ((!totals[key].team || totals[key].team === 'Master League') && team) totals[key].team = team;
+                    if (racePos >= 1 && racePos < totals[key].bestPosition) {
+                        totals[key].bestPosition = racePos;
                     }
-                    if (sprintPos >= 1 && sprintPos < totals[name].bestPosition) {
-                        totals[name].bestPosition = sprintPos;
+                    if (sprintPos >= 1 && sprintPos < totals[key].bestPosition) {
+                        totals[key].bestPosition = sprintPos;
                     }
                 }
             }
@@ -899,9 +930,11 @@ function Home() {
         rawLight.forEach(row => {
             const s = parseInt(row[3]);
             if (!preSeason && s === carouselSheetSeason) {
-                const name = row[9];
-                if (name) {
-                    if (!totalsLight[name]) totalsLight[name] = { name, team: row[10], points: 0, bestPosition: Infinity };
+                const name = repairUtf8Mojibake(String(row[9] || '')).trim();
+                const team = repairUtf8Mojibake(String(row[10] || '')).trim();
+                const key = normalizeNomePiloto(name);
+                if (name && key) {
+                    if (!totalsLight[key]) totalsLight[key] = { name, team, points: 0, bestPosition: Infinity };
                     const racePos = parseInt(row[8]);
                     const sprintPos = parseInt(row[7]);
                     let p = 0;
@@ -915,12 +948,14 @@ function Home() {
                     if (sprintPos >= 1 && sprintPos <= 8) {
                         p += POINTS_SPRINT[sprintPos - 1];
                     }
-                    totalsLight[name].points += p;
-                    if (racePos >= 1 && racePos < totalsLight[name].bestPosition) {
-                        totalsLight[name].bestPosition = racePos;
+                    totalsLight[key].points += p;
+                    if (!totalsLight[key].name && name) totalsLight[key].name = name;
+                    if ((!totalsLight[key].team || totalsLight[key].team === 'Master League') && team) totalsLight[key].team = team;
+                    if (racePos >= 1 && racePos < totalsLight[key].bestPosition) {
+                        totalsLight[key].bestPosition = racePos;
                     }
-                    if (sprintPos >= 1 && sprintPos < totalsLight[name].bestPosition) {
-                        totalsLight[name].bestPosition = sprintPos;
+                    if (sprintPos >= 1 && sprintPos < totalsLight[key].bestPosition) {
+                        totalsLight[key].bestPosition = sprintPos;
                     }
                 }
             }
@@ -959,8 +994,10 @@ function Home() {
 
         const mergeDraftIntoTotals = (totalsMap, draftRows) => {
             fromDraftBySeason(draftRows).forEach((draftDriver) => {
-                if (!totalsMap[draftDriver.name]) {
-                    totalsMap[draftDriver.name] = { ...draftDriver };
+                const key = normalizeNomePiloto(draftDriver.name);
+                if (!key) return;
+                if (!totalsMap[key]) {
+                    totalsMap[key] = { ...draftDriver };
                 }
             });
         };
@@ -971,27 +1008,25 @@ function Home() {
         
         // Subtrair pontos perdidos em punições para cada piloto (antes de ordenar)
         // Usando punições específicas do carrossel (T20 fixo por grid)
-        Object.keys(totals).forEach(nomePiloto => {
-            const nomePilotoNormalizado = normalizeNomePiloto(nomePiloto);
-            const pontosPerdidos = punicoesCarrosselCarreira[nomePilotoNormalizado] || 0;
+        Object.keys(totals).forEach((nomePilotoKey) => {
+            const pontosPerdidos = punicoesCarrosselCarreira[nomePilotoKey] || 0;
             
             // Armazenar pontos perdidos no objeto do piloto
-            totals[nomePiloto].pontosPerdidos = pontosPerdidos;
+            totals[nomePilotoKey].pontosPerdidos = pontosPerdidos;
             
             if (pontosPerdidos > 0) {
-                totals[nomePiloto].points = totals[nomePiloto].points - pontosPerdidos; // Permite valores negativos
+                totals[nomePilotoKey].points = totals[nomePilotoKey].points - pontosPerdidos; // Permite valores negativos
             }
         });
         
-        Object.keys(totalsLight).forEach(nomePiloto => {
-            const nomePilotoNormalizado = normalizeNomePiloto(nomePiloto);
-            const pontosPerdidos = punicoesCarrosselLight[nomePilotoNormalizado] || 0;
+        Object.keys(totalsLight).forEach((nomePilotoKey) => {
+            const pontosPerdidos = punicoesCarrosselLight[nomePilotoKey] || 0;
             
             // Armazenar pontos perdidos no objeto do piloto
-            totalsLight[nomePiloto].pontosPerdidos = pontosPerdidos;
+            totalsLight[nomePilotoKey].pontosPerdidos = pontosPerdidos;
             
             if (pontosPerdidos > 0) {
-                totalsLight[nomePiloto].points = totalsLight[nomePiloto].points - pontosPerdidos; // Permite valores negativos
+                totalsLight[nomePilotoKey].points = totalsLight[nomePilotoKey].points - pontosPerdidos; // Permite valores negativos
             }
         });
         
@@ -1971,7 +2006,7 @@ function Home() {
                                     <article
                                         key={card.id}
                                         className="gp-highlight-card"
-                                        onClick={() => navigate('/noticias')}
+                                        onClick={() => setSelectedHighlightIndex(HOME_BAHREIN_CARDS.findIndex((item) => item.id === card.id))}
                                     >
                                         <div className="gp-highlight-image">
                                             <img src={card.image} alt={`${card.title} - ${card.category}`} loading="lazy" />
@@ -2204,6 +2239,38 @@ function Home() {
             )}
 
             {selectedDriver && <DriverModal driver={selectedDriver} gridType={selectedDriver.gridType || gridType} season={selectedSeason} onClose={() => setSelectedDriver(null)} teamColor={getTeamColor(selectedDriver.team, selectedDriver.gridType || gridType, selectedDriver.isDraft)} teamLogo={getTeamLogo(selectedDriver.team, selectedDriver.gridType || gridType, selectedDriver.isDraft)} />}
+            {selectedHighlightIndex !== null && HOME_BAHREIN_CARDS[selectedHighlightIndex] && (
+                <div className="highlight-lightbox" onClick={() => setSelectedHighlightIndex(null)}>
+                    <div className="highlight-lightbox-content" onClick={(event) => event.stopPropagation()}>
+                        <button className="highlight-lightbox-close" onClick={() => setSelectedHighlightIndex(null)} aria-label="Fechar imagem">
+                            &times;
+                        </button>
+                        <button
+                            className="highlight-lightbox-nav prev"
+                            onClick={() => setSelectedHighlightIndex((idx) => (idx - 1 + HOME_BAHREIN_CARDS.length) % HOME_BAHREIN_CARDS.length)}
+                            aria-label="Imagem anterior"
+                        >
+                            &#8249;
+                        </button>
+                        <button
+                            className="highlight-lightbox-nav next"
+                            onClick={() => setSelectedHighlightIndex((idx) => (idx + 1) % HOME_BAHREIN_CARDS.length)}
+                            aria-label="Próxima imagem"
+                        >
+                            &#8250;
+                        </button>
+                        <img
+                            src={HOME_BAHREIN_CARDS[selectedHighlightIndex].image}
+                            alt={`${HOME_BAHREIN_CARDS[selectedHighlightIndex].title} - ${HOME_BAHREIN_CARDS[selectedHighlightIndex].category}`}
+                            className="highlight-lightbox-image"
+                        />
+                        <div className="highlight-lightbox-caption">
+                            <strong>{HOME_BAHREIN_CARDS[selectedHighlightIndex].title}</strong>
+                            <span>{HOME_BAHREIN_CARDS[selectedHighlightIndex].driver}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
             <Footer />
         </div>
     );
