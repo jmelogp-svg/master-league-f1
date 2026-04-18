@@ -1113,6 +1113,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     border-top: 1px solid rgba(255,255,255,0.08);
     background: rgba(2, 6, 23, 0.95);
 }
+.highlight-lightbox-counter {
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
 .highlight-lightbox-caption strong {
     color: #f8fafc;
     font-size: 0.95rem;

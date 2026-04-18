@@ -2265,6 +2265,9 @@ function Home() {
                             className="highlight-lightbox-image"
                         />
                         <div className="highlight-lightbox-caption">
+                            <small className="highlight-lightbox-counter">
+                                {`${selectedHighlightIndex + 1}/${HOME_BAHREIN_CARDS.length}`}
+                            </small>
                             <strong>{HOME_BAHREIN_CARDS[selectedHighlightIndex].title}</strong>
                             <span>{HOME_BAHREIN_CARDS[selectedHighlightIndex].driver}</span>
                         </div>
