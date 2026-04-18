@@ -933,6 +933,111 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
    FEED DE NOTÍCIAS
    ========================================= */
 .news-feed-section { margin-top: 60px; }
+.gp-highlight-groups {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 20px;
+}
+.gp-highlight-group {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.65) 0%, rgba(15, 23, 42, 0.55) 100%);
+    overflow: hidden;
+    max-width: 900px;
+    margin: 0 auto;
+}
+.gp-highlight-group-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: rgba(2, 6, 23, 0.65);
+}
+.gp-highlight-group-header span {
+    color: #f8fafc;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+.gp-highlights-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    padding: 10px;
+}
+.gp-highlight-card {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    background: #020617;
+    display: flex;
+    flex-direction: column;
+}
+.gp-highlight-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,0.3);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+}
+.gp-highlight-image {
+    position: relative;
+    background: #020617;
+}
+.gp-highlight-image img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+    transition: transform 0.25s ease;
+}
+.gp-highlight-card:hover .gp-highlight-image img {
+    transform: scale(1.01);
+}
+.gp-highlight-overlay {
+    display: none;
+}
+.gp-highlight-content {
+    position: static;
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: linear-gradient(180deg, rgba(2,6,23,0.65) 0%, rgba(2,6,23,0.9) 100%);
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+.gp-highlight-category {
+    display: none;
+}
+.gp-highlight-content h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1rem;
+    font-style: italic;
+    text-transform: uppercase;
+    line-height: 1.2;
+    font-weight: 900;
+}
+.gp-highlight-content p {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.gp-highlights-footer {
+    margin-top: 16px;
+    padding: 12px 0;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    color: #94a3b8;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
 .news-feed-grid { 
     display: grid; 
     grid-template-columns: repeat(2, 1fr); 
@@ -1186,6 +1291,43 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         grid-template-columns: repeat(3, 1fr); 
         gap: 10px;
     }
+    .gp-highlights-grid {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 10px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--highlight-cyan) transparent;
+        padding: 10px 10px 12px;
+    }
+    .gp-highlights-grid::-webkit-scrollbar {
+        height: 5px;
+    }
+    .gp-highlights-grid::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+    }
+    .gp-highlights-grid::-webkit-scrollbar-thumb {
+        background: var(--highlight-cyan);
+        border-radius: 10px;
+    }
+    .gp-highlight-card {
+        flex: 0 0 82vw;
+        max-width: 360px;
+        scroll-snap-align: start;
+    }
+    .gp-highlight-group-header {
+        padding: 9px 12px;
+    }
+    .gp-highlight-card {
+        border-radius: 8px;
+    }
+    .gp-highlights-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
     .news-feed-grid { 
         grid-template-columns: 1fr; 
     }
@@ -1214,6 +1356,12 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         line-height: 1.7;
         text-align: justify;
         white-space: pre-line;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+    .gp-highlights-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 /* --- CALENDAR WATERMARK --- */

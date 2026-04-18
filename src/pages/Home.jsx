@@ -33,6 +33,60 @@ const RecordIcon = () => (<svg className="rh-icon-small" viewBox="0 0 24 24" fil
 
 const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
+// Fluxo operacional: substitua somente os arquivos da pasta /public/highlights/atual
+// para atualizar Light e Carreira de forma independente durante a semana.
+const HOME_BAHREIN_GROUPS = [
+    {
+        id: 'carreira',
+        category: 'GRID CARREIRA',
+        cards: [
+            {
+                id: 'winner-carreira',
+                title: 'Vencedor da Etapa',
+                driver: 'Claudio Francisco',
+                image: '/highlights/atual/vencedor-carreira.png',
+                updatedAt: '2026-04-18T14:18:00',
+            },
+            {
+                id: 'top10-carreira',
+                title: 'Top 10 - GP do Bahrein',
+                driver: 'Ranking completo da corrida',
+                image: '/highlights/atual/top10-carreira.png',
+                updatedAt: '2026-04-18T14:18:00',
+            },
+        ],
+    },
+    {
+        id: 'light',
+        category: 'GRID LIGHT',
+        cards: [
+            {
+                id: 'winner-light',
+                title: 'Vencedor da Etapa',
+                driver: 'Julio Melo',
+                image: '/highlights/atual/vencedor-light.png',
+                updatedAt: '2026-04-18T14:18:00',
+            },
+            {
+                id: 'top10-light',
+                title: 'Top 10 - GP do Bahrein',
+                driver: 'Ranking completo da corrida',
+                image: '/highlights/atual/top10-light.png',
+                updatedAt: '2026-04-18T14:18:00',
+            },
+        ],
+    },
+];
+const HOME_BAHREIN_CARDS = HOME_BAHREIN_GROUPS.flatMap((group) =>
+    group.cards.map((card) => ({
+        ...card,
+        category: group.category,
+    }))
+).sort((a, b) => {
+    const timeA = Date.parse(a.updatedAt || '') || 0;
+    const timeB = Date.parse(b.updatedAt || '') || 0;
+    return timeB - timeA;
+});
 
 /** CSV do Google às vezes chega como UTF-8 lido em Latin-1 (ex.: JoÃ£o → João). */
 function repairUtf8Mojibake(str) {
@@ -1906,79 +1960,38 @@ function Home() {
                     </header>
 
                     <div className="hub-container">
-                        {/* FEED DE NOTÍCIAS */}
+                        {/* DESTAQUES VISUAIS DA ETAPA */}
                         <section className="hub-section news-feed-section">
                             <div className="section-header-hub">
-                                <h2>ÚLTIMAS NOTÍCIAS</h2>
-                                <Link to="/noticias" className="btn-text">Ver Todas <ArrowRightIcon/></Link>
+                                <h2>Mural de Destaques</h2>
+                                <Link to="/noticias" className="btn-text">Portal de Notícias <ArrowRightIcon/></Link>
                             </div>
-                            <div className="news-feed-grid">
-                                {news.length > 0 ? (() => {
-                                    // A notícia principal é a primeira da lista (maior ID vindo da planilha)
-                                    const newsItem = news[0];
-                                    
-                                    return (
-                                        <article 
-                                            key={`${newsItem?.id ?? 'noid'}-${newsItem?.date ?? 'nodate'}`}
-                                            className="news-feed-card news-featured"
-                                            onClick={async () => {
-                                                // Verificar se existe notícia completa no Supabase com esse ID
-                                                try {
-                                                    const { data: noticiaCompleta } = await supabase
-                                                        .from('noticias')
-                                                        .select('id')
-                                                        .eq('id', newsItem.id)
-                                                        .single();
-                                                    
-                                                    if (noticiaCompleta) {
-                                                        // Se existe no Supabase, vai para portal e rola até a notícia
-                                                        navigate(`/noticias#noticia-${newsItem.id}`);
-                                                        return;
-                                                    }
-                                                } catch (err) {
-                                                    // Sem notícia no Supabase, continua com a lógica normal
-                                                }
-
-                                                // Se não tem no Supabase, usa link da planilha
-                                                if (newsItem.link) {
-                                                    if (newsItem.link.startsWith('http://') || newsItem.link.startsWith('https://')) {
-                                                        window.open(newsItem.link, '_blank', 'noopener,noreferrer');
-                                                    } else {
-                                                        navigate(newsItem.link);
-                                                    }
-                                                } else {
-                                                    // Fallback: vai para o portal de notícias
-                                                    navigate('/noticias');
-                                                }
-                                            }}
-                                        >
-                                            <div className="news-featured-layout">
-                                                <div className="news-featured-left">
-                                                    <NewsImage 
-                                                        newsItem={newsItem} 
-                                                        supaUrl={getSupabaseNewsImageUrl(newsItem.id)} 
-                                                    />
-                                                </div>
-                                                <div className="news-featured-right">
-                                                    <div className="news-feed-content">
-                                                        <h3 className="news-feed-title-featured">{newsItem.title}</h3>
-                                                        {newsItem.subtitle && (
-                                                            <p className="news-feed-subtitle">{newsItem.subtitle}</p>
-                                                        )}
-                                                        <p className="news-feed-excerpt">{newsItem.excerpt}</p>
-                                                        <div className="news-feed-link">
-                                                            LER MAIS <ArrowRightIcon/>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </article>
-                                    );
-                                })() : (
-                                    <div style={{gridColumn: 'span 2', textAlign: 'center', padding: '40px', color: '#94A3B8'}}>
-                                        <p>Carregando notícias...</p>
-                                    </div>
+                            <div className="gp-highlights-grid">
+                                {HOME_BAHREIN_CARDS.map((card) => (
+                                    <article
+                                        key={card.id}
+                                        className="gp-highlight-card"
+                                        onClick={() => navigate('/noticias')}
+                                    >
+                                        <div className="gp-highlight-image">
+                                            <img src={card.image} alt={`${card.title} - ${card.category}`} loading="lazy" />
+                                        </div>
+                                        <div className="gp-highlight-overlay"></div>
+                                        <div className="gp-highlight-content">
+                                            <span className="gp-highlight-category">{card.category}</span>
+                                            <h3>{card.title}</h3>
+                                            <p>{card.driver}</p>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                            <div className="gp-highlights-footer">
+                                {news.length > 0 ? (
+                                    <span>{`Portal atualizado com ${news.length} notícia${news.length > 1 ? 's' : ''}`}</span>
+                                ) : (
+                                    <span>Novas matérias são publicadas no portal após cada etapa</span>
                                 )}
+                                <Link to="/noticias" className="btn-text">Ver cobertura completa <ArrowRightIcon/></Link>
                             </div>
                         </section>
                         
