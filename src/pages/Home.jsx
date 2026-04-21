@@ -88,6 +88,21 @@ const HOME_BAHREIN_CARDS = HOME_BAHREIN_GROUPS.flatMap((group) =>
     return timeB - timeA;
 });
 
+const HOME_BAHREIN_CARD_ORDER = new Map(
+    HOME_BAHREIN_CARDS.map((card, index) => [card.id, index]),
+);
+
+const sortHighlightsByMostRecent = (cards, dynamicTimes = {}) => (
+    [...cards].sort((a, b) => {
+        const dynamicA = dynamicTimes[a.id] ?? null;
+        const dynamicB = dynamicTimes[b.id] ?? null;
+        const timeA = dynamicA ?? (Date.parse(a.updatedAt || '') || 0);
+        const timeB = dynamicB ?? (Date.parse(b.updatedAt || '') || 0);
+        if (timeB !== timeA) return timeB - timeA;
+        return (HOME_BAHREIN_CARD_ORDER.get(a.id) ?? 0) - (HOME_BAHREIN_CARD_ORDER.get(b.id) ?? 0);
+    })
+);
+
 /** CSV do Google às vezes chega como UTF-8 lido em Latin-1 (ex.: JoÃ£o → João). */
 function repairUtf8Mojibake(str) {
     if (!str || typeof str !== 'string') return str;
@@ -336,6 +351,7 @@ function Home() {
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
     const [selectedHighlightIndex, setSelectedHighlightIndex] = useState(null);
+    const [highlightCards, setHighlightCards] = useState(HOME_BAHREIN_CARDS);
 
     // Regra única para responsividade: "mobile" = até 768px; "PC" = acima disso
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -366,19 +382,54 @@ function Home() {
     const [isPausedLight, setIsPausedLight] = useState(false);
 
     useEffect(() => {
+        let cancelled = false;
+
+        const resolveHighlightsOrder = async () => {
+            const lastModifiedById = {};
+
+            await Promise.all(HOME_BAHREIN_CARDS.map(async (card) => {
+                try {
+                    const response = await fetch(card.image, { method: 'HEAD', cache: 'no-store' });
+                    if (!response.ok) return;
+                    const header = response.headers.get('last-modified');
+                    const ts = header ? Date.parse(header) : NaN;
+                    if (Number.isFinite(ts)) {
+                        lastModifiedById[card.id] = ts;
+                    }
+                } catch {
+                    // Se não conseguir ler o header, mantém fallback no updatedAt.
+                }
+            }));
+
+            if (cancelled) return;
+            setHighlightCards(sortHighlightsByMostRecent(HOME_BAHREIN_CARDS, lastModifiedById));
+        };
+
+        resolveHighlightsOrder();
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        if (selectedHighlightIndex == null) return;
+        if (selectedHighlightIndex >= highlightCards.length) {
+            setSelectedHighlightIndex(null);
+        }
+    }, [selectedHighlightIndex, highlightCards.length]);
+
+    useEffect(() => {
         if (selectedHighlightIndex === null) return undefined;
         const onKeyDown = (event) => {
             if (event.key === 'Escape') setSelectedHighlightIndex(null);
             if (event.key === 'ArrowRight') {
                 setSelectedHighlightIndex((idx) => {
                     if (idx === null) return idx;
-                    return (idx + 1) % HOME_BAHREIN_CARDS.length;
+                    return (idx + 1) % highlightCards.length;
                 });
             }
             if (event.key === 'ArrowLeft') {
                 setSelectedHighlightIndex((idx) => {
                     if (idx === null) return idx;
-                    return (idx - 1 + HOME_BAHREIN_CARDS.length) % HOME_BAHREIN_CARDS.length;
+                    return (idx - 1 + highlightCards.length) % highlightCards.length;
                 });
             }
         };
@@ -389,7 +440,7 @@ function Home() {
             window.removeEventListener('keydown', onKeyDown);
             document.body.style.overflow = previousOverflow;
         };
-    }, [selectedHighlightIndex]);
+    }, [selectedHighlightIndex, highlightCards.length]);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
     
@@ -2002,11 +2053,11 @@ function Home() {
                                 <Link to="/noticias" className="btn-text">Portal de Notícias <ArrowRightIcon/></Link>
                             </div>
                             <div className="gp-highlights-grid">
-                                {HOME_BAHREIN_CARDS.map((card) => (
+                                {highlightCards.map((card) => (
                                     <article
                                         key={card.id}
                                         className="gp-highlight-card"
-                                        onClick={() => setSelectedHighlightIndex(HOME_BAHREIN_CARDS.findIndex((item) => item.id === card.id))}
+                                        onClick={() => setSelectedHighlightIndex(highlightCards.findIndex((item) => item.id === card.id))}
                                     >
                                         <div className="gp-highlight-image">
                                             <img src={card.image} alt={`${card.title} - ${card.category}`} loading="lazy" />
@@ -2239,7 +2290,7 @@ function Home() {
             )}
 
             {selectedDriver && <DriverModal driver={selectedDriver} gridType={selectedDriver.gridType || gridType} season={selectedSeason} onClose={() => setSelectedDriver(null)} teamColor={getTeamColor(selectedDriver.team, selectedDriver.gridType || gridType, selectedDriver.isDraft)} teamLogo={getTeamLogo(selectedDriver.team, selectedDriver.gridType || gridType, selectedDriver.isDraft)} />}
-            {selectedHighlightIndex !== null && HOME_BAHREIN_CARDS[selectedHighlightIndex] && (
+            {selectedHighlightIndex !== null && highlightCards[selectedHighlightIndex] && (
                 <div className="highlight-lightbox" onClick={() => setSelectedHighlightIndex(null)}>
                     <div className="highlight-lightbox-content" onClick={(event) => event.stopPropagation()}>
                         <button className="highlight-lightbox-close" onClick={() => setSelectedHighlightIndex(null)} aria-label="Fechar imagem">
@@ -2247,29 +2298,29 @@ function Home() {
                         </button>
                         <button
                             className="highlight-lightbox-nav prev"
-                            onClick={() => setSelectedHighlightIndex((idx) => (idx - 1 + HOME_BAHREIN_CARDS.length) % HOME_BAHREIN_CARDS.length)}
+                            onClick={() => setSelectedHighlightIndex((idx) => (idx - 1 + highlightCards.length) % highlightCards.length)}
                             aria-label="Imagem anterior"
                         >
                             &#8249;
                         </button>
                         <button
                             className="highlight-lightbox-nav next"
-                            onClick={() => setSelectedHighlightIndex((idx) => (idx + 1) % HOME_BAHREIN_CARDS.length)}
+                            onClick={() => setSelectedHighlightIndex((idx) => (idx + 1) % highlightCards.length)}
                             aria-label="Próxima imagem"
                         >
                             &#8250;
                         </button>
                         <img
-                            src={HOME_BAHREIN_CARDS[selectedHighlightIndex].image}
-                            alt={`${HOME_BAHREIN_CARDS[selectedHighlightIndex].title} - ${HOME_BAHREIN_CARDS[selectedHighlightIndex].category}`}
+                            src={highlightCards[selectedHighlightIndex].image}
+                            alt={`${highlightCards[selectedHighlightIndex].title} - ${highlightCards[selectedHighlightIndex].category}`}
                             className="highlight-lightbox-image"
                         />
                         <div className="highlight-lightbox-caption">
                             <small className="highlight-lightbox-counter">
-                                {`${selectedHighlightIndex + 1}/${HOME_BAHREIN_CARDS.length}`}
+                                {`${selectedHighlightIndex + 1}/${highlightCards.length}`}
                             </small>
-                            <strong>{HOME_BAHREIN_CARDS[selectedHighlightIndex].title}</strong>
-                            <span>{HOME_BAHREIN_CARDS[selectedHighlightIndex].driver}</span>
+                            <strong>{highlightCards[selectedHighlightIndex].title}</strong>
+                            <span>{highlightCards[selectedHighlightIndex].driver}</span>
                         </div>
                     </div>
                 </div>
