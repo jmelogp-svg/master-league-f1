@@ -500,6 +500,8 @@ function Home() {
             const tryReadLastModified = async (method) => {
                 const response = await fetch(imagePath, { method, cache: 'no-store' });
                 if (!response.ok) return NaN;
+                const contentType = (response.headers.get('content-type') || '').toLowerCase();
+                if (contentType && !contentType.startsWith('image/')) return NaN;
                 const header = response.headers.get('last-modified');
                 // Alguns hosts/CDNs não enviam Last-Modified em assets estáticos.
                 // Se o arquivo existe (response.ok), usamos 0 como timestamp válido.
@@ -574,6 +576,11 @@ function Home() {
             setSelectedHighlightIndex(null);
         }
     }, [selectedHighlightIndex, highlightCards.length]);
+
+    const highlightsAnimationDurationSec = useMemo(() => {
+        const base = Math.max(110, highlightCards.length * 20);
+        return isMobile ? base + 30 : base;
+    }, [highlightCards.length, isMobile]);
 
     useEffect(() => {
         if (selectedHighlightIndex === null) return undefined;
@@ -2213,7 +2220,10 @@ function Home() {
                             </div>
                             <div className="gp-highlights-grid">
                                 {highlightCards.length > 0 ? (
-                                    <div className="gp-highlights-track">
+                                    <div
+                                        className="gp-highlights-track"
+                                        style={{ animationDuration: `${highlightsAnimationDurationSec}s` }}
+                                    >
                                         {[...highlightCards, ...highlightCards].map((card, idx) => (
                                             <article
                                                 key={`${card.id}-${idx}`}
