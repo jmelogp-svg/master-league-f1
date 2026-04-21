@@ -62,6 +62,24 @@ function Admin() {
     const [editingNarrador, setEditingNarrador] = useState(null); // { id, nome, email, whatsapp, senha }
     const [savingNarrador, setSavingNarrador] = useState(false);
 
+    const normalizeNarradorRole = (role) => {
+        const normalized = String(role || '').trim().toLowerCase();
+        return normalized === 'admin' ? 'admin' : 'narrador';
+    };
+
+    const isMissingNarradorColumnError = (message = '') =>
+        /schema cache/i.test(message) && /narradores/i.test(message) && /(papel|usuario)/i.test(message);
+    const isDuplicateNarradorEmailError = (message = '') =>
+        /duplicate key value/i.test(message) && /narradores_email_key|email/i.test(message);
+
+    const hashPasswordSha256 = async (password) => {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password || '');
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    };
+
     // Estados para Notícias (Upload de Imagens)
     const [uploadingImage, setUploadingImage] = useState(false);
     const [selectedNewsId, setSelectedNewsId] = useState(1);
@@ -1000,10 +1018,12 @@ function Admin() {
     const handleEditNarrador = (narrador) => {
         setEditingNarrador({
             id: narrador.id,
+            usuario: narrador.usuario || (narrador.email ? narrador.email.split('@')[0] : ''),
             nome: narrador.nome || '',
             email: narrador.email || '',
             whatsapp: narrador.whatsapp || '',
             senha: '', // Não mostrar senha atual
+            papel: normalizeNarradorRole(narrador.papel),
             ativo: narrador.ativo !== false
         });
     };
@@ -1024,6 +1044,10 @@ function Admin() {
             alert('⚠️ E-mail inválido!');
             return;
         }
+        if (!editingNarrador.usuario || !editingNarrador.usuario.trim()) {
+            alert('⚠️ Informe o usuário de acesso!');
+            return;
+        }
         if (!editingNarrador.whatsapp || editingNarrador.whatsapp.trim().length < 10) {
             alert('⚠️ Informe um WhatsApp válido!');
             return;
@@ -1032,20 +1056,18 @@ function Admin() {
         setSavingNarrador(true);
         try {
             const updateData = {
+                usuario: editingNarrador.usuario.trim().toLowerCase(),
                 nome: editingNarrador.nome.trim(),
                 email: editingNarrador.email.trim().toLowerCase(),
                 whatsapp: editingNarrador.whatsapp.trim(),
+                papel: normalizeNarradorRole(editingNarrador.papel),
                 ativo: editingNarrador.ativo,
                 updated_at: new Date().toISOString()
             };
 
             // Se foi informada uma nova senha, fazer hash SHA-256
             if (editingNarrador.senha && editingNarrador.senha.length > 0) {
-                const encoder = new TextEncoder();
-                const data = encoder.encode(editingNarrador.senha);
-                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                const hashHex = await hashPasswordSha256(editingNarrador.senha);
                 updateData.senha_hash = hashHex;
                 updateData.senha_definida = true;
             }
@@ -1055,14 +1077,34 @@ function Admin() {
                 .update(updateData)
                 .eq('id', editingNarrador.id);
 
-            if (error) throw error;
+            if (error) {
+                const msg = error?.message || '';
+                if (isMissingNarradorColumnError(msg)) {
+                    const fallbackData = { ...updateData };
+                    delete fallbackData.usuario;
+                    delete fallbackData.papel;
+                    const { error: fallbackError } = await supabase
+                        .from('narradores')
+                        .update(fallbackData)
+                        .eq('id', editingNarrador.id);
+                    if (fallbackError) throw fallbackError;
+                    alert('⚠️ Narrador salvo sem os novos campos (usuário/papel). Rode o SQL scripts/add_narradores_login_fields.sql para habilitar totalmente.');
+                } else {
+                    throw error;
+                }
+            }
 
             alert('✅ Narrador atualizado com sucesso!');
             setEditingNarrador(null);
             fetchNarradores();
         } catch (err) {
             console.error('Erro ao salvar narrador:', err);
-            alert('❌ Erro ao salvar: ' + err.message);
+            const msg = err?.message || '';
+            if (isMissingNarradorColumnError(msg) || /column .*usuario|column .*papel|'.*papel'.*column|'.*usuario'.*column/i.test(msg)) {
+                alert('❌ O banco ainda não possui os campos de login de narrador.\n\nExecute no Supabase: scripts/add_narradores_login_fields.sql');
+            } else {
+                alert('❌ Erro ao salvar: ' + msg);
+            }
         } finally {
             setSavingNarrador(false);
         }
@@ -1070,9 +1112,12 @@ function Admin() {
 
     const handleCreateNarrador = async () => {
         const novoNarrador = {
+            usuario: '',
             nome: '',
             email: '',
             whatsapp: '',
+            senha: '',
+            papel: 'narrador',
             ativo: true
         };
         setEditingNarrador(novoNarrador);
@@ -1094,33 +1139,114 @@ function Admin() {
             alert('⚠️ E-mail inválido!');
             return;
         }
+        if (!editingNarrador.usuario || !editingNarrador.usuario.trim()) {
+            alert('⚠️ Informe o usuário de acesso!');
+            return;
+        }
         if (!editingNarrador.whatsapp || editingNarrador.whatsapp.trim().length < 10) {
             alert('⚠️ Informe um WhatsApp válido!');
+            return;
+        }
+        if (!editingNarrador.senha || editingNarrador.senha.trim().length < 4) {
+            alert('⚠️ Defina uma senha com pelo menos 4 caracteres!');
             return;
         }
 
         setSavingNarrador(true);
         try {
-            // Criar narrador sem senha - ele criará no primeiro acesso
+            const hashHex = await hashPasswordSha256(editingNarrador.senha.trim());
+            const payload = {
+                usuario: editingNarrador.usuario.trim().toLowerCase(),
+                nome: editingNarrador.nome.trim(),
+                email: editingNarrador.email.trim().toLowerCase(),
+                whatsapp: editingNarrador.whatsapp.trim(),
+                senha_hash: hashHex,
+                senha_definida: true,
+                papel: normalizeNarradorRole(editingNarrador.papel),
+                ativo: editingNarrador.ativo !== false
+            };
+
+            // Se já existe por e-mail, atualizar em vez de duplicar
+            const { data: existingByEmail, error: existingErr } = await supabase
+                .from('narradores')
+                .select('id')
+                .eq('email', payload.email)
+                .maybeSingle();
+
+            if (existingErr) throw existingErr;
+
+            if (existingByEmail?.id) {
+                const updatePayload = { ...payload, updated_at: new Date().toISOString() };
+                const { error: updateErr } = await supabase
+                    .from('narradores')
+                    .update(updatePayload)
+                    .eq('id', existingByEmail.id);
+
+                if (updateErr) {
+                    const msg = updateErr?.message || '';
+                    if (isMissingNarradorColumnError(msg)) {
+                        const fallbackUpdatePayload = { ...updatePayload };
+                        delete fallbackUpdatePayload.usuario;
+                        delete fallbackUpdatePayload.papel;
+                        const { error: updateFallbackErr } = await supabase
+                            .from('narradores')
+                            .update(fallbackUpdatePayload)
+                            .eq('id', existingByEmail.id);
+                        if (updateFallbackErr) throw updateFallbackErr;
+                        alert('⚠️ Cadastro já existia e foi atualizado sem usuário/papel. Rode o SQL scripts/add_narradores_login_fields.sql.');
+                    } else {
+                        throw updateErr;
+                    }
+                } else {
+                    alert('✅ E-mail já cadastrado. Atualizamos o acesso existente com os novos dados.');
+                }
+
+                setEditingNarrador(null);
+                fetchNarradores();
+                return;
+            }
+
             const { error } = await supabase
                 .from('narradores')
-                .insert({
-                    nome: editingNarrador.nome.trim(),
-                    email: editingNarrador.email.trim().toLowerCase(),
-                    whatsapp: editingNarrador.whatsapp.trim(),
-                    senha_hash: null,
-                    senha_definida: false,
-                    ativo: editingNarrador.ativo !== false
-                });
+                .insert(payload);
 
-            if (error) throw error;
+            if (error) {
+                const msg = error?.message || '';
+                if (isDuplicateNarradorEmailError(msg)) {
+                    alert('⚠️ Já existe um narrador com este e-mail. Use "Editar" no cadastro existente.');
+                    fetchNarradores();
+                    return;
+                }
+                if (isMissingNarradorColumnError(msg)) {
+                    const fallbackPayload = { ...payload };
+                    delete fallbackPayload.usuario;
+                    delete fallbackPayload.papel;
+                    const { error: fallbackError } = await supabase
+                        .from('narradores')
+                        .insert(fallbackPayload);
+                    if (fallbackError) throw fallbackError;
+                    alert('⚠️ Acesso criado sem os novos campos (usuário/papel). Rode o SQL scripts/add_narradores_login_fields.sql para habilitar totalmente.');
+                } else {
+                    throw error;
+                }
+            }
 
-            alert('✅ Narrador criado com sucesso! Ele receberá instruções para criar a senha no primeiro acesso.');
+            alert('✅ Acesso criado com sucesso!');
             setEditingNarrador(null);
             fetchNarradores();
         } catch (err) {
             console.error('Erro ao criar narrador:', err);
-            alert('❌ Erro ao criar: ' + err.message);
+            const msg = err?.message || '';
+            if (isDuplicateNarradorEmailError(msg)) {
+                alert('⚠️ Já existe um narrador com este e-mail. Use "Editar" no registro existente.');
+                fetchNarradores();
+                return;
+            }
+            if (isMissingNarradorColumnError(msg) || /column .*usuario|column .*papel|'.*papel'.*column|'.*usuario'.*column/i.test(msg)) {
+                alert('❌ O banco ainda não possui os campos de login de narrador.\n\nExecute no Supabase: scripts/add_narradores_login_fields.sql');
+            } else {
+                alert('❌ Erro ao criar: ' + msg);
+            }
         } finally {
             setSavingNarrador(false);
         }
@@ -3550,6 +3676,20 @@ function Admin() {
                         <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ color: '#06B6D4', margin: 0 }}>🎙️ Cadastro de Narradores</h3>
                             <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    onClick={() => window.open('/narrador', '_blank')}
+                                    style={{
+                                        padding: '8px 16px',
+                                        background: '#0F172A',
+                                        color: '#06B6D4',
+                                        border: '1px solid #06B6D4',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    🎙️ Abrir Página Narrador
+                                </button>
                                 <button 
                                     onClick={handleCreateNarrador}
                                     style={{ 
@@ -3589,6 +3729,16 @@ function Admin() {
                                 <h4 style={{ color: '#06B6D4', margin: '0 0 15px 0' }}>➕ Novo Narrador</h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
                                     <div>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Usuário de acesso *</label>
+                                        <input
+                                            type="text"
+                                            value={editingNarrador.usuario || ''}
+                                            onChange={(e) => setEditingNarrador({ ...editingNarrador, usuario: e.target.value })}
+                                            placeholder="Ex: narrador1"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC' }}
+                                        />
+                                    </div>
+                                    <div>
                                         <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Nome *</label>
                                         <input
                                             type="text"
@@ -3609,6 +3759,17 @@ function Admin() {
                                         />
                                     </div>
                                     <div>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Perfil de acesso *</label>
+                                        <select
+                                            value={editingNarrador.papel || 'narrador'}
+                                            onChange={(e) => setEditingNarrador({ ...editingNarrador, papel: e.target.value })}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC' }}
+                                        >
+                                            <option value="narrador">Narrador</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>WhatsApp *</label>
                                         <input
                                             type="text"
@@ -3617,9 +3778,16 @@ function Admin() {
                                             placeholder="Ex: (11) 99999-9999"
                                             style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC' }}
                                         />
-                                        <small style={{ color: '#64748B', fontSize: '11px', display: 'block', marginTop: '5px' }}>
-                                            O narrador criará a senha no primeiro acesso via WhatsApp
-                                        </small>
+                                    </div>
+                                    <div>
+                                        <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Senha inicial *</label>
+                                        <input
+                                            type="password"
+                                            value={editingNarrador.senha || ''}
+                                            onChange={(e) => setEditingNarrador({ ...editingNarrador, senha: e.target.value })}
+                                            placeholder="Mínimo 4 caracteres"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#0F172A', color: '#F8FAFC' }}
+                                        />
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -3670,6 +3838,17 @@ function Admin() {
                                                         {narrador.nome || '(Nome não definido)'}
                                                     </span>
                                                     <span style={{
+                                                        background: normalizeNarradorRole(narrador.papel) === 'admin' ? '#F59E0B' : '#334155',
+                                                        color: '#fff',
+                                                        padding: '3px 10px',
+                                                        borderRadius: '20px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 'bold',
+                                                        textTransform: 'uppercase'
+                                                    }}>
+                                                        {normalizeNarradorRole(narrador.papel)}
+                                                    </span>
+                                                    <span style={{
                                                         background: narrador.ativo ? '#06B6D4' : '#64748B',
                                                         color: 'white',
                                                         padding: '3px 10px',
@@ -3703,6 +3882,10 @@ function Admin() {
                                             </div>
                                             <div style={{ padding: '15px 20px', display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
                                                 <div>
+                                                    <span style={{ color: '#64748B', fontSize: '12px' }}>👤 Usuário:</span>
+                                                    <div style={{ color: '#F8FAFC', marginTop: '3px' }}>{narrador.usuario || '(não configurado)'}</div>
+                                                </div>
+                                                <div>
                                                     <span style={{ color: '#64748B', fontSize: '12px' }}>📧 E-mail:</span>
                                                     <div style={{ color: '#F8FAFC', marginTop: '3px' }}>{narrador.email || '(não configurado)'}</div>
                                                 </div>
@@ -3722,6 +3905,15 @@ function Admin() {
                                                     <h4 style={{ color: '#06B6D4', margin: '0 0 15px 0', fontSize: '14px' }}>✏️ Editando {narrador.nome}</h4>
                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
                                                         <div>
+                                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Usuário de acesso *</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingNarrador.usuario || ''}
+                                                                onChange={(e) => setEditingNarrador({ ...editingNarrador, usuario: e.target.value })}
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#1E293B', color: '#F8FAFC' }}
+                                                            />
+                                                        </div>
+                                                        <div>
                                                             <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Nome *</label>
                                                             <input
                                                                 type="text"
@@ -3738,6 +3930,17 @@ function Admin() {
                                                                 onChange={(e) => setEditingNarrador({ ...editingNarrador, email: e.target.value })}
                                                                 style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#1E293B', color: '#F8FAFC' }}
                                                             />
+                                                        </div>
+                                                        <div>
+                                                            <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Perfil de acesso *</label>
+                                                            <select
+                                                                value={editingNarrador.papel || 'narrador'}
+                                                                onChange={(e) => setEditingNarrador({ ...editingNarrador, papel: e.target.value })}
+                                                                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', background: '#1E293B', color: '#F8FAFC' }}
+                                                            >
+                                                                <option value="narrador">Narrador</option>
+                                                                <option value="admin">Admin</option>
+                                                            </select>
                                                         </div>
                                                         <div>
                                                             <label style={{ color: '#94A3B8', fontSize: '12px', display: 'block', marginBottom: '5px' }}>WhatsApp *</label>

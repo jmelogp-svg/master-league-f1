@@ -30,7 +30,14 @@ const Footer = () => {
             </div>
 
             <p style={{color:'#94A3B8'}}>© 2026. Acelere para a glória.</p>
-            <Link to="/admin" style={{fontSize: '0.7rem', color: '#334155', textDecoration: 'none', marginTop: '20px', display: 'block'}}>Área Administrativa</Link>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginTop: '20px' }}>
+                <Link to="/admin" style={{ fontSize: '0.7rem', color: '#334155', textDecoration: 'none' }}>
+                    Área Administrativa
+                </Link>
+                <Link to="/narrador" style={{ fontSize: '0.7rem', color: '#334155', textDecoration: 'none' }}>
+                    Área Narrador
+                </Link>
+            </div>
         </footer>
     );
 };

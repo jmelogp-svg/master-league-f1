@@ -31,10 +31,12 @@ const ExPilotoLogin = lazy(() => import('./pages/ExPilotoLogin'));
 const ExPilotoEscolha = lazy(() => import('./pages/ExPilotoEscolha'));
 const ResultadosCorrida = lazy(() => import('./pages/ResultadosCorrida'));
 const Noticias = lazy(() => import('./pages/Noticias'));
+const Narrador = lazy(() => import('./pages/Narrador'));
 const Cards = lazy(() => import('./pages/Cards'));
 const CardsCarousel = lazy(() => import('./pages/CardsCarousel'));
 const PowerRankingObjetivos = lazy(() => import('./pages/PowerRankingObjetivos'));
 const Inscricao = lazy(() => import('./pages/Inscricao'));
+const MotorhomeMaster = lazy(() => import('./pages/MotorhomeMaster'));
 
 // Fallback enquanto a página lazy carrega
 const PageFallback = () => (
@@ -86,10 +88,12 @@ function App() {
                     <Route path="/minicup" element={<Minicup />} />
                     <Route path="/resultados-corrida" element={<ResultadosCorrida />} />
                     <Route path="/noticias" element={<Noticias />} />
+                    <Route path="/narrador" element={<Narrador />} />
                     <Route path="/cards" element={<Cards />} />
                     <Route path="/cards-carousel" element={<CardsCarousel />} />
                     <Route path="/admin/powerranking-objetivos" element={<PowerRankingObjetivos />} />
                     <Route path="/inscricao" element={<Inscricao />} />
+                    <Route path="/motorhome-master" element={<MotorhomeMaster />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Suspense>

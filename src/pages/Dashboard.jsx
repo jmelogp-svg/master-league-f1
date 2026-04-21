@@ -732,9 +732,19 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         return null;
     };
 
+    const normalizePilotName = (name) => (name || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
     // Função para calcular estatísticas adicionais do piloto
     const calcularEstatisticasAdicionais = (nomePiloto, rawCarreira, rawLight, datesCarreiraMap = {}, datesLightMap = {}, temporadaAtual = 20) => {
         if (!nomePiloto || !rawCarreira || !rawLight) return null;
+        const nomePilotoNormalizado = normalizePilotName(nomePiloto);
+        const TOTAL_ETAPAS_TEMPORADA = 8;
         
         const stats = {
             campeonatos: [], // [{ grid: 'carreira'|'light', temporada: number }]
@@ -760,12 +770,33 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         
         const isSeasonComplete = (grid, season) => {
             const map = grid === 'carreira' ? datesCarreiraMap : datesLightMap;
-            if (!map || typeof map !== 'object') return true;
+            if (!map || typeof map !== 'object') {
+                // Sem calendário disponível: nunca fechar temporada atual/futura.
+                return Number(season) < Number(temporadaAtual);
+            }
             const prefix = `${season}-`;
             const keys = Object.keys(map).filter(k => k.startsWith(prefix));
-            if (keys.length === 0) return true; // sem informação => assume completo (não travar histórico antigo)
+            if (keys.length === 0) {
+                // Sem informação de etapas da temporada: só assume completo para temporadas passadas.
+                return Number(season) < Number(temporadaAtual);
+            }
+
+            const rounds = keys
+                .map((k) => parseInt(String(k).split('-')[1], 10))
+                .filter((r) => !isNaN(r));
+            const maxRound = rounds.length ? Math.max(...rounds) : 0;
+            const hasAllRounds = maxRound >= TOTAL_ETAPAS_TEMPORADA;
+
             // Se existir qualquer etapa com data futura, a temporada ainda não está completa
-            return !keys.some(k => isFutureDay(map[k]));
+            const hasFutureRound = keys.some(k => isFutureDay(map[k]));
+
+            // Para temporada atual/futura, exige calendário completo e sem etapas futuras.
+            if (Number(season) >= Number(temporadaAtual)) {
+                return hasAllRounds && !hasFutureRound;
+            }
+
+            // Temporadas antigas: se não há etapa futura, considera encerrada.
+            return !hasFutureRound;
         };
 
         // Processar dados de Carreira e Light
@@ -831,7 +862,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                 pontosPorTemporada[key][driverName] += points;
                 
                 // Se for o piloto atual, contar suas estatísticas
-                if (driverName === nomePiloto) {
+                if (normalizePilotName(driverName) === nomePilotoNormalizado) {
                     // Contar corridas
                     stats.totalCorridas++;
                     stats.totalTemporadas.add(season);
@@ -920,14 +951,14 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             const maxPontos = Math.max(...Object.values(pontos));
             const campeao = Object.keys(pontos).find(nome => pontos[nome] === maxPontos);
             
-            if (campeao === nomePiloto) {
+            if (normalizePilotName(campeao) === nomePilotoNormalizado) {
                 stats.campeonatos.push({ grid, temporada: seasonNum });
             }
         });
         
         // Contar voltas rápidas (quem teve o melhor tempo em cada corrida)
         Object.values(voltasRapidasPorCorrida).forEach(race => {
-            if (race.piloto === nomePiloto) {
+            if (normalizePilotName(race.piloto) === nomePilotoNormalizado) {
                 stats.totalVoltasRapidas++;
             }
         });
@@ -947,8 +978,8 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         // Calcular faltas na temporada atual (20)
         // Verificar em qual grid o piloto está correndo na temporada atual
         let activeGrid = 'carreira';
-        const inCarreira = rawCarreira.some(r => r[9] === nomePiloto && parseInt(r[3]) === temporadaAtual);
-        const inLight = rawLight.some(r => r[9] === nomePiloto && parseInt(r[3]) === temporadaAtual);
+        const inCarreira = rawCarreira.some(r => normalizePilotName(r[9]) === nomePilotoNormalizado && parseInt(r[3]) === temporadaAtual);
+        const inLight = rawLight.some(r => normalizePilotName(r[9]) === nomePilotoNormalizado && parseInt(r[3]) === temporadaAtual);
         if (inLight && !inCarreira) activeGrid = 'light';
 
         const currentData = activeGrid === 'light' ? rawLight : rawCarreira;
@@ -958,7 +989,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         etapas.forEach(r => {
             const roundNum = parseInt(r.replace('R', ''));
             const hasParticipated = currentData.some(row => 
-                row[9] === nomePiloto && 
+                normalizePilotName(row[9]) === nomePilotoNormalizado && 
                 parseInt(row[3]) === temporadaAtual && 
                 parseInt(row[4]) === roundNum
             );
@@ -1164,7 +1195,17 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
                 const corridasS20 = statsS20.corridas || 0;
                 
                 if (vitoriasS20 > 0 || podiosS20 > 0 || pontosS20 > 0) {
-                    resumo += `Na Temporada ${temporadaReferenciaNarrativa}, ${nomeCapitalizado} `;
+                    const isTemporadaEmAndamento = (
+                        Number(temporadaReferenciaNarrativa) >= Number(temporadaAtualNum) &&
+                        roundAtual > 0 &&
+                        roundAtual < 8
+                    );
+
+                    if (isTemporadaEmAndamento) {
+                        resumo += `Até a ${roundAtual}ª etapa da Temporada ${temporadaReferenciaNarrativa}, ${nomeCapitalizado} `;
+                    } else {
+                        resumo += `Na Temporada ${temporadaReferenciaNarrativa}, ${nomeCapitalizado} `;
+                    }
                     const conquistasS20 = [];
                     if (vitoriasS20 > 0) {
                         conquistasS20.push(`conquistou ${vitoriasS20} vitória${vitoriasS20 > 1 ? 's' : ''}`);
@@ -2114,6 +2155,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         }
         
         const pilotName = profile.nome;
+        const pilotNameNormalized = normalizePilotName(pilotName);
         
         // Evitar reprocessar se já foi processado para o mesmo piloto
         if (processedRef.current && lastPilotNameRef.current === pilotName) {
@@ -2126,7 +2168,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
             let s = { races:0, wins:0, poles:0, podiums:0, best:999, seasons: new Set(), currentPoints: 0, racesList: [] };
             const dateMap = gridType === 'light' ? (datesLight || {}) : (datesCarreira || {});
             data.forEach(row => {
-                if (row[9] === pilotName) {
+                if (normalizePilotName(row[9]) === pilotNameNormalized) {
                     const season = parseInt(row[3]);
                     const round = parseInt(row[4]);
                     if (!isNaN(season) && !isNaN(round) && dateMap) {
@@ -2155,7 +2197,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
 
         let maxS = 0, grid='carreira', team='Sem Equipe';
         const check = (row, g) => {
-            if(row[9]===pilotName) {
+            if (normalizePilotName(row[9]) === pilotNameNormalized) {
                 const s = parseInt(row[3]);
                 if (s > maxS || (s === maxS && g === 'carreira')) { maxS = s; grid = g; team = row[10]; }
             }
@@ -2167,7 +2209,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
         const targetGridData = grid === 'carreira' ? rawCarreira : rawLight;
         const targetDates = grid === 'carreira' ? (datesCarreira || {}) : (datesLight || {});
         const currentSeasonRaces = targetGridData
-            .filter(row => row[9] === pilotName && parseInt(row[3]) === maxS)
+            .filter(row => normalizePilotName(row[9]) === pilotNameNormalized && parseInt(row[3]) === maxS)
             .map(row => {
                 const roundNum = parseInt(row[4]);
                 if (!isNaN(roundNum)) {
@@ -2246,7 +2288,7 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     };
 
     if (loadingAuth || loadingData) return <div style={{color:'white', padding:'100px', textAlign:'center'}}>Carregando...</div>;
-    if (!session) return null;
+    if (!session && !pilotoEmailProp) return null;
 
     // STATUS PENDENTE - simplificar verificação
     if (profile?.status === 'pending') {
@@ -2261,6 +2303,13 @@ function Dashboard({ isReadOnly: isReadOnlyProp = null, pilotoEmail: pilotoEmail
     }
 
     if (!profile || !profile.nome) {
+        if (pilotoEmailProp) {
+            return (
+                <div style={{ color: 'white', padding: '50px', textAlign: 'center' }}>
+                    Piloto não encontrado para o e-mail selecionado no modo leitura.
+                </div>
+            );
+        }
         console.log('⚠️ Sem profile ou nome, mostrando Onboarding');
         return <div style={{paddingTop:'70px'}}><Onboarding session={session} onComplete={(newP) => setProfile(newP)} /></div>;
     }
