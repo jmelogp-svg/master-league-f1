@@ -276,7 +276,7 @@ export default function AdminDraftImport() {
         try {
             const { data, error } = await supabase
                 .from('pilotos')
-                .select('nome, cod_idml')
+                .select('nome, cod_idml, whatsapp, email')
                 .not('cod_idml', 'is', null);
 
             if (error) throw error;
@@ -527,6 +527,57 @@ export default function AdminDraftImport() {
         const first = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
         const last = parts.slice(1).join(' ').toUpperCase();
         return { first, last };
+    };
+
+    const resolvePilotContact = async (piloto, normalizedCodIdml = null) => {
+        const cod = normalizeCodIdml(normalizedCodIdml || piloto?.cod_idml);
+        let resolved = {
+            whatsapp: piloto?.whatsapp || null,
+            email: piloto?.email || null,
+            cod_idml: cod
+        };
+
+        if (resolved.whatsapp) return resolved;
+
+        try {
+            if (cod) {
+                const cadastroPorCod = pilotosByCodIdml?.[cod];
+                if (cadastroPorCod?.whatsapp) {
+                    return {
+                        whatsapp: cadastroPorCod.whatsapp,
+                        email: cadastroPorCod.email || resolved.email,
+                        cod_idml: cod
+                    };
+                }
+            }
+
+            const nome = (piloto?.nome || '').trim();
+            if (!nome) return resolved;
+
+            const { data, error } = await supabase
+                .from('pilotos')
+                .select('whatsapp, email, cod_idml')
+                .eq('nome', nome)
+                .limit(1)
+                .maybeSingle();
+
+            if (error) {
+                console.warn('⚠️ Não foi possível buscar contato do piloto na tabela pilotos:', error);
+                return resolved;
+            }
+
+            if (data?.whatsapp) {
+                resolved = {
+                    whatsapp: data.whatsapp,
+                    email: data.email || resolved.email,
+                    cod_idml: normalizeCodIdml(data.cod_idml) || resolved.cod_idml
+                };
+            }
+        } catch (error) {
+            console.warn('⚠️ Erro ao resolver contato do piloto:', error);
+        }
+
+        return resolved;
     };
 
     const defaultTeams = [
@@ -787,7 +838,8 @@ export default function AdminDraftImport() {
             await loadPilotoPropostasStatus();
 
             // Notificação WhatsApp
-            if (piloto.whatsapp) {
+            const pilotContact = await resolvePilotContact(piloto, codIdmlNormalizado);
+            if (pilotContact.whatsapp) {
                 const message = [
                     '📨 NOVA PROPOSTA - MASTER LEAGUE F1',
                     '',
@@ -800,12 +852,18 @@ export default function AdminDraftImport() {
                     `🔗 Painel do Piloto: ${painelUrl}`,
                 ].join('\n');
 
-                await sendWhatsappNotification({
-                    phone: piloto.whatsapp,
-                    email: piloto.email || `${codIdmlNormalizado || 'piloto'}@masterleaguef1.com`,
+                const waResult = await sendWhatsappNotification({
+                    phone: pilotContact.whatsapp,
+                    email: pilotContact.email || `${pilotContact.cod_idml || codIdmlNormalizado || 'piloto'}@masterleaguef1.com`,
                     nome: piloto.nome,
                     message,
                 });
+
+                if (!waResult?.success) {
+                    alert(`⚠️ Proposta salva, mas o WhatsApp não foi enviado para ${formatDriverName(piloto.nome)}. Motivo: ${waResult?.error || 'erro desconhecido'}`);
+                }
+            } else {
+                alert(`⚠️ Proposta salva, mas ${formatDriverName(piloto.nome)} não possui WhatsApp cadastrado no Draft nem na tabela de pilotos.`);
             }
         } catch (error) {
             alert(`❌ Erro: ${error.message}`);

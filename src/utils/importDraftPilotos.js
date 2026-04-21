@@ -10,12 +10,23 @@ const SHEET_URLS = {
     carreira: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=914372939&single=true&output=csv'
 };
 
+// Pilotos que devem sempre existir no draft, mesmo se não vierem da planilha.
+const REQUIRED_DRAFT_PILOTOS = ['Marcio Loureiro', 'Rodrigo Budreika'];
+
 /**
  * Normaliza o COD IDML para garantir consistência
  */
 function normalizeCodIdml(cod) {
     if (!cod) return null;
     return String(cod).trim().toUpperCase();
+}
+
+function normalizeNome(nome) {
+    return String(nome || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
 }
 
 /**
@@ -58,6 +69,32 @@ function processSheetData(csvText, grid) {
                         };
                     })
                     .filter(p => p !== null);
+
+                const nomesNoDraft = new Set(pilotos.map((p) => normalizeNome(p.nome)));
+                let proximaOrdemEscolha = pilotos.reduce((maiorOrdem, piloto) => {
+                    const ordem = Number(piloto?.ordem_escolha);
+                    if (!Number.isFinite(ordem)) return maiorOrdem;
+                    return Math.max(maiorOrdem, ordem);
+                }, 0);
+
+                const seasonPadrao = pilotos[0]?.season || 20;
+
+                REQUIRED_DRAFT_PILOTOS.forEach((nomeObrigatorio) => {
+                    if (nomesNoDraft.has(normalizeNome(nomeObrigatorio))) return;
+
+                    proximaOrdemEscolha += 1;
+                    pilotos.push({
+                        nome: nomeObrigatorio,
+                        grid,
+                        ordem_escolha: proximaOrdemEscolha,
+                        season: seasonPadrao,
+                        power_ranking_pts: 0,
+                        whatsapp: null,
+                        cod_idml: null
+                    });
+                    nomesNoDraft.add(normalizeNome(nomeObrigatorio));
+                    console.log(`➕ Piloto obrigatório adicionado no grid ${grid}: ${nomeObrigatorio}`);
+                });
 
                 console.log(`✅ ${pilotos.length} pilotos válidos encontrados no grid ${grid}`);
                 resolve({ pilotos, total: results.data.length });

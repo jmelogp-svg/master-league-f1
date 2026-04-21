@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { displayPilarInt } from '../utils/powerRankingMotorhome';
+import { fetchSeasonLifecycleConfig, defaultSeasonContext } from '../utils/seasonLifecycle';
 import './Cards.css';
 
 // Componente para exibir foto do piloto
@@ -34,7 +35,26 @@ function Cards() {
     const [pilotoData, setPilotoData] = useState(null);
     const [statsData, setStatsData] = useState(null);
     const [error, setError] = useState(null);
-    const selectedSeason = 20;
+    const [selectedSeason, setSelectedSeason] = useState(20);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const ctx = await fetchSeasonLifecycleConfig();
+                if (!cancelled && ctx?.currentSeason) {
+                    setSelectedSeason(ctx.currentSeason);
+                }
+            } catch {
+                const fallback = defaultSeasonContext();
+                if (!cancelled && fallback?.currentSeason) {
+                    setSelectedSeason(fallback.currentSeason);
+                }
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, []);
 
     useEffect(() => {
         const carregarDados = async () => {
