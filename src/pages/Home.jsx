@@ -103,6 +103,8 @@ const sortHighlightsByMostRecent = (cards, dynamicTimes = {}) => (
     })
 );
 
+const HIGHLIGHTS_GITHUB_REPO = 'jmelogp-svg/master-league-f1';
+
 /** CSV do Google às vezes chega como UTF-8 lido em Latin-1 (ex.: JoÃ£o → João). */
 function repairUtf8Mojibake(str) {
     if (!str || typeof str !== 'string') return str;
@@ -384,6 +386,36 @@ function Home() {
     useEffect(() => {
         let cancelled = false;
         let intervalId = null;
+        const githubTsCache = {};
+
+        const toRepoPath = (imagePath) => {
+            const normalized = String(imagePath || '').trim();
+            if (!normalized.startsWith('/')) return null;
+            return `public${normalized}`;
+        };
+
+        const getGitHubFileTimestamp = async (imagePath) => {
+            const repoPath = toRepoPath(imagePath);
+            if (!repoPath) return NaN;
+            if (githubTsCache[repoPath] !== undefined) return githubTsCache[repoPath];
+
+            try {
+                const url = `https://api.github.com/repos/${HIGHLIGHTS_GITHUB_REPO}/commits?path=${encodeURIComponent(repoPath)}&per_page=1`;
+                const response = await fetch(url, { cache: 'no-store' });
+                if (!response.ok) {
+                    githubTsCache[repoPath] = NaN;
+                    return NaN;
+                }
+                const data = await response.json();
+                const commitDate = data?.[0]?.commit?.committer?.date || data?.[0]?.commit?.author?.date;
+                const ts = commitDate ? Date.parse(commitDate) : NaN;
+                githubTsCache[repoPath] = Number.isFinite(ts) ? ts : NaN;
+                return githubTsCache[repoPath];
+            } catch {
+                githubTsCache[repoPath] = NaN;
+                return NaN;
+            }
+        };
 
         const getAssetLastModifiedTs = async (imagePath) => {
             const tryReadLastModified = async (method) => {
@@ -413,7 +445,10 @@ function Home() {
             const lastModifiedById = {};
 
             await Promise.all(HOME_BAHREIN_CARDS.map(async (card) => {
-                const ts = await getAssetLastModifiedTs(card.image);
+                let ts = await getGitHubFileTimestamp(card.image);
+                if (!Number.isFinite(ts)) {
+                    ts = await getAssetLastModifiedTs(card.image);
+                }
                 if (Number.isFinite(ts)) lastModifiedById[card.id] = ts;
             }));
 
