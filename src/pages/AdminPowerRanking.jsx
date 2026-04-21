@@ -1637,6 +1637,19 @@ export default function AdminPowerRanking() {
     useEffect(() => {
         if (!rawCarreira || !rawLight || !selectedSeason) return;
 
+        const parseIntFlex = (value) => {
+            if (value === null || value === undefined) return NaN;
+            const text = String(value).trim();
+            if (!text) return NaN;
+            const direct = parseInt(text, 10);
+            if (!isNaN(direct)) return direct;
+            const match = text.match(/\d+/);
+            return match ? parseInt(match[0], 10) : NaN;
+        };
+
+        const targetSeason = parseIntFlex(selectedSeason);
+        if (!Number.isFinite(targetSeason) || targetSeason <= 0) return;
+
         const telemetriaMap = {};
         
         // Função auxiliar para processar dados de um grid
@@ -1644,14 +1657,14 @@ export default function AdminPowerRanking() {
             const driverMap = new Map();
             
             data.forEach(row => {
-                const s = parseInt(row[3]);
-                if (s !== parseInt(selectedSeason)) return;
+                const s = parseIntFlex(row[3]);
+                if (s !== targetSeason) return;
                 
                 const name = (row[9] || '').trim();
                 if (!name) return;
                 
-                const qualy = parseInt(row[6]);
-                const race = parseInt(row[8]);
+                const qualy = parseIntFlex(row[6]);
+                const race = parseIntFlex(row[8]);
                 
                 if (!driverMap.has(name)) {
                     driverMap.set(name, { 
@@ -2439,6 +2452,19 @@ export default function AdminPowerRanking() {
             console.log('⚡ Iniciando cálculo unificado de pilares...');
 
             const updated = {};
+            const normalizeNomeKey = (value) => (value || '')
+                .toString()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const telemetriaByNormalized = {};
+            Object.entries(telemetriaData || {}).forEach(([nomeTelemetria, dados]) => {
+                const key = normalizeNomeKey(nomeTelemetria);
+                if (!key || !dados || telemetriaByNormalized[key]) return;
+                telemetriaByNormalized[key] = dados;
+            });
             
             // 1. Preparar dados base para normalização
             const maxPRPorGrid = { carreira: 0, light: 0 };
@@ -2551,7 +2577,7 @@ export default function AdminPowerRanking() {
                 cond -= advertenciasQtde;
 
                 // --- PILAR 3: RACECRAFT (Mínimo 60) ---
-                const rt = telemetriaData[nome] || {};
+                const rt = telemetriaData[nome] || telemetriaByNormalized[normalizeNomeKey(nome)] || {};
                 let race = Math.max(60, rt.racecraft || 60);
 
                 // --- PILAR 4: OVERALL (Soma metas) ---
