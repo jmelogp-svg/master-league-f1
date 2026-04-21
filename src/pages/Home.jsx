@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { supabase } from '../supabaseClient';
@@ -431,6 +431,7 @@ function Home() {
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
     const [selectedHighlightIndex, setSelectedHighlightIndex] = useState(null);
+    const [showHighlightControls, setShowHighlightControls] = useState(true);
     const [highlightCards, setHighlightCards] = useState([]);
     const [latestHighlightsGpSlug, setLatestHighlightsGpSlug] = useState(null);
 
@@ -460,6 +461,7 @@ function Home() {
     const scrollRef = useRef(null);
     const scrollRefLight = useRef(null);
     const scrollRefHighlights = useRef(null);
+    const highlightControlsTimeoutRef = useRef(null);
     const [isPaused, setIsPaused] = useState(false);
     const [isPausedLight, setIsPausedLight] = useState(false);
     const [isPausedHighlights, setIsPausedHighlights] = useState(false);
@@ -579,17 +581,55 @@ function Home() {
         }
     }, [selectedHighlightIndex, highlightCards.length]);
 
+    const scheduleHideHighlightControls = useCallback(() => {
+        if (highlightControlsTimeoutRef.current) {
+            clearTimeout(highlightControlsTimeoutRef.current);
+        }
+        if (!isMobile || selectedHighlightIndex === null) return;
+        highlightControlsTimeoutRef.current = setTimeout(() => {
+            setShowHighlightControls(false);
+        }, 1000);
+    }, [isMobile, selectedHighlightIndex]);
+
+    const revealHighlightControls = useCallback(() => {
+        setShowHighlightControls(true);
+        scheduleHideHighlightControls();
+    }, [scheduleHideHighlightControls]);
+
+    useEffect(() => {
+        if (selectedHighlightIndex === null) {
+            if (highlightControlsTimeoutRef.current) {
+                clearTimeout(highlightControlsTimeoutRef.current);
+                highlightControlsTimeoutRef.current = null;
+            }
+            setShowHighlightControls(true);
+            return;
+        }
+        revealHighlightControls();
+    }, [selectedHighlightIndex, revealHighlightControls]);
+
+    useEffect(() => () => {
+        if (highlightControlsTimeoutRef.current) {
+            clearTimeout(highlightControlsTimeoutRef.current);
+        }
+    }, []);
+
     useEffect(() => {
         if (selectedHighlightIndex === null) return undefined;
         const onKeyDown = (event) => {
-            if (event.key === 'Escape') setSelectedHighlightIndex(null);
+            if (event.key === 'Escape') {
+                setSelectedHighlightIndex(null);
+                return;
+            }
             if (event.key === 'ArrowRight') {
+                revealHighlightControls();
                 setSelectedHighlightIndex((idx) => {
                     if (idx === null) return idx;
                     return (idx + 1) % highlightCards.length;
                 });
             }
             if (event.key === 'ArrowLeft') {
+                revealHighlightControls();
                 setSelectedHighlightIndex((idx) => {
                     if (idx === null) return idx;
                     return (idx - 1 + highlightCards.length) % highlightCards.length;
@@ -603,7 +643,7 @@ function Home() {
             window.removeEventListener('keydown', onKeyDown);
             document.body.style.overflow = previousOverflow;
         };
-    }, [selectedHighlightIndex, highlightCards.length]);
+    }, [selectedHighlightIndex, highlightCards.length, revealHighlightControls]);
 
     const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() : "";
     
@@ -2545,20 +2585,36 @@ function Home() {
             {selectedDriver && <DriverModal driver={selectedDriver} gridType={selectedDriver.gridType || gridType} season={selectedSeason} onClose={() => setSelectedDriver(null)} teamColor={getTeamColor(selectedDriver.team, selectedDriver.gridType || gridType, selectedDriver.isDraft)} teamLogo={getTeamLogo(selectedDriver.team, selectedDriver.gridType || gridType, selectedDriver.isDraft)} />}
             {selectedHighlightIndex !== null && highlightCards[selectedHighlightIndex] && (
                 <div className="highlight-lightbox" onClick={() => setSelectedHighlightIndex(null)}>
-                    <div className="highlight-lightbox-content" onClick={(event) => event.stopPropagation()}>
-                        <button className="highlight-lightbox-close" onClick={() => setSelectedHighlightIndex(null)} aria-label="Fechar imagem">
+                    <div
+                        className="highlight-lightbox-content"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            revealHighlightControls();
+                        }}
+                    >
+                        <button
+                            className={`highlight-lightbox-close ${showHighlightControls ? '' : 'control-hidden'}`}
+                            onClick={() => setSelectedHighlightIndex(null)}
+                            aria-label="Fechar imagem"
+                        >
                             &times;
                         </button>
                         <button
-                            className="highlight-lightbox-nav prev"
-                            onClick={() => setSelectedHighlightIndex((idx) => (idx - 1 + highlightCards.length) % highlightCards.length)}
+                            className={`highlight-lightbox-nav prev ${showHighlightControls ? '' : 'control-hidden'}`}
+                            onClick={() => {
+                                revealHighlightControls();
+                                setSelectedHighlightIndex((idx) => (idx - 1 + highlightCards.length) % highlightCards.length);
+                            }}
                             aria-label="Imagem anterior"
                         >
                             &#8249;
                         </button>
                         <button
-                            className="highlight-lightbox-nav next"
-                            onClick={() => setSelectedHighlightIndex((idx) => (idx + 1) % highlightCards.length)}
+                            className={`highlight-lightbox-nav next ${showHighlightControls ? '' : 'control-hidden'}`}
+                            onClick={() => {
+                                revealHighlightControls();
+                                setSelectedHighlightIndex((idx) => (idx + 1) % highlightCards.length);
+                            }}
                             aria-label="Próxima imagem"
                         >
                             &#8250;
@@ -2567,9 +2623,10 @@ function Home() {
                             src={highlightCards[selectedHighlightIndex].image}
                             alt={`${highlightCards[selectedHighlightIndex].title} - ${highlightCards[selectedHighlightIndex].category}`}
                             className="highlight-lightbox-image"
+                            onClick={revealHighlightControls}
                         />
                         <div className="highlight-lightbox-caption">
-                            <small className="highlight-lightbox-counter">
+                            <small className={`highlight-lightbox-counter ${showHighlightControls ? '' : 'control-hidden'}`}>
                                 {`${selectedHighlightIndex + 1}/${highlightCards.length}`}
                             </small>
                             <strong>{highlightCards[selectedHighlightIndex].title}</strong>

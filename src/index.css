@@ -1095,6 +1095,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     font-size: 1.6rem;
     line-height: 1;
     z-index: 2;
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .highlight-lightbox-nav {
     position: absolute;
@@ -1113,6 +1114,7 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     align-items: center;
     justify-content: center;
     z-index: 2;
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .highlight-lightbox-nav.prev {
     left: 10px;
@@ -1140,6 +1142,17 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.5px;
+    transition: opacity 0.2s ease;
+}
+.highlight-lightbox-close.control-hidden,
+.highlight-lightbox-nav.control-hidden,
+.highlight-lightbox-counter.control-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+.highlight-lightbox-close.control-hidden,
+.highlight-lightbox-nav.control-hidden {
+    transform: scale(0.92);
 }
 .highlight-lightbox-caption strong {
     color: #f8fafc;
