@@ -501,7 +501,9 @@ function Home() {
                 const response = await fetch(imagePath, { method, cache: 'no-store' });
                 if (!response.ok) return NaN;
                 const header = response.headers.get('last-modified');
-                return header ? Date.parse(header) : NaN;
+                // Alguns hosts/CDNs não enviam Last-Modified em assets estáticos.
+                // Se o arquivo existe (response.ok), usamos 0 como timestamp válido.
+                return header ? Date.parse(header) : 0;
             };
 
             try {
