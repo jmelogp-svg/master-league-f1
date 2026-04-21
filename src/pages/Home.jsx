@@ -383,22 +383,38 @@ function Home() {
 
     useEffect(() => {
         let cancelled = false;
+        let intervalId = null;
+
+        const getAssetLastModifiedTs = async (imagePath) => {
+            const tryReadLastModified = async (method) => {
+                const response = await fetch(imagePath, { method, cache: 'no-store' });
+                if (!response.ok) return NaN;
+                const header = response.headers.get('last-modified');
+                return header ? Date.parse(header) : NaN;
+            };
+
+            try {
+                const fromHead = await tryReadLastModified('HEAD');
+                if (Number.isFinite(fromHead)) return fromHead;
+            } catch {
+                // Alguns hosts não aceitam HEAD; tentamos GET no fallback.
+            }
+
+            try {
+                const fromGet = await tryReadLastModified('GET');
+                if (Number.isFinite(fromGet)) return fromGet;
+            } catch {
+                // fallback no updatedAt fixo
+            }
+            return NaN;
+        };
 
         const resolveHighlightsOrder = async () => {
             const lastModifiedById = {};
 
             await Promise.all(HOME_BAHREIN_CARDS.map(async (card) => {
-                try {
-                    const response = await fetch(card.image, { method: 'HEAD', cache: 'no-store' });
-                    if (!response.ok) return;
-                    const header = response.headers.get('last-modified');
-                    const ts = header ? Date.parse(header) : NaN;
-                    if (Number.isFinite(ts)) {
-                        lastModifiedById[card.id] = ts;
-                    }
-                } catch {
-                    // Se não conseguir ler o header, mantém fallback no updatedAt.
-                }
+                const ts = await getAssetLastModifiedTs(card.image);
+                if (Number.isFinite(ts)) lastModifiedById[card.id] = ts;
             }));
 
             if (cancelled) return;
@@ -406,7 +422,21 @@ function Home() {
         };
 
         resolveHighlightsOrder();
-        return () => { cancelled = true; };
+        const onFocusOrVisible = () => {
+            if (document.visibilityState === 'visible') {
+                resolveHighlightsOrder();
+            }
+        };
+        window.addEventListener('focus', onFocusOrVisible);
+        document.addEventListener('visibilitychange', onFocusOrVisible);
+        intervalId = window.setInterval(resolveHighlightsOrder, 120000);
+
+        return () => {
+            cancelled = true;
+            if (intervalId) window.clearInterval(intervalId);
+            window.removeEventListener('focus', onFocusOrVisible);
+            document.removeEventListener('visibilitychange', onFocusOrVisible);
+        };
     }, []);
 
     useEffect(() => {
