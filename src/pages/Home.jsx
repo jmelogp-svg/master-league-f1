@@ -459,8 +459,10 @@ function Home() {
 
     const scrollRef = useRef(null);
     const scrollRefLight = useRef(null);
+    const scrollRefHighlights = useRef(null);
     const [isPaused, setIsPaused] = useState(false);
     const [isPausedLight, setIsPausedLight] = useState(false);
+    const [isPausedHighlights, setIsPausedHighlights] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -577,11 +579,6 @@ function Home() {
         }
     }, [selectedHighlightIndex, highlightCards.length]);
 
-    const highlightsAnimationDurationSec = useMemo(() => {
-        const base = Math.max(110, highlightCards.length * 20);
-        return isMobile ? base + 30 : base;
-    }, [highlightCards.length, isMobile]);
-
     useEffect(() => {
         if (selectedHighlightIndex === null) return undefined;
         const onKeyDown = (event) => {
@@ -613,7 +610,15 @@ function Home() {
     // Função para normalizar nome do piloto (usada para comparação de punições)
     const normalizeNomePiloto = (nome) => {
         if (!nome) return '';
-        return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, ' ').toLowerCase();
+        return String(nome)
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[\u200B-\u200D\uFEFF]/g, '') // zero-width chars
+            .replace(/\u00A0/g, ' ') // no-break space
+            .replace(/[^\p{L}\p{N}\s-]/gu, '') // remove símbolos estranhos
+            .trim()
+            .replace(/\s+/g, ' ')
+            .toLowerCase();
     };
 
     /** Nome na coluna A do CSV de draft (espaços inquebráveis, aspas, encoding). */
@@ -698,10 +703,13 @@ function Home() {
         buscarPunicoes();
     }, [selectedSeason, gridType]);
 
-    // Buscar punições específicas para os carrosséis (T20 fixo, separado por grid)
+    // Buscar punições específicas para os carrosséis (temporada exibida no hub, separado por grid)
     useEffect(() => {
         const buscarPunicoesCarrossel = async () => {
             try {
+                const ctx = seasonCtx || defaultSeasonContext();
+                const targetSeason = homeCarouselStandingsSeason(ctx);
+
                 const { data, error } = await supabase
                     .from('notificacoes_admin')
                     .select('dados')
@@ -722,8 +730,8 @@ function Home() {
                     const temporadaLance = etapa?.season || etapa?.temporada || item.dados?.season || item.dados?.temporada || null;
                     const gridLance = etapa?.grid || item.dados?.grid || null;
 
-                    // Filtrar apenas T20
-                    const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === 20 : true;
+                    // Evita aplicar penalidade sem temporada definida em temporada errada.
+                    const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === parseInt(targetSeason) : false;
 
                     if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && temporadaCompativel) {
                         const nomePilotoNormalizado = normalizeNomePiloto(acusado.nome);
@@ -749,7 +757,7 @@ function Home() {
         };
 
         buscarPunicoesCarrossel();
-    }, []); // Executar apenas uma vez na montagem
+    }, [seasonCtx]); // Recalcular quando mudar contexto de temporada
 
     // Auto-scroll
     useEffect(() => {
@@ -776,6 +784,25 @@ function Home() {
         }, 30);
         return () => clearInterval(interval);
     }, [isPausedLight, loading, seasonDriversLightFull]);
+
+    // Auto-scroll manual-friendly (Mural de Destaques)
+    useEffect(() => {
+        const el = scrollRefHighlights.current;
+        if (!el || highlightCards.length === 0) return;
+
+        const interval = setInterval(() => {
+            if (isPausedHighlights) return;
+            const halfWidth = el.scrollWidth / 2;
+            if (halfWidth <= 0) return;
+
+            el.scrollLeft += 1;
+            if (el.scrollLeft >= halfWidth) {
+                el.scrollLeft -= halfWidth;
+            }
+        }, 45);
+
+        return () => clearInterval(interval);
+    }, [highlightCards, isPausedHighlights]);
 
     // Buscar notícias do Google Sheets (feed de resumos na home)
     useEffect(() => {
@@ -1222,28 +1249,65 @@ function Home() {
         // Sempre complementar com draft da temporada para exibir faltantes nas tabelas.
         mergeDraftIntoTotals(totals, draftCarreira);
         mergeDraftIntoTotals(totalsLight, draftLight);
+
+        // Consolida possíveis duplicatas de nome (diferenças de encoding/espaços invisíveis)
+        // para evitar piloto "duplicado" com 0 pontos no carrossel.
+        const collapseTotalsMap = (totalsMap) => {
+            const merged = {};
+            Object.entries(totalsMap).forEach(([originalKey, driver]) => {
+                const canonicalKey = normalizeNomePiloto(driver?.name || originalKey);
+                if (!canonicalKey) return;
+
+                if (!merged[canonicalKey]) {
+                    merged[canonicalKey] = { ...driver };
+                    return;
+                }
+
+                const current = merged[canonicalKey];
+                current.points = (Number(current.points) || 0) + (Number(driver?.points) || 0);
+                current.bestPosition = Math.min(
+                    Number.isFinite(current.bestPosition) ? current.bestPosition : Infinity,
+                    Number.isFinite(driver?.bestPosition) ? driver.bestPosition : Infinity
+                );
+                current.pontosPerdidos = (Number(current.pontosPerdidos) || 0) + (Number(driver?.pontosPerdidos) || 0);
+
+                const currentNameLen = String(current.name || '').trim().length;
+                const nextNameLen = String(driver?.name || '').trim().length;
+                if (nextNameLen > currentNameLen) current.name = driver.name;
+
+                const currentTeam = String(current.team || '').trim().toLowerCase();
+                const nextTeam = String(driver?.team || '').trim();
+                if ((currentTeam === 'master league' || !currentTeam) && nextTeam) {
+                    current.team = nextTeam;
+                }
+            });
+            return merged;
+        };
+
+        const collapsedTotals = collapseTotalsMap(totals);
+        const collapsedTotalsLight = collapseTotalsMap(totalsLight);
         
         // Subtrair pontos perdidos em punições para cada piloto (antes de ordenar)
         // Usando punições específicas do carrossel (T20 fixo por grid)
-        Object.keys(totals).forEach((nomePilotoKey) => {
+        Object.keys(collapsedTotals).forEach((nomePilotoKey) => {
             const pontosPerdidos = punicoesCarrosselCarreira[nomePilotoKey] || 0;
             
             // Armazenar pontos perdidos no objeto do piloto
-            totals[nomePilotoKey].pontosPerdidos = pontosPerdidos;
+            collapsedTotals[nomePilotoKey].pontosPerdidos = pontosPerdidos;
             
             if (pontosPerdidos > 0) {
-                totals[nomePilotoKey].points = totals[nomePilotoKey].points - pontosPerdidos; // Permite valores negativos
+                collapsedTotals[nomePilotoKey].points = collapsedTotals[nomePilotoKey].points - pontosPerdidos; // Permite valores negativos
             }
         });
         
-        Object.keys(totalsLight).forEach((nomePilotoKey) => {
+        Object.keys(collapsedTotalsLight).forEach((nomePilotoKey) => {
             const pontosPerdidos = punicoesCarrosselLight[nomePilotoKey] || 0;
             
             // Armazenar pontos perdidos no objeto do piloto
-            totalsLight[nomePilotoKey].pontosPerdidos = pontosPerdidos;
+            collapsedTotalsLight[nomePilotoKey].pontosPerdidos = pontosPerdidos;
             
             if (pontosPerdidos > 0) {
-                totalsLight[nomePilotoKey].points = totalsLight[nomePilotoKey].points - pontosPerdidos; // Permite valores negativos
+                collapsedTotalsLight[nomePilotoKey].points = collapsedTotalsLight[nomePilotoKey].points - pontosPerdidos; // Permite valores negativos
             }
         });
         
@@ -1258,8 +1322,8 @@ function Home() {
             return a.name.localeCompare(b.name, 'pt-BR');
         };
         
-        let sorted = Object.values(totals).sort(sortDrivers);
-        let sortedLightFull = Object.values(totalsLight).sort(sortDrivers);
+        let sorted = Object.values(collapsedTotals).sort(sortDrivers);
+        let sortedLightFull = Object.values(collapsedTotalsLight).sort(sortDrivers);
 
         setTopDrivers(sorted.slice(0, 3));
         setTopDriversLight(sortedLightFull.slice(0, 3));
@@ -2222,7 +2286,18 @@ function Home() {
                                 {highlightCards.length > 0 ? (
                                     <div
                                         className="gp-highlights-track"
-                                        style={{ animationDuration: `${highlightsAnimationDurationSec}s` }}
+                                        ref={scrollRefHighlights}
+                                        onMouseEnter={() => setIsPausedHighlights(true)}
+                                        onMouseLeave={() => setIsPausedHighlights(false)}
+                                        onTouchStart={() => setIsPausedHighlights(true)}
+                                        onTouchEnd={() => setIsPausedHighlights(false)}
+                                        onWheel={(event) => {
+                                            if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+                                                event.currentTarget.scrollLeft += event.deltaY;
+                                            } else {
+                                                event.currentTarget.scrollLeft += event.deltaX;
+                                            }
+                                        }}
                                     >
                                         {[...highlightCards, ...highlightCards].map((card, idx) => (
                                             <article

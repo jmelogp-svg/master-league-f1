@@ -961,7 +961,6 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 }
 .gp-highlights-grid {
     --highlight-gap: 10px;
-    overflow: hidden;
     padding: 10px;
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 12px;
@@ -970,15 +969,22 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
 .gp-highlights-track {
     display: flex;
     gap: var(--highlight-gap);
-    width: max-content;
-    animation: gpHighlightsMarquee 42s linear infinite;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--highlight-cyan) transparent;
+    padding-bottom: 6px;
 }
-.gp-highlights-grid:hover .gp-highlights-track {
-    animation-play-state: paused;
+.gp-highlights-track::-webkit-scrollbar {
+    height: 6px;
 }
-@keyframes gpHighlightsMarquee {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(calc(-50% - (var(--highlight-gap) / 2))); }
+.gp-highlights-track::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+.gp-highlights-track::-webkit-scrollbar-thumb {
+    background: var(--highlight-cyan);
+    border-radius: 10px;
 }
 .gp-highlight-card {
     position: relative;
@@ -1400,16 +1406,10 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         gap: 10px;
     }
     .gp-highlights-grid {
-        display: flex;
-        flex-wrap: nowrap;
-        overflow: hidden;
         padding: 10px 10px 12px;
     }
     .gp-highlights-track {
-        animation: gpHighlightsMarquee 56s linear infinite;
-    }
-    .gp-highlights-grid:active .gp-highlights-track {
-        animation-play-state: paused;
+        gap: 8px;
     }
     .gp-highlight-card {
         flex: 0 0 80vw;
@@ -1469,12 +1469,6 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         line-height: 1.7;
         text-align: justify;
         white-space: pre-line;
-    }
-}
-
-@media (hover: none) and (pointer: coarse) {
-    .gp-highlights-track {
-        animation-duration: 56s;
     }
 }
 
