@@ -960,13 +960,29 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     text-transform: uppercase;
 }
 .gp-highlights-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
+    --highlight-gap: 10px;
+    overflow: hidden;
     padding: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    background: rgba(2, 6, 23, 0.35);
+}
+.gp-highlights-track {
+    display: flex;
+    gap: var(--highlight-gap);
+    width: max-content;
+    animation: gpHighlightsMarquee 42s linear infinite;
+}
+.gp-highlights-grid:hover .gp-highlights-track {
+    animation-play-state: paused;
+}
+@keyframes gpHighlightsMarquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(calc(-50% - (var(--highlight-gap) / 2))); }
 }
 .gp-highlight-card {
     position: relative;
+    flex: 0 0 min(320px, 72vw);
     border-radius: 10px;
     overflow: hidden;
     cursor: pointer;
@@ -1386,29 +1402,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .gp-highlights-grid {
         display: flex;
         flex-wrap: nowrap;
-        gap: 10px;
-        overflow-x: auto;
-        scroll-snap-type: x mandatory;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
-        scrollbar-color: var(--highlight-cyan) transparent;
+        overflow: hidden;
         padding: 10px 10px 12px;
     }
-    .gp-highlights-grid::-webkit-scrollbar {
-        height: 5px;
+    .gp-highlights-track {
+        animation: gpHighlightsMarquee 56s linear infinite;
     }
-    .gp-highlights-grid::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
-    }
-    .gp-highlights-grid::-webkit-scrollbar-thumb {
-        background: var(--highlight-cyan);
-        border-radius: 10px;
+    .gp-highlights-grid:active .gp-highlights-track {
+        animation-play-state: paused;
     }
     .gp-highlight-card {
-        flex: 0 0 82vw;
+        flex: 0 0 80vw;
         max-width: 360px;
-        scroll-snap-align: start;
     }
     .gp-highlight-group-header {
         padding: 9px 12px;
@@ -1467,9 +1472,18 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
 }
 
+@media (hover: none) and (pointer: coarse) {
+    .gp-highlights-track {
+        animation-duration: 56s;
+    }
+}
+
 @media (min-width: 769px) and (max-width: 1100px) {
     .gp-highlights-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        --highlight-gap: 9px;
+    }
+    .gp-highlight-card {
+        flex-basis: min(300px, 64vw);
     }
 }
 /* --- CALENDAR WATERMARK --- */

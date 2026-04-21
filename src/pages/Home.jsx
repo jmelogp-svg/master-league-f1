@@ -33,75 +33,153 @@ const RecordIcon = () => (<svg className="rh-icon-small" viewBox="0 0 24 24" fil
 
 const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 const POINTS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1];
-// Fluxo operacional: substitua somente os arquivos da pasta /public/highlights/atual
-// para atualizar Light e Carreira de forma independente durante a semana.
-const HOME_BAHREIN_GROUPS = [
-    {
-        id: 'carreira',
-        category: 'GRID CARREIRA',
-        cards: [
-            {
-                id: 'winner-carreira',
-                title: 'Vencedor da Etapa',
-                driver: 'Claudio Francisco',
-                image: '/highlights/atual/vencedor-carreira.png',
-                updatedAt: '2026-04-18T14:18:00',
-            },
-            {
-                id: 'top10-carreira',
-                title: 'Top 10 - GP do Bahrein',
-                driver: 'Ranking completo da corrida',
-                image: '/highlights/atual/top10-carreira.png',
-                updatedAt: '2026-04-18T14:18:00',
-            },
-        ],
-    },
-    {
-        id: 'light',
-        category: 'GRID LIGHT',
-        cards: [
-            {
-                id: 'winner-light',
-                title: 'Vencedor da Etapa',
-                driver: 'Julio Melo',
-                image: '/highlights/atual/vencedor-light.png',
-                updatedAt: '2026-04-18T14:18:00',
-            },
-            {
-                id: 'top10-light',
-                title: 'Top 10 - GP do Bahrein',
-                driver: 'Ranking completo da corrida',
-                image: '/highlights/atual/top10-light.png',
-                updatedAt: '2026-04-18T14:18:00',
-            },
-        ],
-    },
+// Fluxo operacional do mural:
+// - mantenha um bloco por GP em /public/highlights/gp-xxxx
+// - a "corrida atual" é detectada automaticamente pelo calendário (de trás pra frente)
+// - o feed mantém histórico sem substituir cards antigos
+const HIGHLIGHTS_CALENDAR = [
+    { slug: 'gp-bahrein', category: 'GP DO BAHREIN' },
+    { slug: 'gp-arabia-saudita', category: 'GP DA ARÁBIA SAUDITA' },
+    { slug: 'gp-imola', category: 'GP DE ÍMOLA' },
+    { slug: 'gp-miami', category: 'GP DE MIAMI' },
+    { slug: 'gp-brasil', category: 'GP DO BRASIL' },
+    { slug: 'gp-canada', category: 'GP DO CANADÁ' },
+    { slug: 'gp-las-vegas', category: 'GP DE LAS VEGAS' },
+    { slug: 'gp-japao', category: 'GP DO JAPÃO' },
 ];
-const HOME_BAHREIN_CARDS = HOME_BAHREIN_GROUPS.flatMap((group) =>
-    group.cards.map((card) => ({
-        ...card,
-        category: group.category,
-    }))
+
+const HIGHLIGHTS_WINNERS = {
+    'gp-bahrein': { carreira: 'Claudio Francisco', light: 'Julio Melo' },
+    'gp-arabia-saudita': { carreira: 'A definir', light: 'A definir' },
+    'gp-imola': { carreira: 'A definir', light: 'A definir' },
+    'gp-miami': { carreira: 'A definir', light: 'A definir' },
+    'gp-brasil': { carreira: 'A definir', light: 'A definir' },
+    'gp-canada': { carreira: 'A definir', light: 'A definir' },
+    'gp-las-vegas': { carreira: 'A definir', light: 'A definir' },
+    'gp-japao': { carreira: 'A definir', light: 'A definir' },
+};
+
+const createHighlightsGroup = ({ slug, category, winnerDriverCarreira, winnerDriverLight, updatedAt = '' }) => ({
+    id: slug,
+    category,
+    cards: [
+        {
+            id: 'winner-carreira',
+            title: 'Vencedor da Etapa',
+            driver: winnerDriverCarreira,
+            image: `/highlights/${slug}/vencedor-carreira.png`,
+            updatedAt,
+        },
+        {
+            id: 'top10-carreira',
+            title: 'Top 10 - Corrida',
+            driver: 'Ranking completo da corrida',
+            image: `/highlights/${slug}/top10-carreira.png`,
+            updatedAt,
+        },
+        {
+            id: 'winner-light',
+            title: 'Vencedor da Etapa',
+            driver: winnerDriverLight,
+            image: `/highlights/${slug}/vencedor-light.png`,
+            updatedAt,
+        },
+        {
+            id: 'top10-light',
+            title: 'Top 10 - Corrida',
+            driver: 'Ranking completo da corrida',
+            image: `/highlights/${slug}/top10-light.png`,
+            updatedAt,
+        },
+    ],
+});
+
+const HOME_HIGHLIGHTS_GROUPS = [
+    ...HIGHLIGHTS_CALENDAR.map((gp) => createHighlightsGroup({
+        slug: gp.slug,
+        category: gp.category,
+        winnerDriverCarreira: HIGHLIGHTS_WINNERS[gp.slug]?.carreira || 'A definir',
+        winnerDriverLight: HIGHLIGHTS_WINNERS[gp.slug]?.light || 'A definir',
+    })),
+];
+
+const dedupeHighlightsByImage = (cards) => {
+    const byImage = new Map();
+    cards.forEach((card) => {
+        const key = String(card?.image || '').trim().toLowerCase();
+        if (!key) return;
+        const existing = byImage.get(key);
+        const currentTs = Date.parse(card.updatedAt || '') || 0;
+        const existingTs = Date.parse(existing?.updatedAt || '') || 0;
+        if (!existing || currentTs >= existingTs) {
+            byImage.set(key, card);
+        }
+    });
+    return Array.from(byImage.values());
+};
+
+const HOME_HIGHLIGHTS_CARDS = dedupeHighlightsByImage(
+    HOME_HIGHLIGHTS_GROUPS.flatMap((group) =>
+        group.cards.map((card) => ({
+            ...card,
+            id: `${group.id}-${card.id}`,
+            highlightType: card.id,
+            category: group.category,
+            gpSlug: group.id,
+            grid: card.id.includes('carreira') ? 'carreira' : 'light',
+        }))
+    )
 ).sort((a, b) => {
     const timeA = Date.parse(a.updatedAt || '') || 0;
     const timeB = Date.parse(b.updatedAt || '') || 0;
     return timeB - timeA;
 });
 
-const HOME_BAHREIN_CARD_ORDER = new Map(
-    HOME_BAHREIN_CARDS.map((card, index) => [card.id, index]),
+const HIGHLIGHTS_CALENDAR_INDEX = new Map(
+    HIGHLIGHTS_CALENDAR.map((gp, index) => [gp.slug, index]),
 );
+const STAGE_ORDER_WITH_CARREIRA = ['winner-carreira', 'top10-carreira', 'top10-light', 'winner-light'];
+const STAGE_ORDER_LIGHT_ONLY = ['top10-light', 'winner-light'];
 
-const sortHighlightsByMostRecent = (cards, dynamicTimes = {}) => (
-    [...cards].sort((a, b) => {
-        const dynamicA = dynamicTimes[a.id] ?? null;
-        const dynamicB = dynamicTimes[b.id] ?? null;
-        const timeA = dynamicA ?? (Date.parse(a.updatedAt || '') || 0);
-        const timeB = dynamicB ?? (Date.parse(b.updatedAt || '') || 0);
-        if (timeB !== timeA) return timeB - timeA;
-        return (HOME_BAHREIN_CARD_ORDER.get(a.id) ?? 0) - (HOME_BAHREIN_CARD_ORDER.get(b.id) ?? 0);
-    })
-);
+const buildHighlightsByStageOrder = (cards, dynamicTimes = {}) => {
+    const cardById = new Map(cards.map((card) => [card.id, card]));
+    const availableByGp = {};
+
+    cards.forEach((card) => {
+        const ts = dynamicTimes[card.id] ?? (Date.parse(card.updatedAt || '') || NaN);
+        if (!Number.isFinite(ts)) return;
+        if (!availableByGp[card.gpSlug]) {
+            availableByGp[card.gpSlug] = {
+                hasCarreira: false,
+                hasLight: false,
+                availableTypes: new Set(),
+            };
+        }
+        availableByGp[card.gpSlug].availableTypes.add(card.highlightType);
+        if (card.highlightType.includes('carreira')) availableByGp[card.gpSlug].hasCarreira = true;
+        if (card.highlightType.includes('light')) availableByGp[card.gpSlug].hasLight = true;
+    });
+
+    const orderedCards = [];
+    [...HIGHLIGHTS_CALENDAR]
+        .sort((a, b) => (HIGHLIGHTS_CALENDAR_INDEX.get(b.slug) ?? 0) - (HIGHLIGHTS_CALENDAR_INDEX.get(a.slug) ?? 0))
+        .forEach((gp) => {
+            const gpData = availableByGp[gp.slug];
+            if (!gpData) return;
+
+            const stageOrder = gpData.hasCarreira ? STAGE_ORDER_WITH_CARREIRA : STAGE_ORDER_LIGHT_ONLY;
+            stageOrder.forEach((type) => {
+                const cardId = `${gp.slug}-${type}`;
+                const card = cardById.get(cardId);
+                if (!card) return;
+                const ts = dynamicTimes[card.id] ?? (Date.parse(card.updatedAt || '') || NaN);
+                if (!Number.isFinite(ts)) return;
+                orderedCards.push(card);
+            });
+        });
+
+    return orderedCards;
+};
 
 const HIGHLIGHTS_GITHUB_REPO = 'jmelogp-svg/master-league-f1';
 
@@ -353,7 +431,8 @@ function Home() {
     const [historicalRecord, setHistoricalRecord] = useState({ time: "9:59.999", driver: "-", season: "-" });
     const [selectedDriver, setSelectedDriver] = useState(null);
     const [selectedHighlightIndex, setSelectedHighlightIndex] = useState(null);
-    const [highlightCards, setHighlightCards] = useState(HOME_BAHREIN_CARDS);
+    const [highlightCards, setHighlightCards] = useState([]);
+    const [latestHighlightsGpSlug, setLatestHighlightsGpSlug] = useState(null);
 
     // Regra única para responsividade: "mobile" = até 768px; "PC" = acima disso
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -443,17 +522,30 @@ function Home() {
 
         const resolveHighlightsOrder = async () => {
             const lastModifiedById = {};
+            const availableTsByGp = {};
 
-            await Promise.all(HOME_BAHREIN_CARDS.map(async (card) => {
+            await Promise.all(HOME_HIGHLIGHTS_CARDS.map(async (card) => {
                 let ts = await getGitHubFileTimestamp(card.image);
                 if (!Number.isFinite(ts)) {
                     ts = await getAssetLastModifiedTs(card.image);
                 }
-                if (Number.isFinite(ts)) lastModifiedById[card.id] = ts;
+                if (Number.isFinite(ts)) {
+                    lastModifiedById[card.id] = ts;
+                    const previous = availableTsByGp[card.gpSlug];
+                    availableTsByGp[card.gpSlug] = Number.isFinite(previous) ? Math.max(previous, ts) : ts;
+                }
             }));
 
             if (cancelled) return;
-            setHighlightCards(sortHighlightsByMostRecent(HOME_BAHREIN_CARDS, lastModifiedById));
+
+            const latestGp = [...HIGHLIGHTS_CALENDAR]
+                .reverse()
+                .find((gp) => Number.isFinite(availableTsByGp[gp.slug]));
+            const latestGpSlug = latestGp?.slug || null;
+            setLatestHighlightsGpSlug(latestGpSlug);
+
+            const cardsToRender = buildHighlightsByStageOrder(HOME_HIGHLIGHTS_CARDS, lastModifiedById);
+            setHighlightCards(cardsToRender);
         };
 
         resolveHighlightsOrder();
@@ -2118,29 +2210,38 @@ function Home() {
                                 <Link to="/noticias" className="btn-text">Portal de Notícias <ArrowRightIcon/></Link>
                             </div>
                             <div className="gp-highlights-grid">
-                                {highlightCards.map((card) => (
-                                    <article
-                                        key={card.id}
-                                        className="gp-highlight-card"
-                                        onClick={() => setSelectedHighlightIndex(highlightCards.findIndex((item) => item.id === card.id))}
-                                    >
-                                        <div className="gp-highlight-image">
-                                            <img src={card.image} alt={`${card.title} - ${card.category}`} loading="lazy" />
-                                        </div>
-                                        <div className="gp-highlight-overlay"></div>
-                                        <div className="gp-highlight-content">
-                                            <span className="gp-highlight-category">{card.category}</span>
-                                            <h3>{card.title}</h3>
-                                            <p>{card.driver}</p>
-                                        </div>
-                                    </article>
-                                ))}
+                                {highlightCards.length > 0 ? (
+                                    <div className="gp-highlights-track">
+                                        {[...highlightCards, ...highlightCards].map((card, idx) => (
+                                            <article
+                                                key={`${card.id}-${idx}`}
+                                                className="gp-highlight-card"
+                                                onClick={() => setSelectedHighlightIndex(idx % highlightCards.length)}
+                                            >
+                                                <div className="gp-highlight-image">
+                                                    <img src={card.image} alt={`${card.title} - ${card.category}`} loading="lazy" />
+                                                </div>
+                                                <div className="gp-highlight-overlay"></div>
+                                                <div className="gp-highlight-content">
+                                                    <span className="gp-highlight-category">{card.category}</span>
+                                                    <h3>{card.title}</h3>
+                                                    <p>{card.driver}</p>
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ color: '#94A3B8', padding: '12px' }}>Sem destaques publicados no momento.</div>
+                                )}
                             </div>
                             <div className="gp-highlights-footer">
                                 {news.length > 0 ? (
                                     <span>{`Portal atualizado com ${news.length} notícia${news.length > 1 ? 's' : ''}`}</span>
                                 ) : (
                                     <span>Novas matérias são publicadas no portal após cada etapa</span>
+                                )}
+                                {latestHighlightsGpSlug && (
+                                    <span>{`Atual automático: ${HIGHLIGHTS_CALENDAR.find((gp) => gp.slug === latestHighlightsGpSlug)?.category || latestHighlightsGpSlug}`}</span>
                                 )}
                                 <Link to="/noticias" className="btn-text">Ver cobertura completa <ArrowRightIcon/></Link>
                             </div>
