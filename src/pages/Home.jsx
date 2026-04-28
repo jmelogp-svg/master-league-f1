@@ -51,13 +51,18 @@ const HIGHLIGHTS_CALENDAR = [
 const HIGHLIGHTS_WINNERS = {
     'gp-bahrein': { carreira: 'Claudio Francisco', light: 'Julio Melo' },
     'gp-arabia-saudita': { carreira: 'A definir', light: 'A definir' },
-    'gp-imola': { carreira: 'A definir', light: 'A definir' },
+    'gp-imola': { carreira: 'A definir', light: 'Victor Bitarães' },
     'gp-miami': { carreira: 'A definir', light: 'A definir' },
     'gp-brasil': { carreira: 'A definir', light: 'A definir' },
     'gp-canada': { carreira: 'A definir', light: 'A definir' },
     'gp-las-vegas': { carreira: 'A definir', light: 'A definir' },
     'gp-japao': { carreira: 'A definir', light: 'A definir' },
 };
+
+const getStageShortName = (category = '') =>
+    String(category || '')
+        .replace(/^GP\s+(DO|DA|DE)\s+/i, '')
+        .trim() || 'Etapa';
 
 const createHighlightsGroup = ({ slug, category, winnerDriverCarreira, winnerDriverLight, updatedAt = '' }) => ({
     id: slug,
@@ -72,8 +77,8 @@ const createHighlightsGroup = ({ slug, category, winnerDriverCarreira, winnerDri
         },
         {
             id: 'top10-carreira',
-            title: 'Top 10 - Corrida',
-            driver: 'Ranking completo da corrida',
+            title: `Top 10 - ${getStageShortName(category)}`,
+            driver: 'Ranking completo da etapa',
             image: `/highlights/${slug}/top10-carreira.png`,
             updatedAt,
         },
@@ -86,8 +91,8 @@ const createHighlightsGroup = ({ slug, category, winnerDriverCarreira, winnerDri
         },
         {
             id: 'top10-light',
-            title: 'Top 10 - Corrida',
-            driver: 'Ranking completo da corrida',
+            title: `Top 10 - ${getStageShortName(category)}`,
+            driver: 'Ranking completo da etapa',
             image: `/highlights/${slug}/top10-light.png`,
             updatedAt,
         },
