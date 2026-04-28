@@ -50,7 +50,7 @@ const HIGHLIGHTS_CALENDAR = [
 
 const HIGHLIGHTS_WINNERS = {
     'gp-bahrein': { carreira: 'Claudio Francisco', light: 'Julio Melo' },
-    'gp-arabia-saudita': { carreira: 'A definir', light: 'A definir' },
+    'gp-arabia-saudita': { carreira: 'A definir', light: 'Will Power' },
     'gp-imola': { carreira: 'A definir', light: 'Victor Bitarães' },
     'gp-miami': { carreira: 'A definir', light: 'A definir' },
     'gp-brasil': { carreira: 'A definir', light: 'A definir' },
