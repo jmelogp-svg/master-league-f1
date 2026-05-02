@@ -125,7 +125,7 @@ const lobbyConfig = [
 // ========== CALENDÁRIO DA TEMPORADA ==========
 const calendarData = [
     { etapa: 1, modelo: 'Qualy 18"', dataCarreira: '16/04/26', circuito: 'Bahrein', pais: 'BH', flag: '🇧🇭', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
-    { etapa: 2, modelo: 'Qualy 18"', dataCarreira: '23/04/26', circuito: 'Arábia Saudita', pais: 'SA', flag: '🇸🇦', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
+    { etapa: 2, modelo: 'Qualy 18"', dataCarreira: '11/05/26', circuito: 'Arábia Saudita', pais: 'SA', flag: '🇸🇦', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
     { etapa: 3, modelo: 'Qualy 18"', dataCarreira: '30/04/26', circuito: 'Imola', pais: 'IT', flag: '🇮🇹', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
     { etapa: 4, modelo: 'Sprint', dataCarreira: '07/05/26', circuito: 'Azerbaijão', pais: 'AZ', flag: '🇦🇿', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
     { etapa: 5, modelo: 'Qualy 18"', dataCarreira: '14/05/26', circuito: 'Brasil', pais: 'BR', flag: '🇧🇷', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
@@ -281,6 +281,7 @@ const infographicSections = [
     { id: 'info-draft', elementId: 'info-draft', title: 'Equipes, Draft & Reservas', keywords: ['draft', 'equipe', 'time', 'escolha', 'prioridade', 'reserva', 'promoção', 'grid light', 'grid carreira'] },
     { id: 'info-punicoes', elementId: 'info-punicoes', title: 'Sistema de Punições', keywords: ['punição', 'penalidade', 'carteira', 'suspensão', 'ban', 'advertência', 'agravante'] },
     { id: 'info-analises', elementId: 'info-analises', title: 'Análises & Defesa', keywords: ['análise', 'defesa', 'vídeo', 'incidente', 'prazo', 'solicitação', 'bug', 'retirada', 'box', 'classificatória', 'qualificação'] },
+    { id: 'info-bug-lobby', elementId: 'info-bug-lobby', title: 'Protocolo de Bug de Lobby', keywords: ['bug de lobby', 'queda', 'desconexão', 'qualy', 'corrida', 'grid editado', 'snapshot', '30%', '60%', 'nova data'] },
     { id: 'info-ranking', elementId: 'info-ranking', title: 'Power Ranking', keywords: ['power ranking', 'ranking', 'nota', 'performance', 'conduta', 'racecraft', 'overall', 'histórico'] },
     { id: 'info-ranking-calculo', elementId: 'info-ranking-calculo', title: 'Regras de Cálculo do Power Ranking', keywords: ['power ranking', 'cálculo', 'pilares', 'performance', 'conduta', 'racecraft', 'overall', 'histórico', 'pesos', 'fórmula'] },
     { id: 'info-infracoes', elementId: 'info-infracoes', title: 'Infrações Críticas', keywords: ['infração', 'falta', 'wo', 'ausência', 'foto', 'formulário', 'telemetria'] },
@@ -590,6 +591,66 @@ Não serão aceitas solicitações de retirada de punições de bug que tenham s
 Não serão aceitas solicitações de retirada de punições de bug ocorridas durante a sessão classificatória (qualificação).
 
 Bug de posição por conta de abandono do lobby antes da bandeirada final não é retirado e a posição final da transmissão é validada.`
+    },
+    {
+        id: 'bug-lobby',
+        title: '9.1. Regulamento Técnico - Protocolo de Bug de Lobby',
+        keywords: ['bug de lobby', 'queda', 'travamento', 'desconexão', 'qualy', 'corrida', 'grid editado', 'snapshot', 'nova data', 'adiamento'],
+        content: `MASTER LEAGUE F1
+Regulamento Técnico - Protocolo de Bug de Lobby
+
+1. Introdução e Objetivo
+Este protocolo define os procedimentos a serem adotados em caso de bug ou queda de lobby durante as sessões de classificação (qualy) e corrida da Master League F1. O objetivo é garantir decisões rápidas, claras e justas para todos os participantes, sem margem para interpretações divergentes.
+O formato padrão de cada etapa consiste em: sessão de classificação com duração de 18 minutos, seguida de corrida com 50% do número total de voltas do circuito.
+
+2. Definições
+Bug de lobby: qualquer queda, travamento ou desconexão que encerre involuntariamente a sessão para um ou mais pilotos.
+Sessão preservada: a sessão é considerada válida e seus resultados são mantidos integralmente.
+Grid editado: o grid de largada é configurado manualmente pela administração com base nos tempos de classificação válidos.
+Snapshot de resultado: registro da posição de cada piloto na última volta completa registrada antes do bug.
+Nova data: sessão reagendada para dia e horário a serem definidos pela administração.
+
+3. Cenários - Sessão de Classificação (Qualy)
+A sessão de classificação tem duração total de 18 minutos. Os cenários abaixo são avaliados com base no tempo decorrido no momento do bug.
+
+Art. 3.1 - Bug com mais de 10 minutos restantes (antes de 44% do tempo decorrido)
+Condição: o lobby cai quando ainda restam mais de 10 minutos na sessão de classificação.
+Qualy: Inválido - sessão encerrada sem aproveitamento dos tempos registrados.
+Corrida: Não realizada - aguarda refazer o qualy.
+Ação: o qualy é refeito integralmente na mesma data. A corrida ocorre somente após novo qualy válido.
+
+Art. 3.2 - Bug após 10 minutos decorridos (mais de 55% do tempo disputado)
+Condição: o lobby cai quando já foram disputados mais de 10 minutos da sessão de classificação.
+Qualy: Válido - os tempos registrados até o momento do bug são aproveitados.
+Corrida: Realizada no mesmo dia com grid editado.
+Ação: a administração configura o grid manualmente com base nos tempos válidos. A corrida segue normalmente.
+
+4. Cenários - Corrida
+A corrida tem duração de 50% das voltas totais do circuito. Os cenários abaixo são avaliados com base no percentual de voltas completadas no momento do bug.
+
+Art. 4.1 - Bug antes de 30% das voltas completadas
+Condição: o lobby cai antes de atingir 30% das voltas totais da corrida.
+Qualy: Válido - os tempos de classificação são preservados.
+Corrida: Resultado anulado - a corrida é reiniciada.
+Ação: a administração edita o grid com as posições do qualy original e a corrida é refeita no mesmo dia.
+
+Art. 4.2 - Bug entre 30% e 60% das voltas completadas
+Condição: o lobby cai após 30% e antes de 60% das voltas totais da corrida.
+Qualy: Válido - os tempos de classificação são preservados.
+Corrida: Resultado anulado - a corrida é refeita em nova data.
+Ação: a administração define nova data para realizar a corrida completa, mantendo o grid do qualy original.
+
+Art. 4.3 - Bug após 60% das voltas completadas
+Condição: o lobby cai após 60% ou mais das voltas totais da corrida.
+Qualy: Válido.
+Corrida: Resultado válido - corrida encerrada.
+Ação: o resultado é capturado com base nas posições da última volta completa registrada antes do bug. Os pontos são distribuídos normalmente.
+
+5. Bug Recorrente
+Caso o lobby apresente duas ou mais quedas durante a mesma etapa - seja durante o qualy ou a corrida -, independentemente do momento ou percentual atingido, a etapa será imediatamente encerrada e integralmente adiada para uma nova data definida pela administração. Na nova data, tanto o qualy quanto a corrida serão refeitos do início.
+
+6. Invalidação de Pedidos de Análise
+Sessões canceladas ou adiadas nos termos deste regulamento invalidam automaticamente todos os pedidos de análise referentes à sessão em questão. Não serão aceitas solicitações de análise, revisão de penalidades ou contestações relacionadas a eventos ocorridos em sessões que não tiveram seu resultado homologado. Pedidos de análise somente poderão ser protocolados após a realização e homologação da sessão substituta, com base nos eventos ocorridos nessa nova sessão.`
     },
     {
         id: 'powerranking',
@@ -1567,6 +1628,74 @@ const Regulamento = () => {
                                 <p><strong>❌ Não serão aceitas solicitações de retirada de punições de bug que tenham sido pagas no box durante a corrida.</strong></p>
                                 <p><strong>❌ Não serão aceitas solicitações de retirada de punições de bug ocorridas durante a sessão classificatória (qualificação).</strong></p>
                                 <p><strong>❌ Bug de posição por abandono do lobby antes da bandeirada final não é retirado; vale a posição final validada na transmissão.</strong></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="info-bug-lobby" className="reg-section">
+                        <div className="reg-section-title">
+                            <div>
+                                <h2>Protocolo de Bug de Lobby</h2>
+                                <p>Procedimento oficial para quedas de lobby em qualy e corrida, com critérios objetivos por tempo e percentual de voltas.</p>
+                            </div>
+                            <span className="reg-mini-pill">Regulamento Técnico</span>
+                        </div>
+
+                        <div className="info-card" style={{marginTop: '24px'}}>
+                            <Info className="reg-icon" />
+                            <div>
+                                <h4 style={{marginTop: 0, marginBottom: '12px', color: '#06b6d4'}}>1. Introdução e Objetivo</h4>
+                                <p>Define procedimentos em caso de bug/queda de lobby para garantir decisões rápidas, claras e justas, sem margem para interpretações divergentes.</p>
+                                <p>Formato padrão da etapa: <strong>qualy de 18 minutos</strong> + <strong>corrida com 50% das voltas</strong>.</p>
+                            </div>
+                        </div>
+
+                        <div className="info-card" style={{marginTop: '16px'}}>
+                            <Info className="reg-icon" />
+                            <div>
+                                <h4 style={{marginTop: 0, marginBottom: '12px', color: '#06b6d4'}}>2. Definições</h4>
+                                <p><strong>Bug de lobby:</strong> queda, travamento ou desconexão involuntária da sessão.</p>
+                                <p><strong>Sessão preservada:</strong> sessão válida com resultados mantidos.</p>
+                                <p><strong>Grid editado:</strong> largada configurada manualmente com base nos tempos válidos.</p>
+                                <p><strong>Snapshot de resultado:</strong> posição de cada piloto na última volta completa antes do bug.</p>
+                                <p><strong>Nova data:</strong> sessão reagendada pela administração.</p>
+                            </div>
+                        </div>
+
+                        <div className="info-card" style={{marginTop: '16px', borderColor: 'rgba(56, 189, 248, 0.35)', background: 'rgba(56, 189, 248, 0.08)'}}>
+                            <CheckCircle className="reg-icon" />
+                            <div>
+                                <h4 style={{marginTop: 0, marginBottom: '12px', color: '#38bdf8'}}>3. Cenários - Qualificação (18 min)</h4>
+                                <p><strong>Art. 3.1 - Mais de 10 minutos restantes (antes de 44%):</strong> qualy inválido, corrida não realizada; qualy refeito integralmente na mesma data.</p>
+                                <p><strong>Art. 3.2 - Após 10 minutos decorridos (mais de 55%):</strong> qualy válido, corrida no mesmo dia com grid editado pela administração.</p>
+                            </div>
+                        </div>
+
+                        <div className="info-card" style={{marginTop: '16px', borderColor: 'rgba(16, 185, 129, 0.35)', background: 'rgba(16, 185, 129, 0.08)'}}>
+                            <CheckCircle className="reg-icon" />
+                            <div>
+                                <h4 style={{marginTop: 0, marginBottom: '12px', color: '#10b981'}}>4. Cenários - Corrida (50% voltas)</h4>
+                                <p><strong>Art. 4.1 - Antes de 30%:</strong> qualy preservado; resultado da corrida anulado; corrida refeita no mesmo dia com grid do qualy.</p>
+                                <p><strong>Art. 4.2 - Entre 30% e 60%:</strong> qualy preservado; resultado anulado; corrida refeita em nova data com grid do qualy.</p>
+                                <p><strong>Art. 4.3 - Após 60%:</strong> qualy válido; corrida encerrada com resultado válido via snapshot da última volta completa; pontos distribuídos normalmente.</p>
+                            </div>
+                        </div>
+
+                        <div className="info-card" style={{marginTop: '16px', borderColor: 'rgba(245, 158, 11, 0.35)', background: 'rgba(245, 158, 11, 0.08)'}}>
+                            <AlertTriangle className="reg-icon" />
+                            <div>
+                                <h4 style={{marginTop: 0, marginBottom: '12px', color: '#F59E0B'}}>5. Bug Recorrente</h4>
+                                <p>Duas ou mais quedas na mesma etapa (qualy ou corrida) encerram imediatamente a etapa e adiam tudo para nova data.</p>
+                                <p>Na nova data, <strong>qualy e corrida são refeitos do início</strong>.</p>
+                            </div>
+                        </div>
+
+                        <div className="info-card" style={{marginTop: '16px', borderColor: 'rgba(239, 68, 68, 0.35)', background: 'rgba(239, 68, 68, 0.08)'}}>
+                            <XCircle className="reg-icon" />
+                            <div>
+                                <h4 style={{marginTop: 0, marginBottom: '12px', color: '#ef4444'}}>6. Invalidação de Pedidos de Análise</h4>
+                                <p>Sessões canceladas/adiadas invalidam automaticamente todos os pedidos de análise da sessão afetada.</p>
+                                <p>Novos pedidos só serão aceitos após a sessão substituta ser realizada e homologada.</p>
                             </div>
                         </div>
                     </section>
