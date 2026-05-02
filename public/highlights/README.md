@@ -24,7 +24,7 @@ No `Home`, a corrida atual e detectada automaticamente pelo calendario:
 2. Las Vegas
 3. Canada
 4. Brasil
-5. Miami
+5. Azerbaijao
 6. Imola
 7. Arabia Saudita
 8. Bahrein

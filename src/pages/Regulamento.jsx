@@ -127,7 +127,7 @@ const calendarData = [
     { etapa: 1, modelo: 'Qualy 18"', dataCarreira: '16/04/26', circuito: 'Bahrein', pais: 'BH', flag: '🇧🇭', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
     { etapa: 2, modelo: 'Qualy 18"', dataCarreira: '23/04/26', circuito: 'Arábia Saudita', pais: 'SA', flag: '🇸🇦', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
     { etapa: 3, modelo: 'Qualy 18"', dataCarreira: '30/04/26', circuito: 'Imola', pais: 'IT', flag: '🇮🇹', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
-    { etapa: 4, modelo: 'Sprint', dataCarreira: '07/05/26', circuito: 'Miami', pais: 'US', flag: '🇺🇸', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
+    { etapa: 4, modelo: 'Sprint', dataCarreira: '07/05/26', circuito: 'Azerbaijão', pais: 'AZ', flag: '🇦🇿', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
     { etapa: 5, modelo: 'Qualy 18"', dataCarreira: '14/05/26', circuito: 'Brasil', pais: 'BR', flag: '🇧🇷', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
     { etapa: 6, modelo: 'Qualy 18"', dataCarreira: '21/05/26', circuito: 'Canadá', pais: 'CA', flag: '🇨🇦', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
     { etapa: 7, modelo: 'Qualy 18"', dataCarreira: '28/05/26', circuito: 'Las Vegas', pais: 'US', flag: '🇺🇸', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
@@ -154,10 +154,10 @@ const circuitInfo = {
         mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/EmiliaRomagna.png",
         bandeira: "https://flagcdn.com/w40/it.png"
     },
-    "Miami": {
-        nome: "Miami International Autodrome",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Miami.png",
-        bandeira: "https://flagcdn.com/w40/us.png"
+    "Azerbaijão": {
+        nome: "Baku City Circuit",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Azerbaijan.png",
+        bandeira: "https://flagcdn.com/w40/az.png"
     },
     "Brasil": {
         nome: "Interlagos",
@@ -184,7 +184,7 @@ const flagsByCircuit = {
     "Bahrein": "https://flagcdn.com/w40/bh.png",
     "Arábia Saudita": "https://flagcdn.com/w40/sa.png",
     "Imola": "https://flagcdn.com/w40/it.png",
-    "Miami": "https://flagcdn.com/w40/us.png",
+    "Azerbaijão": "https://flagcdn.com/w40/az.png",
     "Brasil": "https://flagcdn.com/w40/br.png",
     "Canadá": "https://flagcdn.com/w40/ca.png",
     "Las Vegas": "https://flagcdn.com/w40/us.png",

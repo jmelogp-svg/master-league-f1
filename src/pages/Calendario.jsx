@@ -43,15 +43,15 @@ const etapas = [
     },
     {
         etapa: 'E4',
-        gp: 'Miami',
-        circuito: 'Miami International Autodrome',
+        gp: 'Azerbaijão',
+        circuito: 'Baku City Circuit',
         dataLight: '04 de Maio',
         dataCarreira: '07 de Maio',
         desempenhoLight: 'Igual',
         desempenhoCarreira: 'Real',
         isSprint: true,
-        flag: 'https://flagcdn.com/w80/us.png',
-        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Miami.png',
+        flag: 'https://flagcdn.com/w80/az.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Azerbaijan.png',
     },
     {
         etapa: 'E5',
@@ -148,9 +148,9 @@ const CIRCUIT_ASSET_FALLBACKS = {
         flag: 'https://flagcdn.com/w80/it.png',
         map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/EmiliaRomagna.png',
     },
-    MIAMI: {
-        flag: 'https://flagcdn.com/w80/us.png',
-        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Miami.png',
+    AZERBAIJAO: {
+        flag: 'https://flagcdn.com/w80/az.png',
+        map: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Azerbaijan.png',
     },
     BRASIL: {
         flag: 'https://flagcdn.com/w80/br.png',
@@ -296,6 +296,7 @@ function getCircuitFallback(gpRaw) {
     const byExact = CIRCUIT_ASSET_FALLBACKS[key];
     if (byExact) return byExact;
     if (key.includes('ARABIA')) return CIRCUIT_ASSET_FALLBACKS['ARABIA SAUDITA'];
+    if (key.includes('AZERBAIJAO') || key.includes('AZERBAIJAN') || key.includes('BAKU')) return CIRCUIT_ASSET_FALLBACKS.AZERBAIJAO;
     if (key.includes('VEGAS')) return CIRCUIT_ASSET_FALLBACKS['LAS VEGAS'];
     if (key.includes('JAPAO') || key.includes('JAPAN')) return CIRCUIT_ASSET_FALLBACKS.JAPAO;
     if (key.includes('CANADA')) return CIRCUIT_ASSET_FALLBACKS.CANADA;
