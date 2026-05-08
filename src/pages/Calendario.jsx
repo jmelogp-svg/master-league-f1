@@ -22,7 +22,7 @@ const etapas = [
         gp: 'Arábia Saudita',
         circuito: 'Jeddah Corniche Circuit',
         dataLight: '20/04/26',
-        dataCarreira: '11/05/26',
+        dataCarreira: '11/06/26',
         desempenhoLight: 'Igual',
         desempenhoCarreira: 'Real',
         isSprint: false,
