@@ -83,7 +83,7 @@ function Telemetria() {
                 const { data, error } = await supabase
                     .from('notificacoes_admin')
                     .select('dados')
-                    .eq('dados->>status', 'analise_realizada');
+                    .eq('tipo', 'nova_acusacao');
 
                 if (error) {
                     setPunicoes({});
@@ -100,9 +100,10 @@ function Telemetria() {
                     const temporadaCompativel = temporadaLance ? parseInt(temporadaLance) === parseInt(selectedSeason) : true;
                     const gridCompativel = gridLance ? gridLance === gridType : true;
                     
-                    if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && temporadaCompativel && gridCompativel) {
+                    const pontosPerdidos = parseInt(veredito?.pontosPerdidos, 10) || 0;
+                    const vereditoFinalizado = item.dados?.status === 'analise_realizada' || Boolean(veredito?.dataVeredito);
+                    if (vereditoFinalizado && veredito && acusado && acusado.nome && temporadaCompativel && gridCompativel && pontosPerdidos > 0) {
                         const nomePilotoNormalizado = normalizeNomePiloto(acusado.nome);
-                        const pontosPerdidos = parseInt(veredito.pontosPerdidos) || 0;
                         if (pontosPerdidos > 0 && nomePilotoNormalizado) {
                             punicoesMap[nomePilotoNormalizado] = (punicoesMap[nomePilotoNormalizado] || 0) + pontosPerdidos;
                         }

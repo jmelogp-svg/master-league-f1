@@ -166,7 +166,7 @@ function Standings() {
                 const { data, error } = await supabase
                     .from('notificacoes_admin')
                     .select('dados')
-                    .eq('dados->>status', 'analise_realizada');
+                    .eq('tipo', 'nova_acusacao');
 
                 if (!error && data) {
                     punicoesRawData.current = data;
@@ -211,10 +211,11 @@ function Standings() {
                 const gridCompativel = gridLance ? gridLance === gridType : true;
                 const aplicarPunicao = !veredito ? false : temporadaCompativel && gridCompativel;
                 
-                if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && aplicarPunicao) {
+                const pontosPerdidos = parseInt(veredito?.pontosPerdidos, 10) || 0;
+                const vereditoFinalizado = item.dados?.status === 'analise_realizada' || Boolean(veredito?.dataVeredito);
+                if (vereditoFinalizado && veredito && acusado && acusado.nome && aplicarPunicao && pontosPerdidos > 0) {
                     // Normalizar nome do piloto para comparação
                     const nomePilotoNormalizado = normalizeNomePiloto(acusado.nome);
-                    const pontosPerdidos = parseInt(veredito.pontosPerdidos) || 0;
                     
                     if (pontosPerdidos > 0 && nomePilotoNormalizado) {
                         // Somar pontos perdidos (um piloto pode ter múltiplas punições)

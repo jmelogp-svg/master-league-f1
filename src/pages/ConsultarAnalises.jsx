@@ -485,18 +485,16 @@ function ConsultarAnalises() {
                             let semVideoDefesa = false;
                             let pontosSemVideo = 0;
                             
-                            // Verificar se houve perda de pontos por não enviar vídeo de defesa
-                            // Isso se aplica MESMO quando inocentado
+                            // Sem vídeo de defesa: regra oficial
+                            // 1) veredito.semVideo já calculado, OU
+                            // 2) ausência de link na defesa (fallback para legados)
+                            const semVideoAutomatico = !isRetiradaBug && !String(dados?.defesa?.videoLinkDefesa || '').trim();
                             if (veredito && veredito.semVideo && !isRetiradaBug) {
                                 semVideoDefesa = true;
                                 pontosSemVideo = 5; // Sempre 5 pontos por não enviar vídeo
-                            } else if (!isRetiradaBug) {
-                                // Verificar nos votos se há marcação de semVideo
-                                const algumVotoSemVideo = votos.some(v => v.semVideo);
-                                if (algumVotoSemVideo) {
-                                    semVideoDefesa = true;
-                                    pontosSemVideo = 5;
-                                }
+                            } else if (semVideoAutomatico) {
+                                semVideoDefesa = true;
+                                pontosSemVideo = 5;
                             }
                             
                             if (veredito && veredito.culpado && !isRetiradaBug && veredito.labelPunicao) {

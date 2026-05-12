@@ -66,9 +66,10 @@ function buildPunicoesMapPorTemporadaGrid(rawList, season, gridType) {
         const temporadaCompativel = temporadaLance ? parseInt(temporadaLance, 10) === parseInt(String(season), 10) : true;
         const gridCompativel = gridLance ? gridLance === gridType : true;
         const aplicarPunicao = veredito && temporadaCompativel && gridCompativel;
-        if (veredito && acusado && acusado.nome && veredito.pontosPerdidos && aplicarPunicao) {
+        const pontosPerdidos = parseInt(veredito?.pontosPerdidos, 10) || 0;
+        const vereditoFinalizado = item.dados?.status === 'analise_realizada' || Boolean(veredito?.dataVeredito);
+        if (vereditoFinalizado && veredito && acusado && acusado.nome && aplicarPunicao && pontosPerdidos > 0) {
             const nomeNorm = normalizeNomePilotoPunicao(acusado.nome);
-            const pontosPerdidos = parseInt(veredito.pontosPerdidos, 10) || 0;
             if (pontosPerdidos > 0 && nomeNorm) {
                 punicoesMap[nomeNorm] = (punicoesMap[nomeNorm] || 0) + pontosPerdidos;
             }
@@ -175,7 +176,7 @@ function HallOfFame() {
                 const { data, error } = await supabase
                     .from('notificacoes_admin')
                     .select('dados')
-                    .eq('dados->>status', 'analise_realizada');
+                    .eq('tipo', 'nova_acusacao');
                 if (!cancelled && !error && data) setPunicoesRaw(data);
             } catch (e) {
                 console.error('❌ [HallOfFame] Erro ao buscar punições:', e);

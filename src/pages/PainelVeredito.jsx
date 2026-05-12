@@ -311,6 +311,13 @@ function PainelVeredito() {
         return decisao === 'CULPADO' ? 'RETIRAR PUNIÇÃO' : 'MANTER PUNIÇÃO';
     };
 
+    // Regra oficial: sem vídeo de defesa gera -5 pontos automaticamente
+    const shouldApplySemVideoPenalty = (dadosLance, isRetiradaBug) => {
+        if (isRetiradaBug) return false;
+        const videoLinkDefesa = dadosLance?.defesa?.videoLinkDefesa;
+        return !String(videoLinkDefesa || '').trim();
+    };
+
     // Registrar voto do jurado
     const registrarVoto = async (lance, voto) => {
         // voto = { culpado: boolean, anulada: boolean, punicao: string (se culpado), agravante: boolean, justificativa: string }
@@ -427,9 +434,11 @@ function PainelVeredito() {
                 decisaoFinal = votosCulpado >= 3 ? 'CULPADO' : (votosInocente >= 3 ? 'INOCENTE' : null);
                 const decisaoFinalLabel = getDecisaoLabel(decisaoFinal, isRetiradaBug);
 
-                // Calcular punição "Sem envio do vídeo" (maioria dos votos)
+                // Sem vídeo: automático por ausência de link na defesa.
+                // Mantemos o voto "semVideo" como fallback para casos técnicos.
                 const votosSemVideo = novosVotos.filter(v => v.semVideo).length;
-                const aplicarSemVideo = votosSemVideo >= 2; // Maioria (2 de 3 ou mais)
+                const semVideoAutomatico = shouldApplySemVideoPenalty(lanceFresh?.dados, isRetiradaBug);
+                const aplicarSemVideo = semVideoAutomatico || votosSemVideo >= 2;
 
                 // Calcular punição final se culpado
                 let veredito = null;
@@ -653,13 +662,16 @@ function PainelVeredito() {
     };
 
     // Calcular resultado final (mínimo 3 votos)
-    const calcularResultado = (votos) => {
+    const calcularResultado = (votos, dadosLance = null) => {
         if (!votos || votos.length < 3) return null;
 
         const votosCulpado = votos.filter(v => v.culpado).length;
         const votosInocente = votos.filter(v => !v.culpado).length;
         const votosSemVideo = votos.filter(v => v.semVideo).length;
-        const aplicarSemVideo = votosSemVideo >= 2; // Maioria
+        const isRetiradaBug = dadosLance?.tipoSolicitacao === 'retirada_bug' ||
+                              dadosLance?.acusado?.nome === 'Administração Master League F1';
+        const semVideoAutomatico = shouldApplySemVideoPenalty(dadosLance, isRetiradaBug);
+        const aplicarSemVideo = semVideoAutomatico || votosSemVideo >= 2;
 
         const culpado = votosCulpado > votosInocente;
 
@@ -726,7 +738,7 @@ function PainelVeredito() {
         // Preservar posição do scroll antes de qualquer operação
         const currentScroll = window.scrollY || document.documentElement.scrollTop;
         
-        const resultado = calcularResultado(lance.dados?.votos);
+        const resultado = calcularResultado(lance.dados?.votos, lance.dados);
         
         if (!resultado) {
             await showAlert('São necessários pelo menos 3 votos para finalizar!', 'Aviso');
@@ -867,7 +879,7 @@ function PainelVeredito() {
         
         const votos = lance.dados?.votos || [];
         const jaVotou = votos.find(isVotoDoJuradoAtual);
-        const resultado = calcularResultado(votos);
+        const resultado = calcularResultado(votos, lance.dados);
 
         // Função para obter justificativa atual
         const getJustificativa = () => {
