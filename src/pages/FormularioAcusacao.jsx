@@ -20,7 +20,7 @@ const ETAPAS_FIXAS_T21 = [
     { round: 4, circuit: 'Azerbaijão', dateCarreira: '07/05/26', dateLight: '04/05/26' },
     { round: 5, circuit: 'Brasil', dateCarreira: '14/05/26', dateLight: '11/05/26' },
     { round: 6, circuit: 'Canadá', dateCarreira: '21/05/26', dateLight: '18/05/26' },
-    { round: 7, circuit: 'Las Vegas', dateCarreira: '28/05/26', dateLight: '25/05/26' },
+    { round: 7, circuit: 'México', dateCarreira: '28/05/26', dateLight: '25/05/26' },
     { round: 8, circuit: 'Japão', dateCarreira: '04/06/26', dateLight: '01/06/26' },
 ];
 

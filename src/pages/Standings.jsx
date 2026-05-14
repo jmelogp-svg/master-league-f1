@@ -707,8 +707,13 @@ function Standings() {
             const s = parseInt(row[3]); 
             if (s !== currentSeasonInt) return; 
             const r = parseInt(row[4]);
-            if(!isNaN(r) && r > 0 && !raceMap.has(r)) { 
-                raceMap.set(r, { round: r, date: row[0], gp: row[5], winner: null, winnerTeam: null }); 
+            const modeloRaw = String(row?.[2] || '').toLowerCase();
+            const isSprintRound = modeloRaw.includes('sprint');
+            if(!isNaN(r) && r > 0 && !raceMap.has(r)) {
+                raceMap.set(r, { round: r, date: row[0], gp: row[5], winner: null, winnerTeam: null, isSprint: isSprintRound });
+            }
+            if (!isNaN(r) && r > 0 && isSprintRound && raceMap.has(r)) {
+                raceMap.get(r).isSprint = true;
             }
             if(r > 0 && parseInt(row[8]) === 1) { 
                 const race = raceMap.get(r); 
@@ -764,10 +769,14 @@ function Standings() {
                         {races.map(race => {
                             const isNext = nextRace && nextRace.round === race.round; const pillText = isNext ? 'EM BREVE' : (race.winner ? 'CONCLUÍDA' : 'AGENDADA'); const gpName = normalizeStr(race.gp); const gpInfo = getGPInfo(race.gp); const flagColor = flagColors[gpName] ? flagColors[gpName][0] : '#334155';
                             return (
-                                <div key={race.round} className={`cal-card ${isNext ? 'next' : ''}`}>
+                                <div key={race.round} className={`cal-card ${isNext ? 'next' : ''} ${race.isSprint ? 'sprint' : ''}`}>
                                     <div className="cal-accent-bar" style={{background: flagColor}}></div>
                                     <div className="cal-info-col">
-                                        <div style={{fontSize:'0.75rem', fontWeight:'700', color:'#94A3B8'}}>ROUND {race.round}</div><div className="cal-gp-title">{race.gp}</div>
+                                        <div className="cal-round-row">
+                                            <span style={{fontSize:'0.75rem', fontWeight:'700', color:'#94A3B8'}}>ROUND {race.round}</span>
+                                            {race.isSprint && <span className="cal-sprint-chip">SPRINT</span>}
+                                        </div>
+                                        <div className="cal-gp-title">{race.gp}</div>
                                         <div style={{display:'flex', alignItems:'center', gap:'8px', fontSize:'0.9rem', color:'#CBD5E1'}}>{gpInfo.flag && <img src={gpInfo.flag} style={{width:'24px', height:'16px', borderRadius:'2px'}} />}<span>{race.date}</span></div>
                                     </div>
                                     <div className="cal-winner-col">

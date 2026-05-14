@@ -21,7 +21,7 @@ Em **cada pasta de GP**:
 No `Home`, a corrida atual e detectada automaticamente pelo calendario:
 
 1. Japao
-2. Las Vegas
+2. Mexico
 3. Canada
 4. Brasil
 5. Azerbaijao
@@ -33,7 +33,7 @@ No `Home`, a corrida atual e detectada automaticamente pelo calendario:
 > (`gp-japao` -> ... -> `gp-bahrein`).
 
 A primeira pasta que tiver arquivo de **carreira** valido vira a corrida atual.
-Se `gp-japao` nao tiver artes, ele cai para `gp-las-vegas`, depois `gp-canada` e assim por diante.
+Se `gp-japao` nao tiver artes, ele cai para `gp-mexico`, depois `gp-canada` e assim por diante.
 
 ## Ordem de exibicao no carrossel
 

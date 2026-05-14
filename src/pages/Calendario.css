@@ -1,62 +1,34 @@
 .cal-page {
     min-height: 100vh;
-    padding: 96px 20px 24px;
-    background:
-        radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.16), transparent 35%),
-        radial-gradient(circle at 80% 0%, rgba(239, 68, 68, 0.12), transparent 35%),
-        #030712;
+    padding: 94px 20px 24px;
+    background: #020617;
     color: #e2e8f0;
 }
 
 .cal-hero {
-    max-width: 1100px;
-    margin: 0 auto 20px;
+    max-width: 1200px;
+    margin: 0 auto 18px;
     text-align: center;
 }
 
 .cal-kicker {
     margin: 0 0 8px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    font-size: 12px;
-    color: #7dd3fc;
+    font-size: 11px;
     font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: #38bdf8;
 }
 
 .cal-hero h1 {
     margin: 0;
-    font-size: clamp(2rem, 4vw, 3.4rem);
+    font-size: clamp(1.9rem, 3.8vw, 2.9rem);
     line-height: 1.05;
     color: #f8fafc;
 }
 
-.cal-hero p {
-    margin: 14px auto 0;
-    max-width: 860px;
-    color: #94a3b8;
-}
-
-.cal-legend {
-    max-width: 1100px;
-    margin: 0 auto 28px;
-    display: grid;
-    gap: 10px;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-
-.cal-legend div {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid rgba(148, 163, 184, 0.28);
-    background: rgba(15, 23, 42, 0.5);
-    font-size: 13px;
-}
-
 .cal-season-filter {
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto 14px;
     display: flex;
     align-items: center;
@@ -64,555 +36,348 @@
 }
 
 .cal-season-filter label {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #94a3b8;
+    font-size: 11px;
     font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #94a3b8;
 }
 
 .cal-season-filter select {
-    background: rgba(15, 23, 42, 0.85);
+    background: #0f172a;
     color: #f8fafc;
-    border: 1px solid rgba(148, 163, 184, 0.4);
+    border: 1px solid #334155;
     border-radius: 8px;
-    padding: 8px 10px;
+    padding: 7px 11px;
     font-weight: 700;
 }
 
 .cal-grids-layout {
-    max-width: 1400px;
+    max-width: 1200px;
     margin: 0 auto;
     display: grid;
-    gap: 18px;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
 }
 
-.cal-grid-col {
-    border-radius: 18px;
-    padding: 14px;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(6px);
+.season-grid-col {
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 12px;
+    background: #0b1220;
 }
 
-.cal-grid-col.light {
-    box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.25);
+.season-grid-col.light {
+    border-color: rgba(30, 64, 175, 0.62);
+    background:
+        radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.32), transparent 42%),
+        linear-gradient(145deg, rgba(8, 20, 45, 0.98), rgba(15, 23, 42, 0.94) 48%, rgba(6, 35, 74, 0.94));
 }
 
-.cal-grid-col.carreira {
-    box-shadow: inset 0 0 0 1px rgba(190, 24, 93, 0.25);
+.season-grid-col.carreira {
+    border-color: rgba(136, 19, 55, 0.72);
+    background:
+        radial-gradient(circle at 0% 0%, rgba(159, 18, 57, 0.34), transparent 42%),
+        linear-gradient(145deg, rgba(45, 9, 24, 0.98), rgba(15, 23, 42, 0.94) 48%, rgba(80, 7, 36, 0.9));
 }
 
-.cal-grid-col-header {
+.season-grid-col-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
-.cal-grid-col-header h2 {
+.season-grid-col-header h2 {
     margin: 0;
-    color: #f8fafc;
-    font-size: 1.2rem;
-}
-
-.cal-pill {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 0.95rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 4px 9px;
+    letter-spacing: 0.7px;
+    color: #f8fafc;
+}
+
+.season-pill {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    padding: 3px 8px;
     border-radius: 999px;
-    background: rgba(148, 163, 184, 0.18);
-    color: #cbd5e1;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    background: #0f172a;
 }
 
-.cal-grid-cards {
+.season-card-list {
     display: grid;
-    gap: 12px;
+    gap: 10px;
 }
 
-.cal-empty {
-    border: 1px dashed rgba(148, 163, 184, 0.35);
+.season-empty {
+    border: 1px dashed #334155;
     border-radius: 10px;
     padding: 16px;
-    color: #94a3b8;
     text-align: center;
+    color: #94a3b8;
+    font-size: 0.86rem;
 }
 
-.cal-card {
-    border: 1px solid rgba(148, 163, 184, 0.18);
+.season-race-card {
+    border: 1px solid #1e293b;
     border-radius: 12px;
-    overflow: hidden;
-    background: rgba(2, 6, 23, 0.65);
-}
-
-.cal-card-body {
+    background: #0a1324;
+    padding: 9px;
     display: grid;
-    grid-template-columns: 1fr 220px;
     gap: 8px;
-    align-items: stretch;
+    overflow: hidden;
+    min-height: 116px;
 }
 
-.cal-card-left {
+.season-grid-col.light .season-race-card {
+    border-left: 3px solid #1d4ed8;
+    background: linear-gradient(135deg, rgba(7, 20, 47, 0.98), rgba(11, 32, 71, 0.94));
+}
+
+.season-grid-col.carreira .season-race-card {
+    border-left: 3px solid #881337;
+    background: linear-gradient(135deg, rgba(38, 8, 22, 0.98), rgba(75, 11, 37, 0.9));
+}
+
+.season-race-card.is-sprint {
+    border-color: rgba(250, 204, 21, 0.5);
+}
+
+.season-race-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 126px;
+    gap: 8px;
+    min-height: 98px;
+}
+
+.season-race-info,
+.season-winner-panel {
+    border: 1px solid #263247;
+    border-radius: 10px;
+    background: #0b1528;
+}
+
+.season-grid-col.light .season-race-info,
+.season-grid-col.light .season-winner-panel {
+    border-color: rgba(30, 64, 175, 0.42);
+    background: rgba(10, 25, 55, 0.74);
+}
+
+.season-grid-col.carreira .season-race-info,
+.season-grid-col.carreira .season-winner-panel {
+    border-color: rgba(136, 19, 55, 0.48);
+    background: rgba(59, 7, 24, 0.58);
+}
+
+.season-race-info {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
     min-width: 0;
 }
 
-.cal-grid-col.light .cal-card {
-    border-left: 4px solid #06b6d4;
-}
-
-.cal-grid-col.carreira .cal-card {
-    border-left: 4px solid #be123c;
-}
-
-.cal-card-top {
+.season-race-head {
     display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    padding: 10px 12px 6px;
+    align-items: flex-start;
+    gap: 9px;
+    min-width: 0;
 }
 
-.cal-stage {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #94a3b8;
-    font-weight: 700;
-}
-
-.cal-sprint {
-    color: #facc15;
-    font-weight: 800;
-    font-size: 11px;
-    letter-spacing: 1px;
-}
-
-.cal-card-main {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 10px;
-}
-
-.cal-flag {
-    width: 48px;
-    height: 32px;
+.season-race-flag {
+    width: 38px;
+    height: 25px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     object-fit: cover;
-    border-radius: 6px;
-    border: 1px solid rgba(226, 232, 240, 0.35);
     flex-shrink: 0;
 }
 
-.cal-gp-info h3 {
+.season-race-text {
+    min-width: 0;
+    flex: 1;
+}
+
+.season-race-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.season-race-title {
     margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.15;
     color: #f8fafc;
-    font-size: 1rem;
+    font-weight: 800;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.cal-gp-info p {
-    margin: 3px 0 0;
+.season-sprint-badge {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #fde68a;
+    border: 1px solid rgba(250, 204, 21, 0.45);
+    background: rgba(250, 204, 21, 0.14);
+    border-radius: 999px;
+    padding: 2px 7px;
+}
+
+.season-race-circuit {
+    margin-top: 2px;
+    font-size: 0.72rem;
     color: #94a3b8;
-    font-size: 0.74rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.cal-card-meta {
+.season-race-meta {
     display: grid;
     grid-template-columns: 1fr;
     gap: 6px;
-    padding: 8px 10px;
 }
 
-.cal-meta-item {
-    display: flex;
+.season-race-badge {
+    display: inline-flex;
     align-items: center;
     gap: 5px;
+    min-width: 0;
+    padding: 4px 7px;
+    border: 1px solid #334155;
+    border-radius: 7px;
+    background: #0f172a;
     color: #cbd5e1;
-    font-size: 0.72rem;
-    background: rgba(30, 41, 59, 0.6);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    border-radius: 8px;
-    padding: 5px 7px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.cal-map-wrap {
-    margin: 0 12px 12px;
-    border-radius: 10px;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.55), rgba(2, 6, 23, 0.75));
-    padding: 10px;
-    display: flex;
-    justify-content: center;
-    min-height: 84px;
-}
-
-.cal-map {
-    width: 100%;
-    max-width: 240px;
-    object-fit: contain;
-    opacity: 0.94;
-}
-
-.cal-winner {
-    margin: 0 10px 10px 0;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    border-radius: 10px;
-    padding: 8px;
-    background: rgba(15, 23, 42, 0.55);
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: 6px;
-}
-
-.cal-side-visual {
-    display: grid;
-    grid-template-columns: 1fr 84px;
-    gap: 8px;
-    align-items: center;
-}
-
-.cal-side-map-wrap {
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    border-radius: 8px;
-    padding: 8px;
-    min-height: 104px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(2, 6, 23, 0.75);
-}
-
-.cal-side-map {
-    width: 100%;
-    max-height: 104px;
-    object-fit: contain;
-    object-position: center;
-}
-
-.cal-side-winner-wrap {
+.season-winner-panel {
+    padding: 7px 6px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 4px;
-    min-height: 96px;
+    text-align: center;
+    min-height: 98px;
 }
 
-.cal-side-map-empty {
-    font-size: 0.72rem;
-    color: #64748b;
-}
-
-.cal-winner-label {
-    margin: 0;
-    font-size: 10px;
+.season-winner-tag {
+    font-size: 8px;
+    font-weight: 800;
     letter-spacing: 1px;
     text-transform: uppercase;
     color: #facc15;
-    font-weight: 700;
 }
 
-.cal-winner-short {
-    margin: 0;
-    color: #f8fafc;
-    font-size: 0.78rem;
-    font-weight: 800;
-    line-height: 1.1;
-    text-align: center;
+.season-winner-panel .cal-winner-photo {
+    width: 52px !important;
+    height: 68px !important;
+    border-radius: 7px !important;
+    border: 1px solid rgba(125, 211, 252, 0.35) !important;
+    background: #0f172a !important;
+    object-fit: contain !important;
+}
+
+.season-winner-name {
     max-width: 100%;
+    font-size: 0.66rem;
+    line-height: 1.1;
+    color: #e2e8f0;
+    font-weight: 800;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.cal-winner-content {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.cal-winner-photo {
-    width: 76px;
-    height: 102px;
-    border-radius: 8px;
+.season-winner-placeholder {
+    width: 52px;
+    height: 68px;
+    border: 1px solid rgba(125, 211, 252, 0.2);
+    border-radius: 7px;
+    background: #0f172a;
     object-fit: contain;
-    object-position: center;
-    border: 1px solid rgba(125, 211, 252, 0.45);
-    background: rgba(30, 41, 59, 0.85);
-    flex-shrink: 0;
-}
-
-.cal-winner-text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.cal-winner-text strong {
-    color: #f8fafc;
-    font-size: 0.86rem;
-    line-height: 1.2;
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.cal-winner-text span {
-    color: #94a3b8;
-    font-size: 0.7rem;
-    margin-top: 2px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.cal-winner-empty {
-    margin: 0;
-    color: #94a3b8;
-    font-size: 0.72rem;
+    opacity: 0.7;
 }
 
 .cal-notes {
-    max-width: 1400px;
-    margin: 16px auto 18px;
-    color: #cbd5e1;
-    font-size: 0.9rem;
+    max-width: 1200px;
+    margin: 14px auto 18px;
+    color: #94a3b8;
+    font-size: 0.84rem;
 }
 
 .cal-notes p {
-    margin: 6px 0;
+    margin: 4px 0;
+}
+
+@media (max-width: 1040px) {
+    .cal-grids-layout {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 720px) {
     .cal-page {
-        padding: 84px 12px 16px;
-    }
-
-    .cal-hero {
-        margin-bottom: 14px;
-    }
-
-    .cal-kicker {
-        font-size: 11px;
-        letter-spacing: 1.6px;
-        margin-bottom: 6px;
-    }
-
-    .cal-hero h1 {
-        font-size: clamp(1.5rem, 7.3vw, 2.1rem);
-        line-height: 1.1;
-    }
-
-    .cal-season-filter {
-        margin-bottom: 12px;
-        gap: 8px;
-    }
-
-    .cal-season-filter select {
-        min-height: 36px;
-        padding: 7px 9px;
-        font-size: 0.9rem;
-    }
-
-    .cal-grids-layout {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-
-    .cal-card-meta {
-        grid-template-columns: 1fr;
-        gap: 5px;
-        padding: 7px 8px;
-    }
-
-    .cal-card-body {
-        grid-template-columns: 1fr;
-        gap: 6px;
-    }
-
-    .cal-side-visual {
-        grid-template-columns: minmax(0, 1fr) 78px;
-        gap: 6px;
-    }
-
-    .cal-grid-col {
-        padding: 10px;
-        border-radius: 14px;
-    }
-
-    .cal-grid-col-header {
-        align-items: flex-start;
-        gap: 8px;
-        flex-direction: column;
-        margin-bottom: 10px;
-    }
-
-    .cal-grid-col-header h2 {
-        font-size: 1.05rem;
-    }
-
-    .cal-card-main {
-        align-items: flex-start;
-        gap: 7px;
-        padding: 0 8px;
-    }
-
-    .cal-flag {
-        width: 42px;
-        height: 28px;
-    }
-
-    .cal-gp-info h3 {
-        font-size: 0.95rem;
-    }
-
-    .cal-gp-info p {
-        font-size: 0.7rem;
-    }
-
-    .cal-meta-item {
-        font-size: 0.68rem;
-        padding: 4px 6px;
-    }
-
-    .cal-meta-item svg {
-        width: 14px;
-        height: 14px;
-    }
-
-    .cal-map-wrap {
-        min-height: 72px;
-    }
-
-    .cal-map {
-        max-width: 210px;
-    }
-
-    .cal-winner {
-        margin: 0 8px 8px;
-        min-height: 0;
-        padding: 7px;
-    }
-
-    .cal-side-map-wrap {
-        min-height: 80px;
-        padding: 6px;
-    }
-
-    .cal-side-map {
-        max-height: 80px;
-    }
-
-    .cal-winner-photo {
-        width: 64px;
-        height: 88px;
-    }
-
-    .cal-winner-label {
-        font-size: 9px;
-    }
-
-    .cal-winner-short {
-        font-size: 0.72rem;
-    }
-}
-
-@media (max-width: 520px) {
-    .cal-page {
-        padding: 80px 10px 14px;
+        padding: 82px 12px 18px;
     }
 
     .cal-season-filter {
         flex-direction: column;
         align-items: flex-start;
-    }
-
-    .cal-season-filter label {
-        font-size: 11px;
+        gap: 6px;
     }
 
     .cal-season-filter select {
         width: 100%;
     }
 
-    .cal-grid-col {
-        padding: 8px;
+    .season-race-top {
+        grid-template-columns: 1fr;
+        min-height: 0;
     }
 
-    .cal-card-top {
-        padding: 7px 8px 4px;
+    .season-race-meta {
+        grid-template-columns: 1fr;
     }
 
-    .cal-card-main {
-        padding: 0 7px;
+    .season-winner-panel {
+        flex-direction: row;
+        justify-content: flex-start;
+        text-align: left;
+        gap: 10px;
+        padding: 8px 10px;
+        min-height: 84px;
     }
 
-    .cal-card-meta {
-        padding: 6px 7px;
+    .season-winner-tag {
+        min-width: 56px;
     }
 
-    .cal-winner {
-        margin: 0 7px 7px;
-        padding: 6px;
+    .season-winner-name {
+        white-space: normal;
     }
 
-    .cal-side-visual {
-        grid-template-columns: minmax(0, 1fr) 72px;
+    .season-winner-placeholder {
+        width: 44px;
+        height: 58px;
+        flex-shrink: 0;
     }
 
-    .cal-side-map-wrap {
-        min-height: 74px;
-    }
-
-    .cal-side-map {
-        max-height: 74px;
-    }
-
-    .cal-winner-photo {
-        width: 60px;
-        height: 82px;
-    }
-}
-
-@media (max-width: 380px) {
-    .cal-page {
-        padding-left: 8px;
-        padding-right: 8px;
-    }
-
-    .cal-hero h1 {
-        font-size: 1.35rem;
-    }
-
-    .cal-grid-col-header h2 {
-        font-size: 1rem;
-    }
-
-    .cal-side-visual {
-        grid-template-columns: minmax(0, 1fr) 66px;
-    }
-
-    .cal-side-map-wrap {
-        min-height: 66px;
-        padding: 5px;
-    }
-
-    .cal-side-map {
-        max-height: 66px;
-    }
-
-    .cal-winner-photo {
-        width: 54px;
-        height: 74px;
-        border-radius: 6px;
-    }
-
-    .cal-winner-short {
-        font-size: 0.66rem;
-    }
 }

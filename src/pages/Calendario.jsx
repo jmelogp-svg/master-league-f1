@@ -79,15 +79,15 @@ const etapas = [
     },
     {
         etapa: 'E7',
-        gp: 'Las Vegas',
-        circuito: 'Las Vegas Strip Circuit',
+        gp: 'México',
+        circuito: 'Autódromo Hermanos Rodríguez',
         dataLight: '25/05/26',
         dataCarreira: '28/05/26',
         desempenhoLight: 'Real',
         desempenhoCarreira: 'Real',
         isSprint: false,
-        flag: 'https://flagcdn.com/w80/us.png',
-        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/LasVegas.png',
+        flag: 'https://flagcdn.com/w80/mx.png',
+        mapa: 'https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Mexico.png',
     },
     {
         etapa: 'E8',
@@ -304,29 +304,25 @@ function getCircuitFallback(gpRaw) {
 }
 
 const GridColumn = ({ title, tone, gridKey, season, races, loading }) => (
-    <section className={`cal-grid-col ${tone}`}>
-        <header className="cal-grid-col-header">
+    <section className={`season-grid-col ${tone}`}>
+        <header className="season-grid-col-header">
             <h2>{title}</h2>
-            <span className="cal-pill">{races.length} etapa(s)</span>
+            <span className="season-pill">{races.length} etapa(s)</span>
         </header>
 
         {loading ? (
-            <div className="cal-empty">Carregando...</div>
+            <div className="season-empty">Carregando...</div>
         ) : races.length === 0 ? (
-            <div className="cal-empty">Sem etapas nesta temporada.</div>
+            <div className="season-empty">Sem etapas nesta temporada.</div>
         ) : (
-            <div className="cal-grid-cards">
+            <div className="season-card-list">
                 {races.map((etapa) => (
-                    <article key={`${title}-${etapa.etapa}`} className="cal-card">
-                        <div className="cal-card-top">
-                            {etapa.isSprint && <span className="cal-sprint">SPRINT</span>}
-                        </div>
-
-                        <div className="cal-card-body">
-                            <div className="cal-card-left">
-                                <div className="cal-card-main">
+                    <article key={`${title}-${etapa.etapa}`} className={`season-race-card ${etapa.isSprint ? 'is-sprint' : ''}`}>
+                        <div className="season-race-top">
+                            <section className="season-race-info">
+                                <div className="season-race-head">
                                     <img
-                                        className="cal-flag"
+                                        className="season-race-flag"
                                         src={etapa.flag || etapa.flagFallback || '/team-logos/logo-ml.png'}
                                         alt={`Bandeira ${etapa.gp}`}
                                         onError={(e) => {
@@ -337,64 +333,35 @@ const GridColumn = ({ title, tone, gridKey, season, races, loading }) => (
                                             e.currentTarget.src = '/team-logos/logo-ml.png';
                                         }}
                                     />
-                                    <div className="cal-gp-info">
-                                        <h3>{etapa.gp}</h3>
-                                        <p>{etapa.circuito}</p>
+                                    <div className="season-race-text">
+                                        <div className="season-race-title-row">
+                                            <h3 className="season-race-title">{etapa.gp}</h3>
+                                            {etapa.isSprint && <span className="season-sprint-badge">SPRINT</span>}
+                                        </div>
+                                        <div className="season-race-circuit">{etapa.circuito}</div>
                                     </div>
                                 </div>
-
-                                <div className="cal-card-meta">
-                                    <div className="cal-meta-item">
-                                        <CalendarDays size={16} />
-                                        <span>{etapa.dataLabel}</span>
-                                    </div>
-                                    <div className="cal-meta-item">
-                                        <Gauge size={16} />
-                                        <span>{performanceLabel(etapa.desempenho)}</span>
-                                    </div>
+                                <div className="season-race-meta">
+                                    <span className="season-race-badge">
+                                        <CalendarDays size={13} />
+                                        {etapa.dataLabel} - {performanceLabel(etapa.desempenho).replace('DES.', 'DESEMP.')}
+                                    </span>
                                 </div>
-
-                            </div>
-
-                            <aside className="cal-winner">
-                                <div className="cal-side-visual">
-                                    <div className="cal-side-map-wrap">
-                                        {etapa.mapa ? (
-                                            <img
-                                                className="cal-side-map"
-                                                src={etapa.mapa}
-                                                alt={`Mapa ${etapa.gp}`}
-                                                onError={(e) => {
-                                                    if (etapa.mapFallback && e.currentTarget.src !== etapa.mapFallback) {
-                                                        e.currentTarget.src = etapa.mapFallback;
-                                                        return;
-                                                    }
-                                                    e.currentTarget.src = '/team-logos/logo-ml.png';
-                                                }}
-                                            />
-                                        ) : (
-                                            <img
-                                                className="cal-side-map"
-                                                src={etapa.mapFallback || '/team-logos/logo-ml.png'}
-                                                alt={`Mapa ${etapa.gp}`}
-                                                onError={(e) => {
-                                                    e.currentTarget.src = '/team-logos/logo-ml.png';
-                                                }}
-                                            />
-                                        )}
-                                    </div>
-                                    <div className="cal-side-winner-wrap">
-                                        {etapa.winner ? (
-                                            <>
-                                                <p className="cal-winner-label">Vencedor</p>
-                                                <WinnerAvatar name={canonicalDisplayName(etapa.winner)} gridKey={gridKey} season={season} />
-                                                <p className="cal-winner-short">{winnerShortName(etapa.winner)}</p>
-                                            </>
-                                        ) : (
-                                            <p className="cal-winner-empty">Sem vencedor</p>
-                                        )}
-                                    </div>
-                                </div>
+                            </section>
+                            <aside className="season-winner-panel">
+                                {etapa.winner ? (
+                                    <>
+                                        <span className="season-winner-tag">Vencedor</span>
+                                        <WinnerAvatar name={canonicalDisplayName(etapa.winner)} gridKey={gridKey} season={season} />
+                                        <span className="season-winner-name">{winnerShortName(etapa.winner)}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="season-winner-tag">Vencedor</span>
+                                        <img className="season-winner-placeholder" src="/pilotos/pilotoshadow.png" alt="Vencedor a definir" />
+                                        <span className="season-winner-name">Etapa {etapa.round}</span>
+                                    </>
+                                )}
                             </aside>
                         </div>
                     </article>
@@ -446,7 +413,10 @@ function Calendario() {
                 if (rowSeason !== seasonNum || !Number.isFinite(round) || round < 1) return;
 
                 const gpRaw = (row?.[5] || '').toString().trim();
-                const gpKey = normalizeKey(gpRaw);
+                const gpRawCanonical = seasonNum === 21 && round === 7
+                    ? 'México'
+                    : gpRaw;
+                const gpKey = normalizeKey(gpRawCanonical);
                 const track = tracks?.[gpKey] || {};
                 const dateKey = `${seasonNum}-${round}`;
                 const dateRaw = datesMap?.[dateKey] || row?.[0] || '';
@@ -456,12 +426,12 @@ function Calendario() {
                         : 'N/D';
 
                 if (!races.has(round)) {
-                    const fallback = getCircuitFallback(gpRaw);
+                    const fallback = getCircuitFallback(gpRawCanonical);
                     races.set(round, {
                         etapa: `E${round}`,
                         round,
-                        gp: gpRaw || `Etapa ${round}`,
-                        circuito: track?.circuitName || gpRaw || `Etapa ${round}`,
+                        gp: gpRawCanonical || `Etapa ${round}`,
+                        circuito: track?.circuitName || gpRawCanonical || `Etapa ${round}`,
                         dataLabel: parseDateLabel(dateRaw),
                         desempenho,
                         isSprint: false,
@@ -474,9 +444,9 @@ function Calendario() {
                     });
                 }
                 const current = races.get(round);
-                const fallback = getCircuitFallback(gpRaw || current.gp);
+                const fallback = getCircuitFallback(gpRawCanonical || current.gp);
                 // Se existir template da etapa, apenas enriquecemos com dados reais quando disponíveis.
-                if (gpRaw) current.gp = gpRaw;
+                if (gpRawCanonical) current.gp = gpRawCanonical;
                 if (track?.circuitName) current.circuito = track.circuitName;
                 if (track?.flag) current.flag = track.flag;
                 if (!current.flag && fallback.flag) current.flag = fallback.flag;

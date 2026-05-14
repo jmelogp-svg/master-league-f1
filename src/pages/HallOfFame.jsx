@@ -165,6 +165,7 @@ function HallOfFame() {
     const [stats, setStats] = useState(null);
     const [championsList, setChampionsList] = useState([]);
     const [trackRecords, setTrackRecords] = useState({});
+    const [poleTrackRecords, setPoleTrackRecords] = useState({});
     const [powerDriveStats, setPowerDriveStats] = useState([]);
     /** Vereditos com punição (mesma fonte que Standings) — campeão = líder da classificação após punições. */
     const [punicoesRaw, setPunicoesRaw] = useState(null);
@@ -280,6 +281,7 @@ function HallOfFame() {
 
         const driverStats = {};
         const tRecords = {};
+        const pRecords = {};
         const seasonPoints = {};
         const firstTitleSeason = {};
         
@@ -295,6 +297,7 @@ function HallOfFame() {
             const racePos = parseInt(row[8]);
             const sprintPos = parseInt(row[7]);
             const fastestLap = row[11]; // Coluna L - Volta mais rápida
+            const poleTime = row[12]; // Coluna M - Tempo da pole
 
             // FILTRO: Remove pilotos inválidos ou headers
             if (!name || name === '-' || name === 'Driver' || name === 'Name' || name === 'Pilot' || name === 'PILOTO') return;
@@ -327,6 +330,15 @@ function HallOfFame() {
                 const gpKey = gpName ? gpName.trim().toUpperCase() : 'UNK';
                 if (ms < Infinity && (!tRecords[gpKey] || ms < tRecords[gpKey].ms)) {
                     tRecords[gpKey] = { driver: name, time: fastestLap, ms, season, team };
+                }
+            }
+
+            // Pole Records (melhor tempo de pole de todos os tempos por GP)
+            if (poleTime && poleTime.length > 4 && !poleTime.includes('-')) {
+                const poleMs = timeToMs(poleTime);
+                const gpKey = gpName ? gpName.trim().toUpperCase() : 'UNK';
+                if (poleMs < Infinity && (!pRecords[gpKey] || poleMs < pRecords[gpKey].ms)) {
+                    pRecords[gpKey] = { driver: name, time: poleTime, ms: poleMs, season, team };
                 }
             }
 
@@ -475,6 +487,10 @@ function HallOfFame() {
             obj[key] = tRecords[key];
             return obj;
         }, {}));
+        setPoleTrackRecords(Object.keys(pRecords).sort().reduce((obj, key) => {
+            obj[key] = pRecords[key];
+            return obj;
+        }, {}));
 
     }, [gridType, rawCarreira, rawLight, rawPRCarreira, rawPRLight, datesCarreira, datesLight, punicoesRaw, seasonCtx]);
 
@@ -537,6 +553,10 @@ function HallOfFame() {
                     <button onClick={() => setActiveTab('records')} style={navTabStyle(activeTab === 'records')}>
                         <span className="hof-tab-text-desktop">DOMÍNIO DAS PISTAS</span>
                         <span className="hof-tab-text-mobile">HOTLAPS</span>
+                    </button>
+                    <button onClick={() => setActiveTab('poleRecords')} style={navTabStyle(activeTab === 'poleRecords')}>
+                        <span className="hof-tab-text-desktop">POLE POSITIONS</span>
+                        <span className="hof-tab-text-mobile">POLES</span>
                     </button>
                 </div>
 
@@ -606,9 +626,9 @@ function HallOfFame() {
                     </div>
                 )}
 
-                {activeTab === 'records' && (
+                {(activeTab === 'records' || activeTab === 'poleRecords') && (
                     <div className="fade-in" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px'}}>
-                        {Object.entries(trackRecords)
+                        {Object.entries(activeTab === 'poleRecords' ? poleTrackRecords : trackRecords)
                             .sort(([gpNameA], [gpNameB]) => {
                                 // Ordenar alfabeticamente sem considerar acentos
                                 const normalizedA = normalizeStr(gpNameA).toLowerCase();
@@ -665,7 +685,7 @@ function HallOfFame() {
                             }
                             
                             return (
-                                <div key={gpName} style={{background: '#1E293B', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', display:'flex', flexDirection:'column'}}>
+                                <div key={gpName} style={{background: activeTab === 'poleRecords' ? '#211336' : '#1E293B', borderRadius: '12px', overflow: 'hidden', border: `1px solid ${activeTab === 'poleRecords' ? 'rgba(168,85,247,0.22)' : 'rgba(255,255,255,0.05)'}`, display:'flex', flexDirection:'column'}}>
                                     {/* HEADER: Nome da pista + circuito */}
                                     <div style={{padding: '15px', background: 'rgba(0,0,0,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
                                         <div>
@@ -696,9 +716,9 @@ function HallOfFame() {
                                     </div>
 
                                     {/* ÁREA CENTRAL: Foto do piloto + Mapa da pista lado a lado */}
-                                    <div style={{flex: 1, display: 'flex', alignItems: 'center', padding: '20px', minHeight: '140px', background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)', gap: '15px'}}>
+                                    <div style={{flex: 1, display: 'flex', alignItems: 'center', padding: '20px', minHeight: '140px', background: activeTab === 'poleRecords' ? 'linear-gradient(180deg, rgba(168,85,247,0.08) 0%, transparent 100%)' : 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)', gap: '15px'}}>
                                         {/* Foto do piloto à esquerda */}
-                                        <div style={{width: '90px', height: '90px', borderRadius: '12px', overflow: 'hidden', background: '#0F172A', border: '2px solid #3B82F6', flexShrink: 0, boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'}}>
+                                        <div style={{width: '90px', height: '90px', borderRadius: '12px', overflow: 'hidden', background: '#0F172A', border: `2px solid ${activeTab === 'poleRecords' ? '#A855F7' : '#3B82F6'}`, flexShrink: 0, boxShadow: `0 4px 15px ${activeTab === 'poleRecords' ? 'rgba(168, 85, 247, 0.32)' : 'rgba(59, 130, 246, 0.3)'}`}}>
                                             <DriverImage name={record.driver} gridType={gridType} season={record.season} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
                                         </div>
                                         
@@ -720,8 +740,8 @@ function HallOfFame() {
                                                 <div style={{fontSize: '0.7rem', color: '#94A3B8', marginTop:'3px'}}>S{record.season} • {record.team}</div>
                                             </div>
                                             <div style={{textAlign: 'right'}}>
-                                                <div style={{fontSize: '0.65rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: '600'}}>Volta Rápida</div>
-                                                <div style={{fontSize: '1.3rem', fontWeight: '900', color: '#3B82F6'}}>{record.time}</div>
+                                                <div style={{fontSize: '0.65rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: '600'}}>{activeTab === 'poleRecords' ? 'Pole Position' : 'Volta Rápida'}</div>
+                                                <div style={{fontSize: '1.3rem', fontWeight: '900', color: activeTab === 'poleRecords' ? '#A855F7' : '#3B82F6'}}>{record.time}</div>
                                             </div>
                                         </div>
                                     </div>

@@ -130,7 +130,7 @@ const calendarData = [
     { etapa: 4, modelo: 'Sprint', dataCarreira: '07/05/26', circuito: 'Azerbaijão', pais: 'AZ', flag: '🇦🇿', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
     { etapa: 5, modelo: 'Qualy 18"', dataCarreira: '14/05/26', circuito: 'Brasil', pais: 'BR', flag: '🇧🇷', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
     { etapa: 6, modelo: 'Qualy 18"', dataCarreira: '21/05/26', circuito: 'Canadá', pais: 'CA', flag: '🇨🇦', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' },
-    { etapa: 7, modelo: 'Qualy 18"', dataCarreira: '28/05/26', circuito: 'Las Vegas', pais: 'US', flag: '🇺🇸', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
+    { etapa: 7, modelo: 'Qualy 18"', dataCarreira: '28/05/26', circuito: 'México', pais: 'MX', flag: '🇲🇽', desempenhoLight: 'Real', desempenhoCarreira: 'Real' },
     { etapa: 8, modelo: 'Sprint', dataCarreira: '04/06/26', circuito: 'Japão', pais: 'JP', flag: '🇯🇵', desempenhoLight: 'Igual', desempenhoCarreira: 'Real' }
 ];
 
@@ -169,10 +169,10 @@ const circuitInfo = {
         mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Canada.png",
         bandeira: "https://flagcdn.com/w40/ca.png"
     },
-    "Las Vegas": {
-        nome: "Las Vegas Strip Circuit",
-        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/LasVegas.png",
-        bandeira: "https://flagcdn.com/w40/us.png"
+    "México": {
+        nome: "Autódromo Hermanos Rodríguez",
+        mapa: "https://www.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%202016/Mexico.png",
+        bandeira: "https://flagcdn.com/w40/mx.png"
     },
     "Japão": {
         nome: "Suzuka International Racing Course",
@@ -187,7 +187,7 @@ const flagsByCircuit = {
     "Azerbaijão": "https://flagcdn.com/w40/az.png",
     "Brasil": "https://flagcdn.com/w40/br.png",
     "Canadá": "https://flagcdn.com/w40/ca.png",
-    "Las Vegas": "https://flagcdn.com/w40/us.png",
+    "México": "https://flagcdn.com/w40/mx.png",
     "Japão": "https://flagcdn.com/w40/jp.png"
 };
 const calcLightDate = (carreiraDate) => {

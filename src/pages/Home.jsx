@@ -44,7 +44,7 @@ const HIGHLIGHTS_CALENDAR = [
     { slug: 'gp-azerbaijao', category: 'GP DO AZERBAIJÃO' },
     { slug: 'gp-brasil', category: 'GP DO BRASIL' },
     { slug: 'gp-canada', category: 'GP DO CANADÁ' },
-    { slug: 'gp-las-vegas', category: 'GP DE LAS VEGAS' },
+    { slug: 'gp-mexico', category: 'GP DO MÉXICO' },
     { slug: 'gp-japao', category: 'GP DO JAPÃO' },
 ];
 
@@ -55,7 +55,7 @@ const HIGHLIGHTS_WINNERS = {
     'gp-azerbaijao': { carreira: 'A definir', light: 'A definir' },
     'gp-brasil': { carreira: 'A definir', light: 'A definir' },
     'gp-canada': { carreira: 'A definir', light: 'A definir' },
-    'gp-las-vegas': { carreira: 'A definir', light: 'A definir' },
+    'gp-mexico': { carreira: 'A definir', light: 'A definir' },
     'gp-japao': { carreira: 'A definir', light: 'A definir' },
 };
 
