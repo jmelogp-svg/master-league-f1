@@ -2767,10 +2767,152 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.8));
 }
 
+.podium-pole-time {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: #38BDF8;
+    font-weight: 800;
+    text-align: center;
+    width: auto;
+    margin: 0 auto;
+}
+
+.pole-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.18);
+    border: 1px solid rgba(56, 189, 248, 0.55);
+    color: #7DD3FC;
+    font-size: 0.62rem;
+    font-weight: 900;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 .podium-stat-item.points {
     color: #FFD700;
     font-weight: 800;
     font-size: 1.1rem;
+}
+
+.race-special-results {
+    width: 100%;
+    max-width: 1400px;
+    margin: 8px auto 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+@media (min-width: 769px) {
+    .race-special-results {
+        margin-top: -8px;
+    }
+}
+
+.race-special-card {
+    border-radius: 12px;
+    padding: 14px 16px;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    text-align: left;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.race-pole-line,
+.race-sprint-line {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    min-width: 0;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.race-sprint-line {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(250, 204, 21, 0.2);
+}
+
+.race-special-card.pole {
+    border-color: rgba(56, 189, 248, 0.42);
+}
+
+.race-special-card.sprint {
+    border-color: rgba(250, 204, 21, 0.38);
+}
+
+.race-special-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #94A3B8;
+    text-transform: uppercase;
+}
+
+.race-special-team-logo {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.race-special-driver-photo {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: #0F172A;
+    flex-shrink: 0;
+}
+
+.race-special-card.pole .race-special-label {
+    color: #7DD3FC;
+}
+
+.race-special-card.sprint .race-special-label {
+    color: #FCD34D;
+}
+
+.race-sprint-line .race-special-label {
+    color: #FCD34D;
+}
+
+.race-special-driver {
+    color: #F8FAFC;
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.race-special-time {
+    color: #7DD3FC;
+    font-size: 1rem;
+    font-weight: 900;
+    flex-shrink: 0;
+}
+
+.race-special-meta {
+    margin-top: 4px;
+    color: #CBD5E1;
+    font-size: 0.8rem;
+    font-weight: 700;
 }
 
 /* =========================================
@@ -2993,6 +3135,23 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     height: 16px;
     fill: #A855F7;
     filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.8));
+}
+
+.classification-pole-time {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: #38BDF8;
+    font-weight: 800;
+    width: 110px;
+    flex-shrink: 0;
+    text-align: right;
+    justify-content: flex-end;
+}
+
+.classification-pole-time-mobile {
+    display: none;
 }
 
 .classification-points {
@@ -3607,6 +3766,10 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-fastest-lap-mobile {
         display: none !important;
     }
+
+    .classification-pole-time-mobile {
+        display: none !important;
+    }
     
     /* Oculta pontuação mobile no desktop */
     .classification-points-mobile {
@@ -4039,6 +4202,10 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     .classification-fastest-lap {
         display: none;
     }
+
+    .classification-pole-time {
+        display: none;
+    }
     
     /* Melhor volta no mobile - aparece no classification-right, abaixo dos pontos, alinhada à direita */
     .results-row .classification-right {
@@ -4054,6 +4221,10 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
     }
     
     .results-row .classification-fastest-lap {
+        display: none !important;
+    }
+
+    .results-row .classification-pole-time {
         display: none !important;
     }
     
@@ -4081,6 +4252,20 @@ footer { background: var(--bg-dark-deeper); color: var(--text-on-dark); padding:
         font-weight: 500;
         justify-content: flex-end;
         text-align: right;
+    }
+
+    .results-row .classification-pole-time-mobile,
+    .classification-pole-time-mobile {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        color: #38BDF8 !important;
+        font-weight: 600;
+        justify-content: flex-end;
+        text-align: right;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
     
     .classification-fastest-lap-mobile.best-lap {

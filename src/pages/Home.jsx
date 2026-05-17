@@ -29,6 +29,7 @@ const fetchWithProxy = async (url) => {
 const ArrowRightIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>);
 const CalendarIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>);
 const FastLapIcon = () => (<svg className="fl-icon" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>);
+const PoleIcon = () => <span className="pole-icon">P</span>;
 const RecordIcon = () => (<svg className="rh-icon-small" viewBox="0 0 24 24" fill="currentColor" width="20"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>);
 
 const POINTS_RACE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
@@ -1707,15 +1708,19 @@ function Home() {
                 if (!isNaN(pos)) { 
                     let stagePoints = 0; 
                     if (pos >= 1 && pos <= 10) stagePoints += POINTS_RACE[pos - 1]; 
+                    const qualyPos = parseInt(row[6]);
                     const sprintPos = parseInt(row[7]); 
                     if (!isNaN(sprintPos) && sprintPos >= 1 && sprintPos <= 8) stagePoints += POINTS_SPRINT[sprintPos - 1]; 
                     raceResults.push({ 
                         pos: pos, 
+                        qualyPos: isNaN(qualyPos) ? 99 : qualyPos,
+                        sprintPos: isNaN(sprintPos) ? 99 : sprintPos,
                         name: row[9], 
                         team: row[10], 
                         date: row[0], 
                         gp: row[5], 
                         fastestLap: row[11] || '-', 
+                        poleTime: row[12] || '-',
                         totalPoints: stagePoints 
                     }); 
                 } 
@@ -2019,6 +2024,8 @@ function Home() {
             const validLaps = data.filter(r => r.fastestLap && r.fastestLap !== '-').map(r => ({...r, timeMs: parseTime(r.fastestLap)}));
             const bestLapData = validLaps.length > 0 ? validLaps.reduce((best, current) => current.timeMs < best.timeMs ? current : best) : null;
             const bestLap = bestLapData ? bestLapData.fastestLap : null;
+            const poleInfo = data.find(r => r.qualyPos === 1 && r.poleTime && r.poleTime !== '-');
+            const sprintWinner = data.find(r => r.sprintPos === 1);
             
             return ( <> 
                 <div className="race-header-card">
@@ -2151,6 +2158,45 @@ function Home() {
                             )}
                         </div>
                     </div>
+                    {(poleInfo || sprintWinner) && (
+                        <div className="race-special-results">
+                            {poleInfo && (
+                                <div className="race-special-card pole">
+                                    <div className="race-pole-line">
+                                        <span className="race-special-label"><PoleIcon /> Pole Position</span>
+                                        {getTeamLogo(poleInfo.team) && (
+                                            <img className="race-special-team-logo" src={getTeamLogo(poleInfo.team)} alt={poleInfo.team} />
+                                        )}
+                                        <DriverImage name={poleInfo.name} gridType={gridType} season={selectedSeason} className="race-special-driver-photo" />
+                                        <strong className="race-special-driver">{poleInfo.name}</strong>
+                                        <span className="race-special-time">{poleInfo.poleTime}</span>
+                                    </div>
+                                    {sprintWinner && (
+                                        <div className="race-sprint-line">
+                                            <span className="race-special-label">Vencedor Sprint</span>
+                                            {getTeamLogo(sprintWinner.team) && (
+                                                <img className="race-special-team-logo" src={getTeamLogo(sprintWinner.team)} alt={sprintWinner.team} />
+                                            )}
+                                            <DriverImage name={sprintWinner.name} gridType={gridType} season={selectedSeason} className="race-special-driver-photo" />
+                                            <strong className="race-special-driver">{sprintWinner.name}</strong>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {!poleInfo && sprintWinner && (
+                                <div className="race-special-card sprint">
+                                    <div className="race-sprint-line">
+                                        <span className="race-special-label">Vencedor Sprint</span>
+                                        {getTeamLogo(sprintWinner.team) && (
+                                            <img className="race-special-team-logo" src={getTeamLogo(sprintWinner.team)} alt={sprintWinner.team} />
+                                        )}
+                                        <DriverImage name={sprintWinner.name} gridType={gridType} season={selectedSeason} className="race-special-driver-photo" />
+                                        <strong className="race-special-driver">{sprintWinner.name}</strong>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div> 
                 
                 <div className="classification-section-new">
