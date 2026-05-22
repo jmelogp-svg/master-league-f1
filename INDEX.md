@@ -189,7 +189,7 @@ python3 scripts/import_pilotos.py
 ```
 SMTP_HOST = smtp.gmail.com
 SMTP_PORT = 587
-SMTP_USER = jmelogp@gmail.com
+SMTP_USER = juliomelobr@hotmail.com
 SMTP_PASS = <app_password_gmail>
 ```
 

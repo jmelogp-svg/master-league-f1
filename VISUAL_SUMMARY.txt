@@ -80,7 +80,7 @@
     2. Colar código de SUPABASE_SETUP.md
     3. Supabase > Settings > Secrets:
        • SMTP_HOST=smtp.gmail.com
-       • SMTP_USER=jmelogp@gmail.com
+       • SMTP_USER=juliomelobr@hotmail.com
        • SMTP_PASS=<app_password>
     4. Deploy
     

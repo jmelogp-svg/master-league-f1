@@ -102,7 +102,7 @@ VALUES ('PILOTO1', 'email@example.com', 'carreira', 'EQUIPE1', '+55 11 99999-999
 # Ir para Supabase > Settings > Secrets
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=jmelogp@gmail.com
+SMTP_USER=juliomelobr@hotmail.com
 SMTP_PASS=<app_password_gmail>
 ```
 

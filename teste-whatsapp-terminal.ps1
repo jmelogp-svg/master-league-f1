@@ -10,7 +10,7 @@ $ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 $NUMERO_DESTINATARIO = "5551983433940"
 
 $body = @{
-    email = "jmelogp@gmail.com"
+    email = "juliomelobr@hotmail.com"
     whatsapp = $NUMERO_DESTINATARIO
     nomePiloto = "Julio Melo"
 } | ConvertTo-Json

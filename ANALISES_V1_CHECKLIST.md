@@ -55,7 +55,7 @@ Arquivo: `supabase/functions/send-email/index.ts`
 ### Passo 4: Configurar Secrets
 - SMTP_HOST=smtp.gmail.com
 - SMTP_PORT=587
-- SMTP_USER=jmelogp@gmail.com
+- SMTP_USER=juliomelobr@hotmail.com
 - SMTP_PASS=<app_password_do_gmail>
 
 ### Passo 5: Testar Tudo

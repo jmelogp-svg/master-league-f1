@@ -235,7 +235,7 @@ CREATE POLICY verification_codes_select ON whatsapp_verification_codes
 curl -X POST "https://ueqfmjwdijaeawvxhdtp.supabase.co/functions/v1/send-whatsapp-code" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ANON_KEY" \
-  -d '{"email":"jmelogp@gmail.com","whatsapp":"551983433940","nomePiloto":"Julio Melo"}'
+  -d '{"email":"juliomelobr@hotmail.com","whatsapp":"551983433940","nomePiloto":"Julio Melo"}'
 ```
 **Verificar:**
 - ✅ Resposta HTTP 200
@@ -246,7 +246,7 @@ curl -X POST "https://ueqfmjwdijaeawvxhdtp.supabase.co/functions/v1/send-whatsap
 ```javascript
 // Via console do navegador
 import { verifyCode } from './src/utils/whatsappAuth.js';
-const result = await verifyCode('jmelogp@gmail.com', '123456');
+const result = await verifyCode('juliomelobr@hotmail.com', '123456');
 console.log(result); // { success: true, valid: true }
 ```
 

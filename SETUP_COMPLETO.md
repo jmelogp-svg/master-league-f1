@@ -94,7 +94,7 @@ Valor: 587
 
 ```
 Nome: SMTP_USER
-Valor: jmelogp@gmail.com
+Valor: juliomelobr@hotmail.com
 ```
 
 ```
@@ -124,7 +124,7 @@ Valor: [cole a senha de 16 caracteres do Passo 3.1]
 
 ```sql
 INSERT INTO pilotos (nome, email, grid, equipe, whatsapp, is_steward) VALUES
-('JULIO MELO', 'jmelogp@gmail.com', 'carreira', 'STEWARDS', '+55 51 98343-3940', true);
+('JULIO MELO', 'juliomelobr@hotmail.com', 'carreira', 'STEWARDS', '+55 51 98343-3940', true);
 ```
 
 ---

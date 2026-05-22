@@ -14,11 +14,11 @@ npx supabase functions deploy send-whatsapp-code
 
 ### 1. Verificar se o piloto existe no banco
 
-O teste usa o email `jmelogp@gmail.com`. Certifique-se de que existe um registro na tabela `pilotos` com este email:
+O teste usa o email `juliomelobr@hotmail.com`. Certifique-se de que existe um registro na tabela `pilotos` com este email:
 
 ```sql
 -- No Supabase SQL Editor
-SELECT * FROM pilotos WHERE email = 'jmelogp@gmail.com';
+SELECT * FROM pilotos WHERE email = 'juliomelobr@hotmail.com';
 ```
 
 Se não existir, você precisa:
@@ -55,7 +55,7 @@ Execute o arquivo `teste-whatsapp-curl.bat` (duplo clique ou via CMD)
 
 ```powershell
 $body = @{
-    email = "jmelogp@gmail.com"
+    email = "juliomelobr@hotmail.com"
     whatsapp = "551983433940"
     nomePiloto = "Julio Melo"
 } | ConvertTo-Json
@@ -95,7 +95,7 @@ try {
 3. Verifique no banco se o código foi salvo:
    ```sql
    SELECT * FROM whatsapp_verification_codes 
-   WHERE email = 'jmelogp@gmail.com' 
+   WHERE email = 'juliomelobr@hotmail.com' 
    ORDER BY created_at DESC 
    LIMIT 1;
    ```
@@ -104,13 +104,13 @@ try {
 
 ### ❌ Erro: "Piloto não encontrado"
 
-**Causa:** O email `jmelogp@gmail.com` não existe na tabela `pilotos`
+**Causa:** O email `juliomelobr@hotmail.com` não existe na tabela `pilotos`
 
 **Solução:**
 1. Inserir piloto manualmente no Supabase:
    ```sql
    INSERT INTO pilotos (email, nome, whatsapp, grid, is_steward)
-   VALUES ('jmelogp@gmail.com', 'Julio Melo', '551983433940', 'carreira', false);
+   VALUES ('juliomelobr@hotmail.com', 'Julio Melo', '551983433940', 'carreira', false);
    ```
 
 2. Ou sincronizar da planilha Google Sheets

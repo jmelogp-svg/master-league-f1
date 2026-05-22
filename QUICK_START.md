@@ -76,7 +76,7 @@ Ir para: https://app.supabase.com/project/[seu-project]/functions
 Ir para: Supabase Settings → Secrets
 → SMTP_HOST = smtp.gmail.com
 → SMTP_PORT = 587
-→ SMTP_USER = jmelogp@gmail.com
+→ SMTP_USER = juliomelobr@hotmail.com
 → SMTP_PASS = <app_password_do_gmail>
 ```
 

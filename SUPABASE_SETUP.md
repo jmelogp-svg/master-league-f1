@@ -116,7 +116,7 @@ serve(async (req) => {
 ```
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=jmelogp@gmail.com
+SMTP_USER=juliomelobr@hotmail.com
 SMTP_PASS=sua_senha_app_gmail
 ```
 

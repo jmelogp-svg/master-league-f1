@@ -139,7 +139,7 @@ Valor: 587
 
 ```
 Nome: SMTP_USER
-Valor: jmelogp@gmail.com
+Valor: juliomelobr@hotmail.com
 ```
 
 ```
@@ -152,7 +152,7 @@ Valor: [cole a senha de 16 caracteres gerada no Passo 3.1]
 ```bash
 supabase secrets set SMTP_HOST=smtp.gmail.com
 supabase secrets set SMTP_PORT=587
-supabase secrets set SMTP_USER=jmelogp@gmail.com
+supabase secrets set SMTP_USER=juliomelobr@hotmail.com
 supabase secrets set SMTP_PASS=sua_senha_app_aqui
 ```
 
@@ -169,7 +169,7 @@ Você tem 3 opções:
 
 ```sql
 INSERT INTO pilotos (nome, email, grid, equipe, whatsapp, is_steward) VALUES
-('JULIO MELO', 'jmelogp@gmail.com', 'carreira', 'STEWARDS', '+55 51 98343-3940', true),
+('JULIO MELO', 'juliomelobr@hotmail.com', 'carreira', 'STEWARDS', '+55 51 98343-3940', true),
 ('PILOTO TESTE', 'piloto@teste.com', 'carreira', 'EQUIPE1', '+55 11 99999-9999', false);
 ```
 
