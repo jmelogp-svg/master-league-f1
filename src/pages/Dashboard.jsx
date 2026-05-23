@@ -26,9 +26,9 @@ import { fetchGoogleSheetCsvText } from '../utils/fetchGoogleSheetCsv';
 
 // --- CONFIGURAÇÃO ---
 // CADASTRO MLF1 (gid=1844400629)
-const LINK_CONTROLE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1844400629&single=true&output=csv";
+const LINK_CONTROLE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1844400629&single=true&output=csv";
 // Pilotos PR (gid=884534812) - Para buscar COD IDML
-const LINK_PILOTOS_PR = "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=884534812&single=true&output=csv";
+const LINK_PILOTOS_PR = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=884534812&single=true&output=csv";
 
 // Mapeamento de GP para abreviação de país
 const getCountryAbbreviation = (gpName) => {

@@ -62,11 +62,11 @@ export function usePilotosData() {
                     .trim();
 
                 // CADASTRO MLF1 (gid=1844400629)
-                const sheetId = '2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM';
+                const sheetId = '2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x';
                 const gid = '1844400629';
                 const baseUrl = `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?gid=${gid}&single=true&output=csv`;
-                const carreiraBaseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1379467380&single=true&output=csv';
-                const lightBaseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1962038690&single=true&output=csv';
+                const carreiraBaseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1379467380&single=true&output=csv';
+                const lightBaseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1962038690&single=true&output=csv';
 
                 const [cadastroCsv, carreiraCsv, lightCsv] = await Promise.all([
                     fetchGoogleSheetCsvText(baseUrl, { timeoutMs: 15000 }),
@@ -355,7 +355,7 @@ export function useCalendarioTemporada(temporada = 20) {
                 // 2. Se não encontrou no cache, tentar Google Sheets via proxy (com timeout)
                 if (!rows || rows.length === 0) {
                     console.log('📅 Tentando carregar calendário do Google Sheets...');
-                    const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv';
+                    const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=0&single=true&output=csv';
                     const csv = await fetchGoogleSheetCsvText(baseUrl, { timeoutMs: 15000 });
                     if (!csv?.trim()) throw new Error('Calendário CSV vazio');
                     rows = csv.split('\n').map(line => parseCSVLine(line));

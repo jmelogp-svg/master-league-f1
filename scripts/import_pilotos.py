@@ -10,7 +10,7 @@ import requests
 from datetime import datetime
 
 # Configuration
-SHEET_URL = "https://docs.google.com/spreadsheets/d/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/export?format=csv&gid=1844400629"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/export?format=csv&gid=1844400629"
 
 # Supabase config (adicionar via environment variables em produção)
 SUPABASE_URL = "https://seu-project.supabase.co"

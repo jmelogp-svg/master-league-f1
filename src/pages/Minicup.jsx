@@ -7,8 +7,8 @@ import '../index.css';
 // URL do CSV do Minicup
 // Planilha: CONTROLE ML1
 // Aba: TAB MINICUP (gid=1709066718)
-// Link: https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pubhtml?gid=1709066718&single=true
-const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv';
+// Link: https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pubhtml?gid=1709066718&single=true
+const MINICUP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1709066718&single=true&output=csv';
 
 // Mapeamento de código de país para código ISO (para usar com flagcdn)
 const getCountryCode = (raceName) => {

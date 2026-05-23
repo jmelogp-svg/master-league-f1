@@ -375,7 +375,7 @@ supabase/functions/
 - WhatsApp Number: `whatsapp:+14155238886` (Sandbox)
 
 ### Planilha Google Sheets
-- **URL:** `https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1844400629&single=true&output=csv`
+- **URL:** `https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1844400629&single=true&output=csv`
 - **Nome:** CADASTRO MLF1
 
 ---

@@ -7,7 +7,7 @@ import Footer from '../components/Footer';
 
 // URL do CSV de Notícias - SUBSTITUA PELA URL DA SUA PLANILHA
 // Para obter a URL: Compartilhar > Qualquer pessoa com o link > Publicar na web > CSV
-const NEWS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=197415613&single=true&output=csv';
+const NEWS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=197415613&single=true&output=csv';
 
 const fetchWithProxy = async (url) => {
     try {

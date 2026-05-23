@@ -20,7 +20,7 @@ const normalizeText = (v) =>
         .replace(/\s+/g, ' ');
 const normalizeCod = (v) => String(v || '').trim().toUpperCase();
 const PILOTOS_PR_CSV_URL =
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=884534812&single=true&output=csv';
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=884534812&single=true&output=csv';
 
 function parseCsvLine(line) {
     const out = [];

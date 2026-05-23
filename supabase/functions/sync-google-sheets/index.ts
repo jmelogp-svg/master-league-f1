@@ -13,37 +13,37 @@ const corsHeaders = {
 // Configuração das planilhas
 const SHEETS_CONFIG = {
   classificacao_carreira: {
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=321791996&single=true&output=csv",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=321791996&single=true&output=csv",
     gid: "321791996",
     name: "Data Carreira"
   },
   classificacao_light: {
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1687781433&single=true&output=csv",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1687781433&single=true&output=csv",
     gid: "1687781433",
     name: "Data Light"
   },
   power_ranking_carreira: {
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=984075936&single=true&output=csv",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=984075936&single=true&output=csv",
     gid: "984075936",
     name: "Power Ranking Carreira"
   },
   power_ranking_light: {
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1453010431&single=true&output=csv",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1453010431&single=true&output=csv",
     gid: "1453010431",
     name: "Power Ranking Light"
   },
   calendario: {
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=0&single=true&output=csv",
     gid: "0",
     name: "CALENDÁRIO ML1"
   },
   tracks: {
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=848427722&single=true&output=csv",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=848427722&single=true&output=csv",
     gid: "848427722",
     name: "Tracks"
   },
   minicup: {
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1709066718&single=true&output=csv",
     gid: "1709066718",
     name: "TAB MINICUP"
   },
@@ -86,8 +86,16 @@ async function fetchSheetCSV(url: string, retries = 3): Promise<string> {
 
         if (response.ok) {
           const text = await response.text();
-          // Validar que não é HTML (erro de proxy)
-          if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+          // Validar que não é HTML/login do Google (erro de permissão, proxy ou planilha não publicada).
+          const normalized = text.trim().slice(0, 2048).toLowerCase();
+          if (
+            normalized.startsWith("<!doctype") ||
+            normalized.startsWith("<html") ||
+            normalized.includes("accounts.google.com") ||
+            normalized.includes("googlesignin") ||
+            normalized.includes("signin")
+          ) {
+            console.warn(`Resposta inválida ao buscar planilha ${url}: HTML/login detectado`);
             continue;
           }
           if (text.length < 10) {
@@ -108,6 +116,29 @@ async function fetchSheetCSV(url: string, retries = 3): Promise<string> {
   }
 
   throw new Error("Falha ao buscar dados do Google Sheets após múltiplas tentativas");
+}
+
+function validateCsvRows(rows: string[][], sheetName: string, expectedHeaders: string[]) {
+  if (!rows || rows.length < 2) {
+    throw new Error(`CSV inválido para ${sheetName}: sem linhas suficientes`);
+  }
+
+  const firstCell = String(rows[0]?.[0] || "").trim().toLowerCase();
+  const header = rows[0].map((field) => String(field || "").trim().toLowerCase());
+  const hasExpectedHeaders = expectedHeaders.every((expected) =>
+    header.includes(expected.toLowerCase())
+  );
+
+  if (
+    firstCell.startsWith("<!doctype") ||
+    firstCell.startsWith("<html") ||
+    firstCell.includes("accounts.google.com") ||
+    !hasExpectedHeaders
+  ) {
+    throw new Error(
+      `CSV inválido para ${sheetName}: cabeçalho inesperado (${rows[0].slice(0, 4).join(" | ")})`
+    );
+  }
 }
 
 // Função para parsear CSV
@@ -164,6 +195,7 @@ async function syncClassificacao(supabase: any, grid: "carreira" | "light", seas
     // Buscar dados
     const csvText = await fetchSheetCSV(config.url);
     const rows = parseCSV(csvText);
+    validateCsvRows(rows, config.name, ["Date", "Season", "Round", "Driver", "Team"]);
     
     // Calcular hash
     const dataHash = await calculateHash(csvText);
@@ -337,6 +369,7 @@ async function syncEquipes(supabase: any, season: number = 20) {
         console.log(`Processando planilha ${grid.name}...`);
         const csvText = await fetchSheetCSV(grid.config.url);
         const rows = parseCSV(csvText);
+        validateCsvRows(rows, grid.config.name, ["Date", "Season", "Round", "Driver", "Team"]);
         
         if (rows.length < 2) {
           console.warn(`Planilha ${grid.name} vazia ou sem dados`);
@@ -496,6 +529,7 @@ async function syncGeneric(
     
     const csvText = await fetchSheetCSV(config.url);
     const rows = parseCSV(csvText);
+    validateCsvRows(rows, config.name, []);
     const dataHash = await calculateHash(csvText);
     
     // Verificar se mudou

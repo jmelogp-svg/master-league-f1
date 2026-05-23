@@ -282,8 +282,8 @@ async function updateSupabaseCache(tableName, filter, data) {
  */
 export function useClassificacaoCache(grid, season = 20) {
     const fallbackUrl = grid === 'carreira'
-        ? 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=321791996&single=true&output=csv'
-        : 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1687781433&single=true&output=csv';
+        ? 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=321791996&single=true&output=csv'
+        : 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1687781433&single=true&output=csv';
 
     return useSupabaseCache('classificacao_cache', {
         filter: { grid, season },
@@ -297,7 +297,7 @@ export function useClassificacaoCache(grid, season = 20) {
  * Hook específico para Minicup
  */
 export function useMinicupCache() {
-    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1709066718&single=true&output=csv';
+    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1709066718&single=true&output=csv';
 
     return useSupabaseCache('minicup_cache', {
         cacheMaxAge: 10,
@@ -310,7 +310,7 @@ export function useMinicupCache() {
  * Hook específico para Power Ranking (Carreira)
  */
 export function usePowerRankingCache(season = 20) {
-    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=984075936&single=true&output=csv';
+    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=984075936&single=true&output=csv';
 
     return useSupabaseCache('power_ranking_cache', {
         filter: { grid: 'carreira' },
@@ -333,7 +333,7 @@ export function usePowerRankingCache(season = 20) {
  * Hook específico para Power Ranking Light
  */
 export function usePowerRankingLightCache(season = 20) {
-    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=1453010431&single=true&output=csv';
+    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=1453010431&single=true&output=csv';
 
     return useSupabaseCache('power_ranking_cache', {
         filter: { grid: 'light' },
@@ -355,7 +355,7 @@ export function usePowerRankingLightCache(season = 20) {
  * Hook específico para Calendário
  */
 export function useCalendarioCache(season = 20) {
-    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=0&single=true&output=csv';
+    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=0&single=true&output=csv';
 
     return useSupabaseCache('calendario_cache', {
         filter: { season },
@@ -369,7 +369,7 @@ export function useCalendarioCache(season = 20) {
  * Hook específico para Tracks
  */
 export function useTracksCache() {
-    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vROKHtP_NfWTNLUVfSMSlCqAMYeXtBTwMN9wPiw6UKOEgKbTeyPAHJbVWcXixCjgCPkKvY-33_PuIoM/pub?gid=848427722&single=true&output=csv';
+    const fallbackUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRv5fWHGvYLOvVPdotHoOBiJrK8SOLshFEEhUUyPKfhy2iCt23JUMpjGy0Kg38MOF1Ti47mo2lYsi4x/pub?gid=848427722&single=true&output=csv';
 
     return useSupabaseCache('tracks_cache', {
         cacheMaxAge: 120,
